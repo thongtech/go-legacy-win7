@@ -38,9 +38,12 @@ Binary distributions are **available at the [release page](https://github.com/th
 
 1. Download the `go-legacy-win7-<version>.windows-<arch>.zip` file.
 2. Extract the ZIP to `C:\` (or any preferred location). This will create a `go-legacy-win7` folder.
-3. Add `C:\go-legacy-win7\bin` (or your chosen path) to the system `PATH`.
-4. Add `%USERPROFILE%\go\bin` to the user `PATH`.
-5. Add `%USERPROFILE%\go` as `GOPATH` to user variables.
+3. Add the following to your system environment variables:
+   - Add `C:\go-legacy-win7\bin` (or your chosen path) to the system `PATH`.
+   - Set `GOROOT` to `C:\go-legacy-win7` (or your chosen path).
+4. Add the following to your user environment variables:
+   - Add `%USERPROFILE%\go\bin` to the user `PATH`.
+   - Set `GOPATH` to `%USERPROFILE%\go`.
 
 #### macOS and Linux Installation
 
@@ -55,20 +58,27 @@ Binary distributions are **available at the [release page](https://github.com/th
    sudo tar -C /usr/local -xzf go-legacy-win7-<version>.<os>-<arch>.tar.gz
    ```
 
-3. Add `/usr/local/go-legacy-win7/bin` to your PATH and set GOPATH:
+3. Add the following to your shell configuration file:
 
-   - For bash:
+   - For bash (add to `~/.bash_profile` or `~/.bashrc`):
+
+     ```bash
+     export GOROOT=/usr/local/go-legacy-win7
+     export GOPATH=$HOME/go
+     export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
      ```
-     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go/bin' >> ~/.bash_profile
-     echo 'export GOPATH=$HOME/go' >> ~/.bash_profile
-     source ~/.bash_profile
+
+   - For zsh (add to `~/.zshrc`):
+     ```zsh
+     export GOROOT=/usr/local/go-legacy-win7
+     export GOPATH=$HOME/go
+     export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
      ```
-   - For zsh:
-     ```
-     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go/bin' >> ~/.zshrc
-     echo 'export GOPATH=$HOME/go' >> ~/.zshrc
-     source ~/.zshrc
-     ```
+
+4. Apply the changes:
+
+   - For bash: `source ~/.bash_profile` or `source ~/.bashrc`
+   - For zsh: `source ~/.zshrc`
 
    Note:
 
