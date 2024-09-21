@@ -37,8 +37,8 @@ Binary distributions are **available at the [release page](https://github.com/th
 #### Windows Installation
 
 1. Download the `go-legacy-win7-<version>.windows-<arch>.zip` file.
-2. Extract the ZIP to `C:\Go` (or any preferred location).
-3. Add `C:\Go\bin` (or your chosen path) to the system `PATH`.
+2. Extract the ZIP to `C:\` (or any preferred location). This will create a `go-legacy-win7` folder.
+3. Add `C:\go-legacy-win7\bin` (or your chosen path) to the system `PATH`.
 4. Add `%USERPROFILE%\go\bin` to the user `PATH`.
 5. Add `%USERPROFILE%\go` as `GOPATH` to user variables.
 
