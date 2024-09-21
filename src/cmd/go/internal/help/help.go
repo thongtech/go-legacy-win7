@@ -17,6 +17,7 @@ import (
 
 	"cmd/go/internal/base"
 	"cmd/internal/telemetry/counter"
+	"cmd/go/internal/modload"
 )
 
 var counterErrorsHelpUnknownTopic = counter.New("go/errors:help-unknown-topic")
@@ -37,6 +38,12 @@ func Help(w io.Writer, args []string) {
 		usage := &base.Command{Long: buf.String()}
 		cmds := []*base.Command{usage}
 		for _, cmd := range base.Go.Commands {
+			// Avoid duplication of the "get" documentation.
+			if cmd.UsageLine == "module-get" && modload.Enabled() {
+				continue
+			} else if cmd.UsageLine == "gopath-get" && !modload.Enabled() {
+				continue
+			}
 			cmds = append(cmds, cmd)
 			cmds = append(cmds, cmd.Commands...)
 		}
