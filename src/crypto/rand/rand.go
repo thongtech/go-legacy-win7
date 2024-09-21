@@ -16,7 +16,7 @@ import "io"
 //   - On macOS and iOS, Reader uses arc4random_buf(3).
 //   - On OpenBSD and NetBSD, Reader uses getentropy(2).
 //   - On other Unix-like systems, Reader reads from /dev/urandom.
-//   - On Windows, Reader uses the ProcessPrng API.
+//   - On Windows, Reader uses the RtlGenRandom API.
 //   - On js/wasm, Reader uses the Web Crypto API.
 //   - On wasip1/wasm, Reader uses random_get from wasi_snapshot_preview1.
 var Reader io.Reader

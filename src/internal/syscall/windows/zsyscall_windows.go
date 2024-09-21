@@ -38,7 +38,6 @@ func errnoErr(e syscall.Errno) error {
 
 var (
 	modadvapi32         = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
-	modbcryptprimitives = syscall.NewLazyDLL(sysdll.Add("bcryptprimitives.dll"))
 	modiphlpapi         = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
 	modkernel32         = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
 	modnetapi32         = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
@@ -57,7 +56,7 @@ var (
 	procQueryServiceStatus                = modadvapi32.NewProc("QueryServiceStatus")
 	procRevertToSelf                      = modadvapi32.NewProc("RevertToSelf")
 	procSetTokenInformation               = modadvapi32.NewProc("SetTokenInformation")
-	procProcessPrng                       = modbcryptprimitives.NewProc("ProcessPrng")
+	procSystemFunction036                 = modadvapi32.NewProc("SystemFunction036")
 	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
 	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
 	procGetACP                            = modkernel32.NewProc("GetACP")
@@ -183,12 +182,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
 	return
 }
 
-func ProcessPrng(buf []byte) (err error) {
+func RtlGenRandom(buf []byte) (err error) {
 	var _p0 *byte
 	if len(buf) > 0 {
 		_p0 = &buf[0]
 	}
-	r1, _, e1 := syscall.Syscall(procProcessPrng.Addr(), 2, uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)), 0)
+	r1, _, e1 := syscall.Syscall(procSystemFunction036.Addr(), 2, uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)), 0)
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}

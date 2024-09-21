@@ -127,8 +127,15 @@ var (
 	_WriteFile,
 	_ stdFunction
 
-	// Use ProcessPrng to generate cryptographically random data.
-	_ProcessPrng stdFunction
+	// Use RtlGenRandom to generate cryptographically random data.
+	// This approach has been recommended by Microsoft (see issue
+	// 15589 for details).
+	// The RtlGenRandom is not listed in advapi32.dll, instead
+	// RtlGenRandom function can be found by searching for SystemFunction036.
+	// Also some versions of Mingw cannot link to SystemFunction036
+	// when building executable as Cgo. So load SystemFunction036
+	// manually during runtime startup.
+	_RtlGenRandom stdFunction
 
 	// Load ntdll.dll manually during startup, otherwise Mingw
 	// links wrong printf function to cgo executable (see issue
@@ -146,10 +153,11 @@ var (
 )
 
 var (
-	bcryptprimitivesdll = [...]uint16{'b', 'c', 'r', 'y', 'p', 't', 'p', 'r', 'i', 'm', 'i', 't', 'i', 'v', 'e', 's', '.', 'd', 'l', 'l', 0}
-	ntdlldll            = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
-	powrprofdll         = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
-	winmmdll            = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
+	advapi32dll = [...]uint16{'a', 'd', 'v', 'a', 'p', 'i', '3', '2', '.', 'd', 'l', 'l', 0}
+	ntdlldll    = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
+	powrprofdll = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
+	winmmdll    = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
+	ws2_32dll   = [...]uint16{'w', 's', '2', '_', '3', '2', '.', 'd', 'l', 'l', 0}
 )
 
 // Function to be called by windows CreateThread
@@ -263,11 +271,11 @@ func windows_QueryPerformanceFrequency() int64 {
 }
 
 func loadOptionalSyscalls() {
-	bcryptPrimitives := windowsLoadSystemLib(bcryptprimitivesdll[:])
-	if bcryptPrimitives == 0 {
-		throw("bcryptprimitives.dll not found")
+	a32 := windowsLoadSystemLib(advapi32dll[:])
+	if a32 == 0 {
+		throw("advapi32.dll not found")
 	}
-	_ProcessPrng = windowsFindfunc(bcryptPrimitives, []byte("ProcessPrng\000"))
+	_RtlGenRandom = windowsFindfunc(a32, []byte("SystemFunction036\000"))
 
 	n32 := windowsLoadSystemLib(ntdlldll[:])
 	if n32 == 0 {
@@ -500,7 +508,7 @@ func osinit() {
 //go:nosplit
 func readRandom(r []byte) int {
 	n := 0
-	if stdcall2(_ProcessPrng, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
+	if stdcall2(_RtlGenRandom, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
 		n = len(r)
 	}
 	return n
