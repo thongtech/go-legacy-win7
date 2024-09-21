@@ -1,14 +1,14 @@
 # The Go Programming Language
 
-**go-legacy-win7** is a fork of the Go programming language that maintains Windows 7 support and allows for deprecated `go get` behaviour. This project aims to provide a stable Go environment for users who need to support legacy Windows systems or prefer the traditional Go workflow.
+**go-legacy-win7** is a fork of the Go programming language that maintains support for Windows 7 and Windows Server 2008 R2, and allows for deprecated `go get` behaviour. This project aims to provide a stable Go environment for users who need to support legacy Windows systems or prefer the traditional Go workflow.
 
 ![Gopher image](https://golang.org/doc/gopher/fiveyears.jpg)
 _Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attribution licence][cc4-by]._
 
 ## Differences from Upstream Go
 
-1. **Windows 7 Support**  
-   Whilst the official Go project has dropped support for Windows 7, this fork maintains compatibility with Windows 7 systems.
+1. **Windows 7 and Windows Server 2008 R2 Support**  
+   While the official Go project has dropped support for Windows 7 and Windows Server 2008 R2, this fork maintains compatibility with these legacy Windows systems.
 
 2. **Classic `go get` Behaviour**  
    This fork allows for the deprecated `go get` behaviour when `GO111MODULE` is set to "off" or "auto". This means:
@@ -17,14 +17,14 @@ _Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attrib
    - Outside of `GOPATH/src`, these commands can use module-aware mode when appropriate.
 
 3. **Compatibility Notes**  
-   Please be aware that some newer Go features may not be fully compatible with Windows 7. We try to maintain as much functionality as possible, but some limitations may exist.
+   Please be aware that some newer Go features may not be fully compatible with Windows 7 or Windows Server 2008 R2. We try to maintain as much functionality as possible, but some limitations may exist.
 
 ## Changes in Each Release
 
 Every release includes the following modifications:
 
-- Restored Windows 7 support by reverting [693def1](https://github.com/golang/go/commit/693def151adff1af707d82d28f55dba81ceb08e1)
-  - The Windows binary provided here also supports Windows 7
+- Restored Windows 7 and Windows Server 2008 R2 support by reverting [693def1](https://github.com/golang/go/commit/693def151adff1af707d82d28f55dba81ceb08e1)
+  - The Windows binary provided here also supports Windows 7 and Windows Server 2008 R2
 - Restored deprecated `go get` behaviour for use outside modules (reverted [de4d503](https://github.com/golang/go/commit/de4d50316fb5c6d1529aa5377dc93b26021ee843))
 - Includes all improvements and bug fixes from the corresponding upstream Go release
 
