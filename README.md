@@ -42,47 +42,38 @@ Binary distributions are **available at the [release page](https://github.com/th
 4. Add `%USERPROFILE%\go\bin` to the user `PATH`.
 5. Add `%USERPROFILE%\go` as `GOPATH` to user variables.
 
-#### macOS Installation
+#### macOS and Linux Installation
 
-1. Download the appropriate `go-legacy-win7-<version>.darwin-<arch>.tar.gz` file.
+1. Download the appropriate `go-legacy-win7-<version>.<os>-<arch>.tar.gz` file.
+
+   - For macOS: `go-legacy-win7-<version>.darwin-<arch>.tar.gz`
+   - For Linux: `go-legacy-win7-<version>.linux-<arch>.tar.gz`
+
 2. Extract the archive to `/usr/local`:
+
    ```
-   sudo tar -C /usr/local -xzf go-legacy-win7-<version>.darwin-<arch>.tar.gz
+   sudo tar -C /usr/local -xzf go-legacy-win7-<version>.<os>-<arch>.tar.gz
    ```
+
 3. Add `/usr/local/go-legacy-win7/bin` to your PATH and set GOPATH:
-   - For bash (if you're using bash):
+
+   - For bash:
      ```
-     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go-legacy-win7/bin' >> ~/.bash_profile
+     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go/bin' >> ~/.bash_profile
      echo 'export GOPATH=$HOME/go' >> ~/.bash_profile
      source ~/.bash_profile
      ```
-   - For zsh (default on macOS Catalina and later):
+   - For zsh:
      ```
-     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go-legacy-win7/bin' >> ~/.zshrc
+     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go/bin' >> ~/.zshrc
      echo 'export GOPATH=$HOME/go' >> ~/.zshrc
      source ~/.zshrc
      ```
 
-#### Linux Installation
+   Note:
 
-1. Download the appropriate `go-legacy-win7-<version>.linux-<arch>.tar.gz` file.
-2. Extract the archive to `/usr/local`:
-   ```
-   sudo tar -C /usr/local -xzf go-legacy-win7-<version>.linux-<arch>.tar.gz
-   ```
-3. Add `/usr/local/go-legacy-win7/bin` to your PATH and set GOPATH:
-   - For bash (default on most Linux distributions):
-     ```
-     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go-legacy-win7/bin' >> ~/.bashrc
-     echo 'export GOPATH=$HOME/go' >> ~/.bashrc
-     source ~/.bashrc
-     ```
-   - For zsh (if you're using zsh):
-     ```
-     echo 'export PATH=$PATH:/usr/local/go-legacy-win7/bin:$HOME/go-legacy-win7/bin' >> ~/.zshrc
-     echo 'export GOPATH=$HOME/go' >> ~/.zshrc
-     source ~/.zshrc
-     ```
+   - On macOS Catalina and later, zsh is the default shell.
+   - On most Linux distributions, bash is the default shell.
 
 After installation, verify the installation by opening a **new terminal** and running:
 
