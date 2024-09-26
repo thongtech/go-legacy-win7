@@ -26,7 +26,7 @@ Every release includes the following modifications:
 - Restored Windows 7 and Windows Server 2008 R2 support (reverted [693def1](https://github.com/golang/go/commit/693def151adff1af707d82d28f55dba81ceb08e1))
 - Added back LoadLibraryA fallback to load system libraries (reverted [a17d959](https://github.com/golang/go/commit/a17d959debdb04cd550016a3501dd09d50cd62e7))
 - Restored deprecated `go get` behavior for use outside modules (reverted [de4d503](https://github.com/golang/go/commit/de4d50316fb5c6d1529aa5377dc93b26021ee843))
-- Includes all improvements and bug fixes from Go 1.23.1
+- Includes all improvements and bug fixes from the corresponding upstream Go release
 
 The Windows binary provided here also supports Windows 7 and Windows Server 2008 R2
 
@@ -38,7 +38,7 @@ Binary distributions are **available at the [release page](https://github.com/th
 
 #### Windows Installation
 
-1. Download the `go-legacy-win7-<version>.windows-<arch>.zip` file.
+1. Download the `go-legacy-win7-<version>.windows_<arch>.zip` file.
 2. Extract the ZIP to `C:\` (or any preferred location). This will create a `go-legacy-win7` folder.
 3. Add the following to your system environment variables:
    - Add `C:\go-legacy-win7\bin` (or your chosen path) to the system `PATH`.
@@ -49,15 +49,15 @@ Binary distributions are **available at the [release page](https://github.com/th
 
 #### macOS and Linux Installation
 
-1. Download the appropriate `go-legacy-win7-<version>.<os>-<arch>.tar.gz` file.
+1. Download the appropriate `go-legacy-win7-<version>.<os>_<arch>.tar.gz` file.
 
-   - For macOS: `go-legacy-win7-<version>.darwin-<arch>.tar.gz`
-   - For Linux: `go-legacy-win7-<version>.linux-<arch>.tar.gz`
+   - For macOS: `go-legacy-win7-<version>.darwin_<arch>.tar.gz`
+   - For Linux: `go-legacy-win7-<version>.linux_<arch>.tar.gz`
 
 2. Extract the archive to `/usr/local`:
 
    ```
-   sudo tar -C /usr/local -xzf go-legacy-win7-<version>.<os>-<arch>.tar.gz
+   sudo tar -C /usr/local -xzf go-legacy-win7-<version>.<os>_<arch>.tar.gz
    ```
 
 3. Add the following to your shell configuration file:
