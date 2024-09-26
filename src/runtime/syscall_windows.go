@@ -413,10 +413,23 @@ func callbackWrap(a *callbackArgs) {
 
 const _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
 
+// When available, this function will use LoadLibraryEx with the filename
+// parameter and the important SEARCH_SYSTEM32 argument. But on systems that
+// do not have that option, absoluteFilepath should contain a fallback
+// to the full path inside of system32 for use with vanilla LoadLibrary.
+//
 //go:linkname syscall_loadsystemlibrary syscall.loadsystemlibrary
-func syscall_loadsystemlibrary(filename *uint16) (handle, err uintptr) {
-	handle, _, err = syscall_SyscallN(uintptr(unsafe.Pointer(_LoadLibraryExW)), uintptr(unsafe.Pointer(filename)), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32)
+func syscall_loadsystemlibrary(filename *uint16, absoluteFilepath *uint16) (handle, err uintptr) {
+	if useLoadLibraryEx {
+		handle, _, err = syscall_SyscallN(uintptr(unsafe.Pointer(_LoadLibraryExW)), uintptr(unsafe.Pointer(filename)), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32)
+	} else {
+		handle, _, err = syscall_SyscallN(
+			uintptr(unsafe.Pointer(_LoadLibraryW)),
+			uintptr(unsafe.Pointer(absoluteFilepath)),
+		)
+	}
 	KeepAlive(filename)
+	KeepAlive(absoluteFilepath)
 	if handle != 0 {
 		err = 0
 	}
