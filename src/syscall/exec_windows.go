@@ -316,9 +316,10 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle 
 		}
 	}
 
-	var maj, min, build uint32
-	rtlGetNtVersionNumbers(&maj, &min, &build)
-	isWin7 := maj < 6 || (maj == 6 && min <= 1)
+	info := _OSVERSIONINFOW{}
+	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
+	rtlGetVersion(&info)
+	isWin7 := info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
 	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
 	// a tag. The fully set tag correlates with the types of handles we're
 	// concerned about here.  Except, the kernel will interpret some

@@ -43,6 +43,7 @@ var (
 	modkernel32 = NewLazyDLL(sysdll.Add("kernel32.dll"))
 	modmswsock  = NewLazyDLL(sysdll.Add("mswsock.dll"))
 	modnetapi32 = NewLazyDLL(sysdll.Add("netapi32.dll"))
+	modntdll    = NewLazyDLL(sysdll.Add("ntdll.dll"))
 	modsecur32  = NewLazyDLL(sysdll.Add("secur32.dll"))
 	modshell32  = NewLazyDLL(sysdll.Add("shell32.dll"))
 	moduserenv  = NewLazyDLL(sysdll.Add("userenv.dll"))
@@ -169,6 +170,7 @@ var (
 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
+	procRtlGetVersion                      = modntdll.NewProc("RtlGetVersion")
 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
 	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
 	procGetUserProfileDirectoryW           = moduserenv.NewProc("GetUserProfileDirectoryW")
@@ -1225,6 +1227,11 @@ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err er
 	if r1&0xff == 0 {
 		err = errnoErr(e1)
 	}
+	return
+}
+
+func rtlGetVersion(info *_OSVERSIONINFOW) {
+	Syscall(procRtlGetVersion.Addr(), 1, uintptr(unsafe.Pointer(info)), 0, 0)
 	return
 }
 
