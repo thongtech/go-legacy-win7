@@ -8,6 +8,7 @@ import "internal/poll"
 
 var (
 	// Placeholders for saving original socket system calls.
+	origSocket      = socketFunc
 	origWSASocket   = wsaSocketFunc
 	origClosesocket = poll.CloseFunc
 	origConnect     = connectFunc
@@ -17,6 +18,7 @@ var (
 )
 
 func installTestHooks() {
+	socketFunc = sw.Socket
 	wsaSocketFunc = sw.WSASocket
 	poll.CloseFunc = sw.Closesocket
 	connectFunc = sw.Connect
@@ -26,6 +28,7 @@ func installTestHooks() {
 }
 
 func uninstallTestHooks() {
+	socketFunc = origSocket
 	wsaSocketFunc = origWSASocket
 	poll.CloseFunc = origClosesocket
 	connectFunc = origConnect
