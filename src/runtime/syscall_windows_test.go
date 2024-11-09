@@ -1215,6 +1215,13 @@ func TestBigStackCallbackSyscall(t *testing.T) {
 	}
 }
 
+func TestSyscallStackUsage(t *testing.T) {
+	// Test that the stack usage of a syscall doesn't exceed the limit.
+	// See https://go.dev/issue/69813.
+	syscall.Syscall15(procSetEvent.Addr(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+	syscall.Syscall18(procSetEvent.Addr(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+}
+
 // wantLoadLibraryEx reports whether we expect LoadLibraryEx to work for tests.
 func wantLoadLibraryEx() bool {
 	return testenv.Builder() != "" && (runtime.GOARCH == "amd64" || runtime.GOARCH == "386")
