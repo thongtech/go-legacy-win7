@@ -1,0 +1,82 @@
+From d97201a53d5ec76fa81b091bc0d4d64f6ff6ff8c Mon Sep 17 00:00:00 2001
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Sat, 5 Oct 2024 15:10:54 +1000
+Subject: [PATCH] Add Windows version info to syscall
+
+---
+ src/syscall/exec_windows.go     |  7 ++++---
+ src/syscall/types_windows.go    | 10 ++++++++++
+ src/syscall/zsyscall_windows.go |  7 +++++++
+ 3 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
+index d197380..f099a6f 100644
+--- a/src/syscall/exec_windows.go
++++ b/src/syscall/exec_windows.go
+@@ -316,9 +316,10 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 		}
+ 	}
+ 
+-	var maj, min, build uint32
+-	rtlGetNtVersionNumbers(&maj, &min, &build)
+-	isWin7 := maj < 6 || (maj == 6 && min <= 1)
++	info := _OSVERSIONINFOW{}
++	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
++	rtlGetVersion(&info)
++	isWin7 := info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
+ 	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
+ 	// a tag. The fully set tag correlates with the types of handles we're
+ 	// concerned about here.  Except, the kernel will interpret some
+diff --git a/src/syscall/types_windows.go b/src/syscall/types_windows.go
+index 6743675..37d0eff 100644
+--- a/src/syscall/types_windows.go
++++ b/src/syscall/types_windows.go
+@@ -1169,3 +1169,13 @@ const (
+ )
+ 
+ const UNIX_PATH_MAX = 108 // defined in afunix.h
++
++// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_osversioninfow
++type _OSVERSIONINFOW struct {
++	osVersionInfoSize uint32
++	majorVersion      uint32
++	minorVersion      uint32
++	buildNumber       uint32
++	platformId        uint32
++	csdVersion        [128]uint16
++}
+diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
+index 28369e3..a47b090 100644
+--- a/src/syscall/zsyscall_windows.go
++++ b/src/syscall/zsyscall_windows.go
+@@ -43,6 +43,7 @@ var (
+ 	modkernel32 = NewLazyDLL(sysdll.Add("kernel32.dll"))
+ 	modmswsock  = NewLazyDLL(sysdll.Add("mswsock.dll"))
+ 	modnetapi32 = NewLazyDLL(sysdll.Add("netapi32.dll"))
++	modntdll    = NewLazyDLL(sysdll.Add("ntdll.dll"))
+ 	modsecur32  = NewLazyDLL(sysdll.Add("secur32.dll"))
+ 	modshell32  = NewLazyDLL(sysdll.Add("shell32.dll"))
+ 	moduserenv  = NewLazyDLL(sysdll.Add("userenv.dll"))
+@@ -169,6 +170,7 @@ var (
+ 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
+ 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
+ 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
++	procRtlGetVersion                      = modntdll.NewProc("RtlGetVersion")
+ 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
+ 	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
+ 	procGetUserProfileDirectoryW           = moduserenv.NewProc("GetUserProfileDirectoryW")
+@@ -1228,6 +1230,11 @@ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err er
+ 	return
+ }
+ 
++func rtlGetVersion(info *_OSVERSIONINFOW) {
++	Syscall(procRtlGetVersion.Addr(), 1, uintptr(unsafe.Pointer(info)), 0, 0)
++	return
++}
++
+ func TranslateName(accName *uint16, accNameFormat uint32, desiredNameFormat uint32, translatedName *uint16, nSize *uint32) (err error) {
+ 	r1, _, e1 := Syscall6(procTranslateNameW.Addr(), 5, uintptr(unsafe.Pointer(accName)), uintptr(accNameFormat), uintptr(desiredNameFormat), uintptr(unsafe.Pointer(translatedName)), uintptr(unsafe.Pointer(nSize)), 0)
+ 	if r1&0xff == 0 {
+-- 
+2.47.0
+

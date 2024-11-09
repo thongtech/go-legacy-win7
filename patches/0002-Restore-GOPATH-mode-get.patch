@@ -1,0 +1,2456 @@
+From d02338f60a2671b5d8f748956aa90cf7011b72e2 Mon Sep 17 00:00:00 2001
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Sun, 22 Sep 2024 00:23:47 +1000
+Subject: [PATCH] Restore GOPATH-mode get (revert de4d503)
+
+---
+ src/cmd/go/alldocs.go                         |  66 ++
+ src/cmd/go/go_test.go                         | 100 +++
+ src/cmd/go/internal/get/get.go                | 640 ++++++++++++++++++
+ src/cmd/go/internal/get/tag_test.go           | 100 +++
+ src/cmd/go/internal/help/help.go              |   7 +
+ src/cmd/go/internal/modget/get.go             |  17 +
+ src/cmd/go/main.go                            |  10 +
+ src/cmd/go/testdata/script/get_404_meta.txt   |   3 +
+ src/cmd/go/testdata/script/get_brace.txt      |  51 ++
+ .../script/get_custom_domain_wildcard.txt     |   6 +
+ src/cmd/go/testdata/script/get_dash_t.txt     |   9 +
+ .../go/testdata/script/get_domain_root.txt    |  20 +
+ .../script/get_dot_slash_download.txt         |  10 +
+ src/cmd/go/testdata/script/get_dotfiles.txt   |  64 ++
+ src/cmd/go/testdata/script/get_go_file.txt    |  60 ++
+ src/cmd/go/testdata/script/get_goroot.txt     |  53 ++
+ src/cmd/go/testdata/script/get_insecure.txt   |  16 +
+ .../script/get_insecure_custom_domain.txt     |   8 +
+ .../go/testdata/script/get_insecure_env.txt   |  29 +
+ .../testdata/script/get_insecure_redirect.txt |  14 +
+ .../testdata/script/get_insecure_update.txt   |  14 +
+ .../testdata/script/get_internal_wildcard.txt |   6 +
+ src/cmd/go/testdata/script/get_issue11307.txt |   9 +
+ src/cmd/go/testdata/script/get_issue16471.txt |  23 +
+ src/cmd/go/testdata/script/get_issue22125.txt |  14 +
+ src/cmd/go/testdata/script/get_legacy.txt     |  58 ++
+ src/cmd/go/testdata/script/get_non_pkg.txt    |  14 +
+ src/cmd/go/testdata/script/get_race.txt       |   8 +
+ src/cmd/go/testdata/script/get_test_only.txt  |   6 +
+ src/cmd/go/testdata/script/get_tilde.txt      |  25 +
+ src/cmd/go/testdata/script/get_update.txt     |  25 +
+ src/cmd/go/testdata/script/get_update_all.txt |   7 +
+ .../script/get_update_unknown_protocol.txt    |  14 +
+ .../testdata/script/get_update_wildcard.txt   |  16 +
+ .../testdata/script/get_vcs_error_message.txt |   9 +
+ src/cmd/go/testdata/script/get_vendor.txt     |  95 +++
+ .../go/testdata/script/get_with_git_trace.txt |   9 +
+ .../go/testdata/script/gopath_moved_repo.txt  |  67 ++
+ src/cmd/go/testdata/script/govcs.txt          |  83 +++
+ src/cmd/go/testdata/script/help.txt           |   2 +-
+ src/cmd/go/testdata/script/mod_versions.txt   |   2 +-
+ .../script/vendor_list_issue11977.txt         |  78 +--
+ .../script/vendor_test_issue11864.txt         |  79 +--
+ .../script/vendor_test_issue14613.txt         |  46 +-
+ 44 files changed, 1801 insertions(+), 191 deletions(-)
+ create mode 100644 src/cmd/go/internal/get/get.go
+ create mode 100644 src/cmd/go/internal/get/tag_test.go
+ create mode 100644 src/cmd/go/testdata/script/get_brace.txt
+ create mode 100644 src/cmd/go/testdata/script/get_custom_domain_wildcard.txt
+ create mode 100644 src/cmd/go/testdata/script/get_dash_t.txt
+ create mode 100644 src/cmd/go/testdata/script/get_domain_root.txt
+ create mode 100644 src/cmd/go/testdata/script/get_dot_slash_download.txt
+ create mode 100644 src/cmd/go/testdata/script/get_dotfiles.txt
+ create mode 100644 src/cmd/go/testdata/script/get_go_file.txt
+ create mode 100644 src/cmd/go/testdata/script/get_goroot.txt
+ create mode 100644 src/cmd/go/testdata/script/get_insecure_custom_domain.txt
+ create mode 100644 src/cmd/go/testdata/script/get_insecure_env.txt
+ create mode 100644 src/cmd/go/testdata/script/get_insecure_redirect.txt
+ create mode 100644 src/cmd/go/testdata/script/get_insecure_update.txt
+ create mode 100644 src/cmd/go/testdata/script/get_internal_wildcard.txt
+ create mode 100644 src/cmd/go/testdata/script/get_issue11307.txt
+ create mode 100644 src/cmd/go/testdata/script/get_issue16471.txt
+ create mode 100644 src/cmd/go/testdata/script/get_issue22125.txt
+ create mode 100644 src/cmd/go/testdata/script/get_legacy.txt
+ create mode 100644 src/cmd/go/testdata/script/get_non_pkg.txt
+ create mode 100644 src/cmd/go/testdata/script/get_race.txt
+ create mode 100644 src/cmd/go/testdata/script/get_test_only.txt
+ create mode 100644 src/cmd/go/testdata/script/get_tilde.txt
+ create mode 100644 src/cmd/go/testdata/script/get_update.txt
+ create mode 100644 src/cmd/go/testdata/script/get_update_all.txt
+ create mode 100644 src/cmd/go/testdata/script/get_update_unknown_protocol.txt
+ create mode 100644 src/cmd/go/testdata/script/get_update_wildcard.txt
+ create mode 100644 src/cmd/go/testdata/script/get_vcs_error_message.txt
+ create mode 100644 src/cmd/go/testdata/script/get_vendor.txt
+ create mode 100644 src/cmd/go/testdata/script/get_with_git_trace.txt
+ create mode 100644 src/cmd/go/testdata/script/gopath_moved_repo.txt
+
+diff --git a/src/cmd/go/alldocs.go b/src/cmd/go/alldocs.go
+index 75e6d65..abbad2c 100644
+--- a/src/cmd/go/alldocs.go
++++ b/src/cmd/go/alldocs.go
+@@ -45,9 +45,11 @@
+ //	filetype        file types
+ //	go.mod          the go.mod file
+ //	gopath          GOPATH environment variable
++//	gopath-get      legacy GOPATH go get
+ //	goproxy         module proxy protocol
+ //	importpath      import path syntax
+ //	modules         modules, module versions, and more
++//	module-get      module-aware go get
+ //	module-auth     module authentication using go.sum
+ //	packages        package lists and patterns
+ //	private         configuration for downloading non-public code
+@@ -2661,6 +2663,70 @@
+ //
+ // See https://golang.org/s/go15vendor for details.
+ //
++// # Legacy GOPATH go get
++//
++// The 'go get' command changes behavior depending on whether the
++// go command is running in module-aware mode or legacy GOPATH mode.
++// This help text, accessible as 'go help gopath-get' even in module-aware mode,
++// describes 'go get' as it operates in legacy GOPATH mode.
++//
++// Usage: go get [-d] [-f] [-t] [-u] [-v] [-fix] [build flags] [packages]
++//
++// Get downloads the packages named by the import paths, along with their
++// dependencies. It then installs the named packages, like 'go install'.
++//
++// The -d flag instructs get to stop after downloading the packages; that is,
++// it instructs get not to install the packages.
++//
++// The -f flag, valid only when -u is set, forces get -u not to verify that
++// each package has been checked out from the source control repository
++// implied by its import path. This can be useful if the source is a local fork
++// of the original.
++//
++// The -fix flag instructs get to run the fix tool on the downloaded packages
++// before resolving dependencies or building the code.
++//
++// The -t flag instructs get to also download the packages required to build
++// the tests for the specified packages.
++//
++// The -u flag instructs get to use the network to update the named packages
++// and their dependencies. By default, get uses the network to check out
++// missing packages but does not use it to look for updates to existing packages.
++//
++// The -v flag enables verbose progress and debug output.
++//
++// Get also accepts build flags to control the installation. See 'go help build'.
++//
++// When checking out a new package, get creates the target directory
++// GOPATH/src/<import-path>. If the GOPATH contains multiple entries,
++// get uses the first one. For more details see: 'go help gopath'.
++//
++// When checking out or updating a package, get looks for a branch or tag
++// that matches the locally installed version of Go. The most important
++// rule is that if the local installation is running version "go1", get
++// searches for a branch or tag named "go1". If no such version exists
++// it retrieves the default branch of the package.
++//
++// When go get checks out or updates a Git repository,
++// it also updates any git submodules referenced by the repository.
++//
++// Get never checks out or updates code stored in vendor directories.
++//
++// For more about build flags, see 'go help build'.
++//
++// For more about specifying packages, see 'go help packages'.
++//
++// For more about how 'go get' finds source code to
++// download, see 'go help importpath'.
++//
++// This text describes the behavior of get when using GOPATH
++// to manage source code and dependencies.
++// If instead the go command is running in module-aware mode,
++// the details of get's flags and effects change, as does 'go help get'.
++// See 'go help modules' and 'go help module-get'.
++//
++// See also: go build, go install, go clean.
++//
+ // # Module proxy protocol
+ //
+ // A Go module proxy is any web server that can respond to GET requests for
+diff --git a/src/cmd/go/go_test.go b/src/cmd/go/go_test.go
+index b45a905..b06fef6 100644
+--- a/src/cmd/go/go_test.go
++++ b/src/cmd/go/go_test.go
+@@ -972,6 +972,77 @@ func TestNewReleaseRebuildsStalePackagesInGOPATH(t *testing.T) {
+ 	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale after building with old release")
+ }
+ 
++// cmd/go: custom import path checking should not apply to Go packages without import comment.
++func TestIssue10952(t *testing.T) {
++	testenv.MustHaveExecPath(t, "git")
++
++	tg := testgo(t)
++	defer tg.cleanup()
++	tg.parallel()
++	tg.acquireNet()
++
++	tg.tempDir("src")
++	tg.setenv("GOPATH", tg.path("."))
++	const importPath = "github.com/zombiezen/go-get-issue-10952"
++	tg.run("get", "-d", "-u", importPath)
++	repoDir := tg.path("src/" + importPath)
++	tg.runGit(repoDir, "remote", "set-url", "origin", "https://"+importPath+".git")
++	tg.run("get", "-d", "-u", importPath)
++}
++
++// Test git clone URL that uses SCP-like syntax and custom import path checking.
++func TestIssue11457(t *testing.T) {
++	testenv.MustHaveExecPath(t, "git")
++
++	tg := testgo(t)
++	defer tg.cleanup()
++	tg.parallel()
++	tg.acquireNet()
++
++	tg.tempDir("src")
++	tg.setenv("GOPATH", tg.path("."))
++	const importPath = "rsc.io/go-get-issue-11457"
++	tg.run("get", "-d", "-u", importPath)
++	repoDir := tg.path("src/" + importPath)
++	tg.runGit(repoDir, "remote", "set-url", "origin", "git@github.com:rsc/go-get-issue-11457")
++
++	// At this time, custom import path checking compares remotes verbatim (rather than
++	// just the host and path, skipping scheme and user), so we expect go get -u to fail.
++	// However, the goal of this test is to verify that gitRemoteRepo correctly parsed
++	// the SCP-like syntax, and we expect it to appear in the error message.
++	tg.runFail("get", "-d", "-u", importPath)
++	want := " is checked out from ssh://git@github.com/rsc/go-get-issue-11457"
++	if !strings.HasSuffix(strings.TrimSpace(tg.getStderr()), want) {
++		t.Error("expected clone URL to appear in stderr")
++	}
++}
++
++func TestGetGitDefaultBranch(t *testing.T) {
++	testenv.MustHaveExecPath(t, "git")
++
++	tg := testgo(t)
++	defer tg.cleanup()
++	tg.parallel()
++	tg.acquireNet()
++
++	tg.tempDir("src")
++	tg.setenv("GOPATH", tg.path("."))
++
++	// This repo has two branches, master and another-branch.
++	// The another-branch is the default that you get from 'git clone'.
++	// The go get command variants should not override this.
++	const importPath = "github.com/rsc/go-get-default-branch"
++
++	tg.run("get", "-d", importPath)
++	repoDir := tg.path("src/" + importPath)
++	tg.runGit(repoDir, "branch", "--contains", "HEAD")
++	tg.grepStdout(`\* another-branch`, "not on correct default branch")
++
++	tg.run("get", "-d", "-u", importPath)
++	tg.runGit(repoDir, "branch", "--contains", "HEAD")
++	tg.grepStdout(`\* another-branch`, "not on correct default branch")
++}
++
+ func TestPackageMainTestCompilerFlags(t *testing.T) {
+ 	tg := testgo(t)
+ 	defer tg.cleanup()
+@@ -1292,6 +1363,35 @@ func TestDefaultGOPATH(t *testing.T) {
+ 	tg.grepStdoutNot(".", "want unset GOPATH because GOROOT=$HOME/go/")
+ }
+ 
++func TestDefaultGOPATHGet(t *testing.T) {
++	testenv.MustHaveExecPath(t, "git")
++
++	tg := testgo(t)
++	defer tg.cleanup()
++	tg.parallel()
++	tg.acquireNet()
++
++	tg.setenv("GOPATH", "")
++	tg.tempDir("home")
++	tg.setenv(homeEnvName(), tg.path("home"))
++
++	// warn for creating directory
++	tg.run("get", "-v", "github.com/golang/example/hello")
++	tg.grepStderr("created GOPATH="+regexp.QuoteMeta(tg.path("home/go"))+"; see 'go help gopath'", "did not create GOPATH")
++
++	// no warning if directory already exists
++	tg.must(robustio.RemoveAll(tg.path("home/go")))
++	tg.tempDir("home/go")
++	tg.run("get", "github.com/golang/example/hello")
++	tg.grepStderrNot(".", "expected no output on standard error")
++
++	// error if $HOME/go is a file
++	tg.must(robustio.RemoveAll(tg.path("home/go")))
++	tg.tempFile("home/go", "")
++	tg.runFail("get", "github.com/golang/example/hello")
++	tg.grepStderr(`mkdir .*[/\\]go: .*(not a directory|cannot find the path)`, "expected error because $HOME/go is a file")
++}
++
+ func TestDefaultGOPATHPrintedSearchList(t *testing.T) {
+ 	tg := testgo(t)
+ 	defer tg.cleanup()
+diff --git a/src/cmd/go/internal/get/get.go b/src/cmd/go/internal/get/get.go
+new file mode 100644
+index 0000000..06b567a
+--- /dev/null
++++ b/src/cmd/go/internal/get/get.go
+@@ -0,0 +1,640 @@
++// Copyright 2011 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++// Package get implements the “go get” command.
++package get
++
++import (
++	"context"
++	"fmt"
++	"os"
++	"path/filepath"
++	"runtime"
++	"strings"
++
++	"cmd/go/internal/base"
++	"cmd/go/internal/cfg"
++	"cmd/go/internal/load"
++	"cmd/go/internal/search"
++	"cmd/go/internal/str"
++	"cmd/go/internal/vcs"
++	"cmd/go/internal/web"
++	"cmd/go/internal/work"
++
++	"golang.org/x/mod/module"
++)
++
++var CmdGet = &base.Command{
++	UsageLine: "go get [-d] [-f] [-t] [-u] [-v] [-fix] [build flags] [packages]",
++	Short:     "download and install packages and dependencies",
++	Long: `
++Get downloads the packages named by the import paths, along with their
++dependencies. It then installs the named packages, like 'go install'.
++
++The -d flag instructs get to stop after downloading the packages; that is,
++it instructs get not to install the packages.
++
++The -f flag, valid only when -u is set, forces get -u not to verify that
++each package has been checked out from the source control repository
++implied by its import path. This can be useful if the source is a local fork
++of the original.
++
++The -fix flag instructs get to run the fix tool on the downloaded packages
++before resolving dependencies or building the code.
++
++The -t flag instructs get to also download the packages required to build
++the tests for the specified packages.
++
++The -u flag instructs get to use the network to update the named packages
++and their dependencies. By default, get uses the network to check out
++missing packages but does not use it to look for updates to existing packages.
++
++The -v flag enables verbose progress and debug output.
++
++Get also accepts build flags to control the installation. See 'go help build'.
++
++When checking out a new package, get creates the target directory
++GOPATH/src/<import-path>. If the GOPATH contains multiple entries,
++get uses the first one. For more details see: 'go help gopath'.
++
++When checking out or updating a package, get looks for a branch or tag
++that matches the locally installed version of Go. The most important
++rule is that if the local installation is running version "go1", get
++searches for a branch or tag named "go1". If no such version exists
++it retrieves the default branch of the package.
++
++When go get checks out or updates a Git repository,
++it also updates any git submodules referenced by the repository.
++
++Get never checks out or updates code stored in vendor directories.
++
++For more about build flags, see 'go help build'.
++
++For more about specifying packages, see 'go help packages'.
++
++For more about how 'go get' finds source code to
++download, see 'go help importpath'.
++
++This text describes the behavior of get when using GOPATH
++to manage source code and dependencies.
++If instead the go command is running in module-aware mode,
++the details of get's flags and effects change, as does 'go help get'.
++See 'go help modules' and 'go help module-get'.
++
++See also: go build, go install, go clean.
++	`,
++}
++
++var HelpGopathGet = &base.Command{
++	UsageLine: "gopath-get",
++	Short:     "legacy GOPATH go get",
++	Long: `
++The 'go get' command changes behavior depending on whether the
++go command is running in module-aware mode or legacy GOPATH mode.
++This help text, accessible as 'go help gopath-get' even in module-aware mode,
++describes 'go get' as it operates in legacy GOPATH mode.
++
++Usage: ` + CmdGet.UsageLine + `
++` + CmdGet.Long,
++}
++
++var (
++	getD        = CmdGet.Flag.Bool("d", false, "")
++	getF        = CmdGet.Flag.Bool("f", false, "")
++	getT        = CmdGet.Flag.Bool("t", false, "")
++	getU        = CmdGet.Flag.Bool("u", false, "")
++	getFix      = CmdGet.Flag.Bool("fix", false, "")
++	getInsecure = CmdGet.Flag.Bool("insecure", false, "")
++)
++
++func init() {
++	work.AddBuildFlags(CmdGet, work.OmitModFlag|work.OmitModCommonFlags)
++	CmdGet.Run = runGet // break init loop
++}
++
++func runGet(ctx context.Context, cmd *base.Command, args []string) {
++	if cfg.ModulesEnabled {
++		// Should not happen: main.go should install the separate module-enabled get code.
++		base.Fatalf("go: modules not implemented")
++	}
++
++	work.BuildInit()
++
++	if *getF && !*getU {
++		base.Fatalf("go: cannot use -f flag without -u")
++	}
++	if *getInsecure {
++		base.Fatalf("go: -insecure flag is no longer supported; use GOINSECURE instead")
++	}
++
++	// Disable any prompting for passwords by Git itself.
++	// Only has an effect for 2.3.0 or later, but avoiding
++	// the prompt in earlier versions is just too hard.
++	// If user has explicitly set GIT_TERMINAL_PROMPT=1, keep
++	// prompting.
++	// See golang.org/issue/9341 and golang.org/issue/12706.
++	if os.Getenv("GIT_TERMINAL_PROMPT") == "" {
++		os.Setenv("GIT_TERMINAL_PROMPT", "0")
++	}
++
++	// Also disable prompting for passwords by the 'ssh' subprocess spawned by
++	// Git, because apparently GIT_TERMINAL_PROMPT isn't sufficient to do that.
++	// Adding '-o BatchMode=yes' should do the trick.
++	//
++	// If a Git subprocess forks a child into the background to cache a new connection,
++	// that child keeps stdout/stderr open. After the Git subprocess exits,
++	// os /exec expects to be able to read from the stdout/stderr pipe
++	// until EOF to get all the data that the Git subprocess wrote before exiting.
++	// The EOF doesn't come until the child exits too, because the child
++	// is holding the write end of the pipe.
++	// This is unfortunate, but it has come up at least twice
++	// (see golang.org/issue/13453 and golang.org/issue/16104)
++	// and confuses users when it does.
++	// If the user has explicitly set GIT_SSH or GIT_SSH_COMMAND,
++	// assume they know what they are doing and don't step on it.
++	// But default to turning off ControlMaster.
++	if os.Getenv("GIT_SSH") == "" && os.Getenv("GIT_SSH_COMMAND") == "" {
++		os.Setenv("GIT_SSH_COMMAND", "ssh -o ControlMaster=no -o BatchMode=yes")
++	}
++
++	// And one more source of Git prompts: the Git Credential Manager Core for Windows.
++	//
++	// See https://github.com/microsoft/Git-Credential-Manager-Core/blob/master/docs/environment.md#gcm_interactive.
++	if os.Getenv("GCM_INTERACTIVE") == "" {
++		os.Setenv("GCM_INTERACTIVE", "never")
++	}
++
++	// Phase 1. Download/update.
++	var stk load.ImportStack
++	mode := 0
++	if *getT {
++		mode |= load.GetTestDeps
++	}
++	for _, pkg := range downloadPaths(args) {
++		download(ctx, pkg, nil, &stk, mode)
++	}
++	base.ExitIfErrors()
++
++	// Phase 2. Rescan packages and re-evaluate args list.
++
++	// Code we downloaded and all code that depends on it
++	// needs to be evicted from the package cache so that
++	// the information will be recomputed. Instead of keeping
++	// track of the reverse dependency information, evict
++	// everything.
++	load.ClearPackageCache()
++
++	pkgs := load.PackagesAndErrors(ctx, load.PackageOpts{}, args)
++	load.CheckPackageErrors(pkgs)
++
++	// Phase 3. Install.
++	if *getD {
++		// Download only.
++		// Check delayed until now so that downloadPaths
++		// and CheckPackageErrors have a chance to print errors.
++		return
++	}
++
++	work.InstallPackages(ctx, args, pkgs)
++}
++
++// downloadPaths prepares the list of paths to pass to download.
++// It expands ... patterns that can be expanded. If there is no match
++// for a particular pattern, downloadPaths leaves it in the result list,
++// in the hope that we can figure out the repository from the
++// initial ...-free prefix.
++func downloadPaths(patterns []string) []string {
++	for _, arg := range patterns {
++		if strings.Contains(arg, "@") {
++			base.Fatalf("go: can only use path@version syntax with 'go get' and 'go install' in module-aware mode")
++		}
++
++		// Guard against 'go get x.go', a common mistake.
++		// Note that package and module paths may end with '.go', so only print an error
++		// if the argument has no slash or refers to an existing file.
++		if strings.HasSuffix(arg, ".go") {
++			if !strings.Contains(arg, "/") {
++				base.Errorf("go: %s: arguments must be package or module paths", arg)
++				continue
++			}
++			if fi, err := os.Stat(arg); err == nil && !fi.IsDir() {
++				base.Errorf("go: %s exists as a file, but 'go get' requires package arguments", arg)
++			}
++		}
++	}
++	base.ExitIfErrors()
++
++	var pkgs []string
++	noModRoots := []string{}
++	for _, m := range search.ImportPathsQuiet(patterns, noModRoots) {
++		if len(m.Pkgs) == 0 && strings.Contains(m.Pattern(), "...") {
++			pkgs = append(pkgs, m.Pattern())
++		} else {
++			pkgs = append(pkgs, m.Pkgs...)
++		}
++	}
++	return pkgs
++}
++
++// downloadCache records the import paths we have already
++// considered during the download, to avoid duplicate work when
++// there is more than one dependency sequence leading to
++// a particular package.
++var downloadCache = map[string]bool{}
++
++// downloadRootCache records the version control repository
++// root directories we have already considered during the download.
++// For example, all the packages in the github.com/google/codesearch repo
++// share the same root (the directory for that path), and we only need
++// to run the hg commands to consider each repository once.
++var downloadRootCache = map[string]bool{}
++
++// download runs the download half of the get command
++// for the package or pattern named by the argument.
++func download(ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
++	if mode&load.ResolveImport != 0 {
++		// Caller is responsible for expanding vendor paths.
++		panic("internal error: download mode has useVendor set")
++	}
++	load1 := func(path string, mode int) *load.Package {
++		if parent == nil {
++			mode := 0 // don't do module or vendor resolution
++			return load.LoadPackage(ctx, load.PackageOpts{}, path, base.Cwd(), stk, nil, mode)
++		}
++		p, err := load.LoadImport(ctx, load.PackageOpts{}, path, parent.Dir, parent, stk, nil, mode|load.ResolveModule)
++		if err != nil {
++			base.Errorf("%s", err)
++		}
++		return p
++	}
++
++	p := load1(arg, mode)
++	if p.Error != nil && p.Error.Hard {
++		base.Errorf("%s", p.Error)
++		return
++	}
++
++	// loadPackage inferred the canonical ImportPath from arg.
++	// Use that in the following to prevent hysteresis effects
++	// in e.g. downloadCache and packageCache.
++	// This allows invocations such as:
++	//   mkdir -p $GOPATH/src/github.com/user
++	//   cd $GOPATH/src/github.com/user
++	//   go get ./foo
++	// see: golang.org/issue/9767
++	arg = p.ImportPath
++
++	// There's nothing to do if this is a package in the standard library.
++	if p.Standard {
++		return
++	}
++
++	// Only process each package once.
++	// (Unless we're fetching test dependencies for this package,
++	// in which case we want to process it again.)
++	if downloadCache[arg] && mode&load.GetTestDeps == 0 {
++		return
++	}
++	downloadCache[arg] = true
++
++	pkgs := []*load.Package{p}
++	wildcardOkay := len(*stk) == 0
++	isWildcard := false
++
++	// Download if the package is missing, or update if we're using -u.
++	if p.Dir == "" || *getU {
++		// The actual download.
++		stk.Push(arg)
++		err := downloadPackage(p)
++		if err != nil {
++			base.Errorf("%s", &load.PackageError{ImportStack: stk.Copy(), Err: err})
++			stk.Pop()
++			return
++		}
++		stk.Pop()
++
++		args := []string{arg}
++		// If the argument has a wildcard in it, re-evaluate the wildcard.
++		// We delay this until after reloadPackage so that the old entry
++		// for p has been replaced in the package cache.
++		if wildcardOkay && strings.Contains(arg, "...") {
++			match := search.NewMatch(arg)
++			if match.IsLocal() {
++				noModRoots := []string{} // We're in gopath mode, so there are no modroots.
++				match.MatchDirs(noModRoots)
++				args = match.Dirs
++			} else {
++				match.MatchPackages()
++				args = match.Pkgs
++			}
++			for _, err := range match.Errs {
++				base.Errorf("%s", err)
++			}
++			isWildcard = true
++		}
++
++		// Clear all relevant package cache entries before
++		// doing any new loads.
++		load.ClearPackageCachePartial(args)
++
++		pkgs = pkgs[:0]
++		for _, arg := range args {
++			// Note: load calls loadPackage or loadImport,
++			// which push arg onto stk already.
++			// Do not push here too, or else stk will say arg imports arg.
++			p := load1(arg, mode)
++			if p.Error != nil {
++				base.Errorf("%s", p.Error)
++				continue
++			}
++			pkgs = append(pkgs, p)
++		}
++	}
++
++	// Process package, which might now be multiple packages
++	// due to wildcard expansion.
++	for _, p := range pkgs {
++		if *getFix {
++			files := base.RelPaths(p.InternalAllGoFiles())
++			base.Run(cfg.BuildToolexec, str.StringList(base.Tool("fix"), files))
++
++			// The imports might have changed, so reload again.
++			p = load.ReloadPackageNoFlags(arg, stk)
++			if p.Error != nil {
++				base.Errorf("%s", p.Error)
++				return
++			}
++		}
++
++		if isWildcard {
++			// Report both the real package and the
++			// wildcard in any error message.
++			stk.Push(p.ImportPath)
++		}
++
++		// Process dependencies, now that we know what they are.
++		imports := p.Imports
++		if mode&load.GetTestDeps != 0 {
++			// Process test dependencies when -t is specified.
++			// (But don't get test dependencies for test dependencies:
++			// we always pass mode 0 to the recursive calls below.)
++			imports = str.StringList(imports, p.TestImports, p.XTestImports)
++		}
++		for i, path := range imports {
++			if path == "C" {
++				continue
++			}
++			// Fail fast on import naming full vendor path.
++			// Otherwise expand path as needed for test imports.
++			// Note that p.Imports can have additional entries beyond p.Internal.Build.Imports.
++			orig := path
++			if i < len(p.Internal.Build.Imports) {
++				orig = p.Internal.Build.Imports[i]
++			}
++			if j, ok := load.FindVendor(orig); ok {
++				stk.Push(path)
++				err := &load.PackageError{
++					ImportStack: stk.Copy(),
++					Err:         load.ImportErrorf(path, "%s must be imported as %s", path, path[j+len("vendor/"):]),
++				}
++				stk.Pop()
++				base.Errorf("%s", err)
++				continue
++			}
++			// If this is a test import, apply module and vendor lookup now.
++			// We cannot pass ResolveImport to download, because
++			// download does caching based on the value of path,
++			// so it must be the fully qualified path already.
++			if i >= len(p.Imports) {
++				path = load.ResolveImportPath(p, path)
++			}
++			download(ctx, path, p, stk, 0)
++		}
++
++		if isWildcard {
++			stk.Pop()
++		}
++	}
++}
++
++// downloadPackage runs the create or download command
++// to make the first copy of or update a copy of the given package.
++func downloadPackage(p *load.Package) error {
++	var (
++		vcsCmd                  *vcs.Cmd
++		repo, rootPath, repoDir string
++		err                     error
++		blindRepo               bool // set if the repo has unusual configuration
++	)
++
++	// p can be either a real package, or a pseudo-package whose “import path” is
++	// actually a wildcard pattern.
++	// Trim the path at the element containing the first wildcard,
++	// and hope that it applies to the wildcarded parts too.
++	// This makes 'go get rsc.io/pdf/...' work in a fresh GOPATH.
++	importPrefix := p.ImportPath
++	if i := strings.Index(importPrefix, "..."); i >= 0 {
++		slash := strings.LastIndexByte(importPrefix[:i], '/')
++		if slash < 0 {
++			return fmt.Errorf("cannot expand ... in %q", p.ImportPath)
++		}
++		importPrefix = importPrefix[:slash]
++	}
++	if err := checkImportPath(importPrefix); err != nil {
++		return fmt.Errorf("%s: invalid import path: %v", p.ImportPath, err)
++	}
++	security := web.SecureOnly
++	if module.MatchPrefixPatterns(cfg.GOINSECURE, importPrefix) {
++		security = web.Insecure
++	}
++
++	if p.Internal.Build.SrcRoot != "" {
++		// Directory exists. Look for checkout along path to src.
++		const allowNesting = false
++		repoDir, vcsCmd, err = vcs.FromDir(p.Dir, p.Internal.Build.SrcRoot, allowNesting)
++		if err != nil {
++			return err
++		}
++		if !str.HasFilePathPrefix(repoDir, p.Internal.Build.SrcRoot) {
++			panic(fmt.Sprintf("repository %q not in source root %q", repo, p.Internal.Build.SrcRoot))
++		}
++		rootPath = str.TrimFilePathPrefix(repoDir, p.Internal.Build.SrcRoot)
++		if err := vcs.CheckGOVCS(vcsCmd, rootPath); err != nil {
++			return err
++		}
++
++		repo = "<local>" // should be unused; make distinctive
++
++		// Double-check where it came from.
++		if *getU && vcsCmd.RemoteRepo != nil {
++			dir := filepath.Join(p.Internal.Build.SrcRoot, filepath.FromSlash(rootPath))
++			remote, err := vcsCmd.RemoteRepo(vcsCmd, dir)
++			if err != nil {
++				// Proceed anyway. The package is present; we likely just don't understand
++				// the repo configuration (e.g. unusual remote protocol).
++				blindRepo = true
++			}
++			repo = remote
++			if !*getF && err == nil {
++				if rr, err := vcs.RepoRootForImportPath(importPrefix, vcs.IgnoreMod, security); err == nil {
++					repo := rr.Repo
++					if rr.VCS.ResolveRepo != nil {
++						resolved, err := rr.VCS.ResolveRepo(rr.VCS, dir, repo)
++						if err == nil {
++							repo = resolved
++						}
++					}
++					if remote != repo && rr.IsCustom {
++						return fmt.Errorf("%s is a custom import path for %s, but %s is checked out from %s", rr.Root, repo, dir, remote)
++					}
++				}
++			}
++		}
++	} else {
++		// Analyze the import path to determine the version control system,
++		// repository, and the import path for the root of the repository.
++		rr, err := vcs.RepoRootForImportPath(importPrefix, vcs.IgnoreMod, security)
++		if err != nil {
++			return err
++		}
++		vcsCmd, repo, rootPath = rr.VCS, rr.Repo, rr.Root
++	}
++	if !blindRepo && !vcsCmd.IsSecure(repo) && security != web.Insecure {
++		return fmt.Errorf("cannot download: %v uses insecure protocol", repo)
++	}
++
++	if p.Internal.Build.SrcRoot == "" {
++		// Package not found. Put in first directory of $GOPATH.
++		list := filepath.SplitList(cfg.BuildContext.GOPATH)
++		if len(list) == 0 {
++			return fmt.Errorf("cannot download: $GOPATH not set. For more details see: 'go help gopath'")
++		}
++		// Guard against people setting GOPATH=$GOROOT.
++		if filepath.Clean(list[0]) == filepath.Clean(cfg.GOROOT) {
++			return fmt.Errorf("cannot download: $GOPATH must not be set to $GOROOT. For more details see: 'go help gopath'")
++		}
++		if _, err := os.Stat(filepath.Join(list[0], "src/cmd/go/alldocs.go")); err == nil {
++			return fmt.Errorf("cannot download: %s is a GOROOT, not a GOPATH. For more details see: 'go help gopath'", list[0])
++		}
++		p.Internal.Build.Root = list[0]
++		p.Internal.Build.SrcRoot = filepath.Join(list[0], "src")
++		p.Internal.Build.PkgRoot = filepath.Join(list[0], "pkg")
++	}
++	root := filepath.Join(p.Internal.Build.SrcRoot, filepath.FromSlash(rootPath))
++
++	if err := vcs.CheckNested(vcsCmd, root, p.Internal.Build.SrcRoot); err != nil {
++		return err
++	}
++
++	// If we've considered this repository already, don't do it again.
++	if downloadRootCache[root] {
++		return nil
++	}
++	downloadRootCache[root] = true
++
++	if cfg.BuildV {
++		fmt.Fprintf(os.Stderr, "%s (download)\n", rootPath)
++	}
++
++	// Check that this is an appropriate place for the repo to be checked out.
++	// The target directory must either not exist or have a repo checked out already.
++	meta := filepath.Join(root, "."+vcsCmd.Cmd)
++	if _, err := os.Stat(meta); err != nil {
++		// Metadata file or directory does not exist. Prepare to checkout new copy.
++		// Some version control tools require the target directory not to exist.
++		// We require that too, just to avoid stepping on existing work.
++		if _, err := os.Stat(root); err == nil {
++			return fmt.Errorf("%s exists but %s does not - stale checkout?", root, meta)
++		}
++
++		_, err := os.Stat(p.Internal.Build.Root)
++		gopathExisted := err == nil
++
++		// Some version control tools require the parent of the target to exist.
++		parent, _ := filepath.Split(root)
++		if err = os.MkdirAll(parent, 0777); err != nil {
++			return err
++		}
++		if cfg.BuildV && !gopathExisted && p.Internal.Build.Root == cfg.BuildContext.GOPATH {
++			fmt.Fprintf(os.Stderr, "created GOPATH=%s; see 'go help gopath'\n", p.Internal.Build.Root)
++		}
++
++		if err = vcsCmd.Create(root, repo); err != nil {
++			return err
++		}
++	} else {
++		// Metadata directory does exist; download incremental updates.
++		if err = vcsCmd.Download(root); err != nil {
++			return err
++		}
++	}
++
++	if cfg.BuildN {
++		// Do not show tag sync in -n; it's noise more than anything,
++		// and since we're not running commands, no tag will be found.
++		// But avoid printing nothing.
++		fmt.Fprintf(os.Stderr, "# cd %s; %s sync/update\n", root, vcsCmd.Cmd)
++		return nil
++	}
++
++	// Select and sync to appropriate version of the repository.
++	tags, err := vcsCmd.Tags(root)
++	if err != nil {
++		return err
++	}
++	vers := runtime.Version()
++	if i := strings.Index(vers, " "); i >= 0 {
++		vers = vers[:i]
++	}
++	if err := vcsCmd.TagSync(root, selectTag(vers, tags)); err != nil {
++		return err
++	}
++
++	return nil
++}
++
++// selectTag returns the closest matching tag for a given version.
++// Closest means the latest one that is not after the current release.
++// Version "goX" (or "goX.Y" or "goX.Y.Z") matches tags of the same form.
++// Version "release.rN" matches tags of the form "go.rN" (N being a floating-point number).
++// Version "weekly.YYYY-MM-DD" matches tags like "go.weekly.YYYY-MM-DD".
++//
++// NOTE(rsc): Eventually we will need to decide on some logic here.
++// For now, there is only "go1". This matches the docs in go help get.
++func selectTag(goVersion string, tags []string) (match string) {
++	for _, t := range tags {
++		if t == "go1" {
++			return "go1"
++		}
++	}
++	return ""
++}
++
++// checkImportPath is like module.CheckImportPath, but it forbids leading dots
++// in path elements. This can lead to 'go get' creating .git and other VCS
++// directories in places we might run VCS tools later.
++func checkImportPath(path string) error {
++	if err := module.CheckImportPath(path); err != nil {
++		return err
++	}
++	checkElem := func(elem string) error {
++		if elem[0] == '.' {
++			return fmt.Errorf("malformed import path %q: leading dot in path element", path)
++		}
++		return nil
++	}
++	elemStart := 0
++	for i, r := range path {
++		if r == '/' {
++			if err := checkElem(path[elemStart:]); err != nil {
++				return err
++			}
++			elemStart = i + 1
++		}
++	}
++	if err := checkElem(path[elemStart:]); err != nil {
++		return err
++	}
++	return nil
++}
+diff --git a/src/cmd/go/internal/get/tag_test.go b/src/cmd/go/internal/get/tag_test.go
+new file mode 100644
+index 0000000..9a25dfa
+--- /dev/null
++++ b/src/cmd/go/internal/get/tag_test.go
+@@ -0,0 +1,100 @@
++// Copyright 2011 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package get
++
++import "testing"
++
++var selectTagTestTags = []string{
++	"go.r58",
++	"go.r58.1",
++	"go.r59",
++	"go.r59.1",
++	"go.r61",
++	"go.r61.1",
++	"go.weekly.2010-01-02",
++	"go.weekly.2011-10-12",
++	"go.weekly.2011-10-12.1",
++	"go.weekly.2011-10-14",
++	"go.weekly.2011-11-01",
++	"go1",
++	"go1.0.1",
++	"go1.999",
++	"go1.9.2",
++	"go5",
++
++	// these should be ignored:
++	"release.r59",
++	"release.r59.1",
++	"release",
++	"weekly.2011-10-12",
++	"weekly.2011-10-12.1",
++	"weekly",
++	"foo",
++	"bar",
++	"go.f00",
++	"go!r60",
++	"go.1999-01-01",
++	"go.2x",
++	"go.20000000000000",
++	"go.2.",
++	"go.2.0",
++	"go2x",
++	"go20000000000000",
++	"go2.",
++	"go2.0",
++}
++
++var selectTagTests = []struct {
++	version  string
++	selected string
++}{
++	/*
++		{"release.r57", ""},
++		{"release.r58.2", "go.r58.1"},
++		{"release.r59", "go.r59"},
++		{"release.r59.1", "go.r59.1"},
++		{"release.r60", "go.r59.1"},
++		{"release.r60.1", "go.r59.1"},
++		{"release.r61", "go.r61"},
++		{"release.r66", "go.r61.1"},
++		{"weekly.2010-01-01", ""},
++		{"weekly.2010-01-02", "go.weekly.2010-01-02"},
++		{"weekly.2010-01-02.1", "go.weekly.2010-01-02"},
++		{"weekly.2010-01-03", "go.weekly.2010-01-02"},
++		{"weekly.2011-10-12", "go.weekly.2011-10-12"},
++		{"weekly.2011-10-12.1", "go.weekly.2011-10-12.1"},
++		{"weekly.2011-10-13", "go.weekly.2011-10-12.1"},
++		{"weekly.2011-10-14", "go.weekly.2011-10-14"},
++		{"weekly.2011-10-14.1", "go.weekly.2011-10-14"},
++		{"weekly.2011-11-01", "go.weekly.2011-11-01"},
++		{"weekly.2014-01-01", "go.weekly.2011-11-01"},
++		{"weekly.3000-01-01", "go.weekly.2011-11-01"},
++		{"go1", "go1"},
++		{"go1.1", "go1.0.1"},
++		{"go1.998", "go1.9.2"},
++		{"go1.1000", "go1.999"},
++		{"go6", "go5"},
++
++		// faulty versions:
++		{"release.f00", ""},
++		{"weekly.1999-01-01", ""},
++		{"junk", ""},
++		{"", ""},
++		{"go2x", ""},
++		{"go200000000000", ""},
++		{"go2.", ""},
++		{"go2.0", ""},
++	*/
++	{"anything", "go1"},
++}
++
++func TestSelectTag(t *testing.T) {
++	for _, c := range selectTagTests {
++		selected := selectTag(c.version, selectTagTestTags)
++		if selected != c.selected {
++			t.Errorf("selectTag(%q) = %q, want %q", c.version, selected, c.selected)
++		}
++	}
++}
+diff --git a/src/cmd/go/internal/help/help.go b/src/cmd/go/internal/help/help.go
+index 4f2607f..229ebc3 100644
+--- a/src/cmd/go/internal/help/help.go
++++ b/src/cmd/go/internal/help/help.go
+@@ -17,6 +17,7 @@ import (
+ 
+ 	"cmd/go/internal/base"
+ 	"cmd/internal/telemetry/counter"
++	"cmd/go/internal/modload"
+ )
+ 
+ var counterErrorsHelpUnknownTopic = counter.New("go/errors:help-unknown-topic")
+@@ -37,6 +38,12 @@ func Help(w io.Writer, args []string) {
+ 		usage := &base.Command{Long: buf.String()}
+ 		cmds := []*base.Command{usage}
+ 		for _, cmd := range base.Go.Commands {
++			// Avoid duplication of the "get" documentation.
++			if cmd.UsageLine == "module-get" && modload.Enabled() {
++				continue
++			} else if cmd.UsageLine == "gopath-get" && !modload.Enabled() {
++				continue
++			}
+ 			cmds = append(cmds, cmd)
+ 			cmds = append(cmds, cmd.Commands...)
+ 		}
+diff --git a/src/cmd/go/internal/modget/get.go b/src/cmd/go/internal/modget/get.go
+index 7343128..966c504 100644
+--- a/src/cmd/go/internal/modget/get.go
++++ b/src/cmd/go/internal/modget/get.go
+@@ -131,6 +131,23 @@ See also: go build, go install, go clean, go mod.
+ 	`,
+ }
+ 
++// Note that this help text is a stopgap to make the module-aware get help text
++// available even in non-module settings. It should be deleted when the old get
++// is deleted. It should NOT be considered to set a precedent of having hierarchical
++// help names with dashes.
++var HelpModuleGet = &base.Command{
++	UsageLine: "module-get",
++	Short:     "module-aware go get",
++	Long: `
++The 'go get' command changes behavior depending on whether the
++go command is running in module-aware mode or legacy GOPATH mode.
++This help text, accessible as 'go help module-get' even in legacy GOPATH mode,
++describes 'go get' as it operates in module-aware mode.
++
++Usage: ` + CmdGet.UsageLine + `
++` + CmdGet.Long,
++}
++
+ var HelpVCS = &base.Command{
+ 	UsageLine: "vcs",
+ 	Short:     "controlling version control with GOVCS",
+diff --git a/src/cmd/go/main.go b/src/cmd/go/main.go
+index 1c58232..722ab87 100644
+--- a/src/cmd/go/main.go
++++ b/src/cmd/go/main.go
+@@ -27,6 +27,7 @@ import (
+ 	"cmd/go/internal/fix"
+ 	"cmd/go/internal/fmtcmd"
+ 	"cmd/go/internal/generate"
++	"cmd/go/internal/get"
+ 	"cmd/go/internal/help"
+ 	"cmd/go/internal/list"
+ 	"cmd/go/internal/modcmd"
+@@ -78,9 +79,11 @@ func init() {
+ 		help.HelpFileType,
+ 		modload.HelpGoMod,
+ 		help.HelpGopath,
++		get.HelpGopathGet,
+ 		modfetch.HelpGoproxy,
+ 		help.HelpImportPath,
+ 		modload.HelpModules,
++		modget.HelpModuleGet,
+ 		modfetch.HelpModuleAuth,
+ 		help.HelpPackages,
+ 		modfetch.HelpPrivate,
+@@ -112,6 +115,13 @@ func main() {
+ 		base.Usage()
+ 	}
+ 
++	if args[0] == "get" || args[0] == "help" {
++		if !modload.WillBeEnabled() {
++			// Replace module-aware get with GOPATH get if appropriate.
++			*modget.CmdGet = *get.CmdGet
++		}
++	}
++
+ 	cfg.CmdName = args[0] // for error messages
+ 	if args[0] == "help" {
+ 		counter.Inc("go/subcommand:" + strings.Join(append([]string{"help"}, args[1:]...), "-"))
+diff --git a/src/cmd/go/testdata/script/get_404_meta.txt b/src/cmd/go/testdata/script/get_404_meta.txt
+index 7665155..4ffbdeb 100644
+--- a/src/cmd/go/testdata/script/get_404_meta.txt
++++ b/src/cmd/go/testdata/script/get_404_meta.txt
+@@ -4,6 +4,9 @@
+ [!git] skip
+ 
+ env GONOSUMDB=bazil.org,github.com,golang.org
++env GO111MODULE=off
++go get -d bazil.org/fuse/fs/fstestutil
++
+ env GO111MODULE=on
+ env GOPROXY=direct
+ go get bazil.org/fuse/fs/fstestutil
+diff --git a/src/cmd/go/testdata/script/get_brace.txt b/src/cmd/go/testdata/script/get_brace.txt
+new file mode 100644
+index 0000000..34f66a6
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_brace.txt
+@@ -0,0 +1,51 @@
++env GO111MODULE=off
++
++[!git] skip
++
++# Set up some empty repositories.
++cd $WORK/_origin/foo
++exec git init
++exec git config user.name 'Nameless Gopher'
++exec git config user.email 'nobody@golang.org'
++exec git commit --allow-empty -m 'create master branch'
++
++cd $WORK
++cd '_origin/{confusing}'
++exec git init
++exec git config user.name 'Nameless Gopher'
++exec git config user.email 'nobody@golang.org'
++exec git commit --allow-empty -m 'create master branch'
++
++# Clone the empty repositories into GOPATH.
++# This tells the Go command where to find them: it takes the place of a user's meta-tag redirector.
++mkdir $GOPATH/src/example.com
++cd $GOPATH/src/example.com
++exec git clone $WORK/_origin/foo
++exec git clone $WORK/_origin/{confusing}
++
++# Commit contents to the repositories.
++cd $WORK/_origin/foo
++exec git add main.go
++exec git commit -m 'add main'
++
++cd $WORK
++cd '_origin/{confusing}'
++exec git add confusing.go
++exec git commit -m 'just try to delete this!'
++
++# 'go get' should refuse to download or update the confusingly-named repo.
++cd $GOPATH/src/example.com/foo
++! go get -u 'example.com/{confusing}'
++stderr 'invalid char'
++! go get -u example.com/foo
++stderr 'invalid import path'
++! exists example.com/{confusing}
++
++-- $WORK/_origin/foo/main.go --
++package main
++import _ "example.com/{confusing}"
++
++func main() {}
++
++-- $WORK/_origin/{confusing}/confusing.go --
++package confusing
+diff --git a/src/cmd/go/testdata/script/get_custom_domain_wildcard.txt b/src/cmd/go/testdata/script/get_custom_domain_wildcard.txt
+new file mode 100644
+index 0000000..45ab524
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_custom_domain_wildcard.txt
+@@ -0,0 +1,6 @@
++[!net:rsc.io] skip
++[!git] skip
++env GO111MODULE=off
++
++go get -u rsc.io/pdf/...
++exists $GOPATH/bin/pdfpasswd$GOEXE
+diff --git a/src/cmd/go/testdata/script/get_dash_t.txt b/src/cmd/go/testdata/script/get_dash_t.txt
+new file mode 100644
+index 0000000..8f3a036
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_dash_t.txt
+@@ -0,0 +1,9 @@
++# Tests issue 8181
++
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++go get -v -t github.com/rsc/go-get-issue-8181/a github.com/rsc/go-get-issue-8181/b
++go list -test -deps github.com/rsc/go-get-issue-8181/b
++stdout 'x/build/gerrit'
+diff --git a/src/cmd/go/testdata/script/get_domain_root.txt b/src/cmd/go/testdata/script/get_domain_root.txt
+new file mode 100644
+index 0000000..dfcea86
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_domain_root.txt
+@@ -0,0 +1,20 @@
++# Tests issue #9357
++# go get foo.io (not foo.io/subdir) was not working consistently.
++
++[!net:go-get-issue-9357.appspot.com] skip
++[!git] skip
++env GO111MODULE=off
++
++# go-get-issue-9357.appspot.com is running
++# the code at github.com/rsc/go-get-issue-9357,
++# a trivial Go on App Engine app that serves a
++# <meta> tag for the domain root.
++go get -d go-get-issue-9357.appspot.com
++go get go-get-issue-9357.appspot.com
++go get -u go-get-issue-9357.appspot.com
++
++rm $GOPATH/src/go-get-issue-9357.appspot.com
++go get go-get-issue-9357.appspot.com
++
++rm $GOPATH/src/go-get-issue-9357.appspot.com
++go get -u go-get-issue-9357.appspot.com
+diff --git a/src/cmd/go/testdata/script/get_dot_slash_download.txt b/src/cmd/go/testdata/script/get_dot_slash_download.txt
+new file mode 100644
+index 0000000..6dbd118
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_dot_slash_download.txt
+@@ -0,0 +1,10 @@
++[!net:rsc.io] skip
++[!git] skip
++env GO111MODULE=off
++
++# Tests Issues #9797 and #19769
++
++mkdir $WORK/tmp/src/rsc.io
++env GOPATH=$WORK/tmp
++cd $WORK/tmp/src/rsc.io
++go get ./pprof_mac_fix
+diff --git a/src/cmd/go/testdata/script/get_dotfiles.txt b/src/cmd/go/testdata/script/get_dotfiles.txt
+new file mode 100644
+index 0000000..676a044
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_dotfiles.txt
+@@ -0,0 +1,64 @@
++env GO111MODULE=off
++[short] skip
++
++[!git] skip
++
++# Set up a benign repository and a repository with a dotfile name.
++cd $WORK/_origin/foo
++exec git init
++exec git config user.name 'Nameless Gopher'
++exec git config user.email 'nobody@golang.org'
++exec git commit --allow-empty -m 'create master branch'
++
++cd $WORK/_origin/.hidden
++exec git init
++exec git config user.name 'Nameless Gopher'
++exec git config user.email 'nobody@golang.org'
++exec git commit --allow-empty -m 'create master branch'
++
++# Clone the empty repositories into GOPATH.
++# This tells the Go command where to find them: it takes the place of a user's meta-tag redirector.
++mkdir $GOPATH/src/example.com
++cd $GOPATH/src/example.com
++exec git clone $WORK/_origin/foo
++exec git clone $WORK/_origin/.hidden
++
++# Add a benign commit.
++cd $WORK/_origin/foo
++cp _ok/main.go main.go
++exec git add main.go
++exec git commit -m 'add ok'
++
++# 'go get' should install the benign commit.
++cd $GOPATH
++go get -u example.com/foo
++
++# Now sneak in an import of a dotfile path.
++cd $WORK/_origin/.hidden
++exec git add hidden.go
++exec git commit -m 'nothing to see here, move along'
++
++cd $WORK/_origin/foo
++cp _sneaky/main.go main.go
++exec git add main.go
++exec git commit -m 'fix typo (heh heh heh)'
++
++# 'go get -u' should refuse to download or update the dotfile-named repo.
++cd $GOPATH/src/example.com/foo
++! go get -u example.com/foo
++stderr 'leading dot'
++! exists example.com/.hidden/hidden.go
++
++-- $WORK/_origin/foo/_ok/main.go --
++package main
++
++func main() {}
++
++-- $WORK/_origin/foo/_sneaky/main.go --
++package main
++import _ "example.com/.hidden"
++
++func main() {}
++
++-- $WORK/_origin/.hidden/hidden.go --
++package hidden
+diff --git a/src/cmd/go/testdata/script/get_go_file.txt b/src/cmd/go/testdata/script/get_go_file.txt
+new file mode 100644
+index 0000000..f6d0de4
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_go_file.txt
+@@ -0,0 +1,60 @@
++# Tests Issue #38478
++# Tests that go get in GOPATH mode returns a specific error if the argument
++# ends with '.go', and either has no slash or refers to an existing file.
++
++env GO111MODULE=off
++
++# argument doesn't have .go suffix
++go get -d test
++
++# argument has .go suffix, is a file and exists
++! go get -d test.go
++stderr 'go: test.go: arguments must be package or module paths'
++
++# argument has .go suffix, doesn't exist and has no slashes
++! go get -d test_missing.go
++stderr 'go: test_missing.go: arguments must be package or module paths'
++
++# argument has .go suffix, is a file and exists in sub-directory
++! go get -d test/test.go
++stderr 'go: test/test.go exists as a file, but ''go get'' requires package arguments'
++
++# argument has .go suffix, doesn't exist and has slashes
++! go get -d test/test_missing.go
++! stderr 'arguments must be package or module paths'
++! stderr 'exists as a file, but ''go get'' requires package arguments'
++
++# argument has .go suffix, is a symlink and exists
++[symlink] symlink test_sym.go -> test.go
++[symlink] ! go get -d test_sym.go
++[symlink] stderr 'go: test_sym.go: arguments must be package or module paths'
++[symlink] rm test_sym.go
++
++# argument has .go suffix, is a symlink and exists in sub-directory
++[symlink] symlink test/test_sym.go -> test.go
++[symlink] ! go get -d test/test_sym.go
++[symlink] stderr 'go: test/test_sym.go exists as a file, but ''go get'' requires package arguments'
++[symlink] rm test_sym.go
++
++# argument has .go suffix, is a directory and exists
++mkdir test_dir.go
++! go get -d test_dir.go
++stderr 'go: test_dir.go: arguments must be package or module paths'
++rm test_dir.go
++
++# argument has .go suffix, is a directory and exists in sub-directory
++mkdir test/test_dir.go
++! go get -d test/test_dir.go
++! stderr 'arguments must be package or module paths'
++! stderr 'exists as a file, but ''go get'' requires package arguments'
++rm test/test_dir.go
++
++
++-- test.go --
++package main
++func main() {println("test")}
++
++
++-- test/test.go --
++package main
++func main() {println("test")}
+diff --git a/src/cmd/go/testdata/script/get_goroot.txt b/src/cmd/go/testdata/script/get_goroot.txt
+new file mode 100644
+index 0000000..7510692
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_goroot.txt
+@@ -0,0 +1,53 @@
++[!net:github.com] skip
++env GO111MODULE=off
++
++# Issue 4186. go get cannot be used to download packages to $GOROOT.
++# Test that without GOPATH set, go get should fail.
++
++# Fails because GOROOT=GOPATH
++env GOPATH=$WORK/tmp
++env GOROOT=$WORK/tmp
++! go get -d github.com/golang/example/hello
++stderr 'warning: GOPATH set to GOROOT'
++stderr '\$GOPATH must not be set to \$GOROOT'
++
++# Fails because GOROOT=GOPATH after cleaning.
++env GOPATH=$WORK/tmp/
++env GOROOT=$WORK/tmp
++! go get -d github.com/golang/example/hello
++stderr 'warning: GOPATH set to GOROOT'
++stderr '\$GOPATH must not be set to \$GOROOT'
++
++env GOPATH=$WORK/tmp
++env GOROOT=$WORK/tmp/
++! go get -d github.com/golang/example/hello
++stderr 'warning: GOPATH set to GOROOT'
++stderr '\$GOPATH must not be set to \$GOROOT'
++
++# Make a home directory
++mkdir $WORK/home/go
++
++# Fails because GOROOT=$HOME/go so default GOPATH unset.
++[GOOS:windows] env USERPROFILE=$WORK/home
++[GOOS:plan9] env home=$WORK/home
++[!GOOS:windows] [!GOOS:plan9] env HOME=$WORK/home
++env GOPATH=
++env GOROOT=$WORK/home/go
++! go get -d github.com/golang/example/hello
++stderr '\$GOPATH not set'
++
++[GOOS:windows] env USERPROFILE=$WORK/home/
++[GOOS:plan9] env home=$WORK/home/
++[!GOOS:windows] [!GOOS:plan9] env HOME=$WORK/home/
++env GOPATH=
++env GOROOT=$WORK/home/go
++! go get -d github.com/golang/example/hello
++stderr '\$GOPATH not set'
++
++[GOOS:windows] env USERPROFILE=$WORK/home
++[GOOS:plan9] env home=$WORK/home
++[!GOOS:windows] [!GOOS:plan9] env HOME=$WORK/home
++env GOPATH=
++env GOROOT=$WORK/home/go/
++! go get -d github.com/golang/example/hello
++stderr '\$GOPATH not set'
+diff --git a/src/cmd/go/testdata/script/get_insecure.txt b/src/cmd/go/testdata/script/get_insecure.txt
+index f29ec2d..afe64b8 100644
+--- a/src/cmd/go/testdata/script/get_insecure.txt
++++ b/src/cmd/go/testdata/script/get_insecure.txt
+@@ -1,9 +1,25 @@
++# TODO(matloob): Split this test into two? It's one of the slowest tests we have.
++
+ [!net:insecure.go-get-issue-15410.appspot.com] skip
+ [!git] skip
+ 
+ env PATH=$WORK/tmp/bin${:}$PATH
+ go build -o $WORK/tmp/bin/ssh ssh.go
+ 
++# GOPATH: Set up
++env GO111MODULE=off
++
++# GOPATH: Try go get -d of HTTP-only repo (should fail).
++! go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try again with GOINSECURE (should succeed).
++env GOINSECURE=insecure.go-get-issue-15410.appspot.com
++go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try updating without GOINSECURE (should fail).
++env GOINSECURE=''
++! go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
++
+ # Modules: Set up
+ env GOPATH=$WORK/m/gp
+ mkdir $WORK/m
+diff --git a/src/cmd/go/testdata/script/get_insecure_custom_domain.txt b/src/cmd/go/testdata/script/get_insecure_custom_domain.txt
+new file mode 100644
+index 0000000..4b3c9d6
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_insecure_custom_domain.txt
+@@ -0,0 +1,8 @@
++[!net:insecure.go-get-issue-15410.appspot.com] skip
++[!git] skip
++env GO111MODULE=off
++
++! go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
++
++env GOINSECURE=insecure.go-get-issue-15410.appspot.com
++go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
+diff --git a/src/cmd/go/testdata/script/get_insecure_env.txt b/src/cmd/go/testdata/script/get_insecure_env.txt
+new file mode 100644
+index 0000000..98e7053
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_insecure_env.txt
+@@ -0,0 +1,29 @@
++[!net:insecure.go-get-issue-15410.appspot.com] skip
++[!git] skip
++
++# GOPATH: Set up
++env GO111MODULE=off
++
++# GOPATH: Try go get -d of HTTP-only repo (should fail).
++! go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try again with invalid GOINSECURE (should fail).
++env GOINSECURE=insecure.go-get-issue-15410.appspot.com/pkg/q
++! go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try with correct GOINSECURE (should succeed).
++env GOINSECURE=insecure.go-get-issue-15410.appspot.com/pkg/p
++go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try updating without GOINSECURE (should fail).
++env GOINSECURE=
++! go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try updating with GOINSECURE glob (should succeed).
++env GOINSECURE=*.go-get-*.appspot.com
++go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
++
++# GOPATH: Try updating with GOINSECURE base URL (should succeed).
++env GOINSECURE=insecure.go-get-issue-15410.appspot.com
++go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
++
+diff --git a/src/cmd/go/testdata/script/get_insecure_redirect.txt b/src/cmd/go/testdata/script/get_insecure_redirect.txt
+new file mode 100644
+index 0000000..2e53c58
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_insecure_redirect.txt
+@@ -0,0 +1,14 @@
++# golang.org/issue/29591: 'go get' was following plain-HTTP redirects even without -insecure (now replaced by GOINSECURE).
++# golang.org/issue/34049: 'go get' would panic in case of an insecure redirect in GOPATH mode
++
++[!git] skip
++
++env GO111MODULE=off
++
++! go get -d vcs-test.golang.org/insecure/go/insecure
++stderr 'redirected .* to insecure URL'
++
++[short] stop 'builds a git repo'
++
++env GOINSECURE=vcs-test.golang.org/insecure/go/insecure
++go get -d vcs-test.golang.org/insecure/go/insecure
+diff --git a/src/cmd/go/testdata/script/get_insecure_update.txt b/src/cmd/go/testdata/script/get_insecure_update.txt
+new file mode 100644
+index 0000000..7cddd6b
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_insecure_update.txt
+@@ -0,0 +1,14 @@
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++# Clone the repo via HTTP manually.
++exec git clone -q http://github.com/golang/example github.com/golang/example
++
++# Update without GOINSECURE should fail.
++# We need -f to ignore import comments.
++! go get -d -u -f github.com/golang/example/hello
++
++# Update with GOINSECURE should succeed.
++env GOINSECURE=github.com/golang/example/hello
++go get -d -u -f github.com/golang/example/hello
+diff --git a/src/cmd/go/testdata/script/get_internal_wildcard.txt b/src/cmd/go/testdata/script/get_internal_wildcard.txt
+new file mode 100644
+index 0000000..b25e746
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_internal_wildcard.txt
+@@ -0,0 +1,6 @@
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++# This used to fail with errors about internal packages
++go get github.com/rsc/go-get-issue-11960/...
+diff --git a/src/cmd/go/testdata/script/get_issue11307.txt b/src/cmd/go/testdata/script/get_issue11307.txt
+new file mode 100644
+index 0000000..d490959
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_issue11307.txt
+@@ -0,0 +1,9 @@
++# go get -u was not working except in checkout directory
++
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++env GOPATH=$WORK/tmp/gopath
++go get github.com/rsc/go-get-issue-11307
++go get -u github.com/rsc/go-get-issue-11307 # was failing
+diff --git a/src/cmd/go/testdata/script/get_issue16471.txt b/src/cmd/go/testdata/script/get_issue16471.txt
+new file mode 100644
+index 0000000..1aeae58
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_issue16471.txt
+@@ -0,0 +1,23 @@
++[!net:rsc.io] skip
++[!net:github.com] skip
++[!git] skip
++
++env GO111MODULE=off
++
++cd rsc.io/go-get-issue-10952
++
++exec git init
++exec git add foo.go
++exec git config user.name Gopher
++exec git config user.email gopher@golang.org
++exec git commit -a -m 'initial commit'
++exec git remote add origin https://github.com/golang/go-get-issue-10952
++
++exec git status
++
++! go get -x -u rsc.io/go-get-issue-10952
++stderr '^package rsc.io/go-get-issue-10952: rsc\.io/go-get-issue-10952 is a custom import path for https://github.com/rsc/go-get-issue-10952, but .* is checked out from https://github.com/golang/go-get-issue-10952$'
++
++-- rsc.io/go-get-issue-10952/foo.go --
++// Junk package to test go get.
++package foo
+diff --git a/src/cmd/go/testdata/script/get_issue22125.txt b/src/cmd/go/testdata/script/get_issue22125.txt
+new file mode 100644
+index 0000000..086081f
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_issue22125.txt
+@@ -0,0 +1,14 @@
++# This test verifies a fix for a security issue; see https://go.dev/issue/22125.
++
++[short] skip
++[!git] skip
++[!exec:svn] skip
++
++env GO111MODULE=off
++
++cd $GOPATH
++! go get -u vcs-test.golang.org/go/test1-svn-git
++stderr 'src'${/}'vcs-test.* uses git, but parent .*src'${/}'vcs-test.* uses svn'
++
++[!case-sensitive] ! go get -u vcs-test.golang.org/go/test2-svn-git/test2main
++[!case-sensitive] stderr 'src'${/}'vcs-test.* uses git, but parent .*src'${/}'vcs-test.* uses svn'
+diff --git a/src/cmd/go/testdata/script/get_legacy.txt b/src/cmd/go/testdata/script/get_legacy.txt
+new file mode 100644
+index 0000000..2909b73
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_legacy.txt
+@@ -0,0 +1,58 @@
++# This test was converted from a test in vendor_test.go (which no longer exists).
++# That seems to imply that it's about vendoring semantics, but the test doesn't
++# use 'go -mod=vendor' (and none of the fetched repos have vendor folders).
++# The test still seems to be useful as a test of direct-mode go get.
++
++[short] skip
++[!git] skip
++env GO111MODULE=off
++
++env GOPATH=$WORK/tmp/d1
++go get vcs-test.golang.org/git/modlegacy1-old.git/p1
++go list -f '{{.Deps}}' vcs-test.golang.org/git/modlegacy1-old.git/p1
++stdout 'new.git/p2' # old/p1 should depend on new/p2
++! stdout new.git/v2/p2 # old/p1 should NOT depend on new/v2/p2
++go build vcs-test.golang.org/git/modlegacy1-old.git/p1 vcs-test.golang.org/git/modlegacy1-new.git/p1
++! stdout .
++
++env GOPATH=$WORK/tmp/d2
++
++rm $GOPATH
++go get github.com/rsc/vgotest5
++go get github.com/rsc/vgotest4
++go get github.com/myitcv/vgo_example_compat
++
++rm $GOPATH
++go get github.com/rsc/vgotest4
++go get github.com/rsc/vgotest5
++go get github.com/myitcv/vgo_example_compat
++
++rm $GOPATH
++go get github.com/rsc/vgotest4 github.com/rsc/vgotest5
++go get github.com/myitcv/vgo_example_compat
++
++rm $GOPATH
++go get github.com/rsc/vgotest5 github.com/rsc/vgotest4
++go get github.com/myitcv/vgo_example_compat
++
++rm $GOPATH
++go get github.com/myitcv/vgo_example_compat
++go get github.com/rsc/vgotest5 github.com/rsc/vgotest4
++
++rm $GOPATH
++go get github.com/myitcv/vgo_example_compat github.com/rsc/vgotest4 github.com/rsc/vgotest5
++
++rm $GOPATH
++go get github.com/myitcv/vgo_example_compat github.com/rsc/vgotest5 github.com/rsc/vgotest4
++
++rm $GOPATH
++go get github.com/rsc/vgotest4 github.com/myitcv/vgo_example_compat github.com/rsc/vgotest5
++
++rm $GOPATH
++go get github.com/rsc/vgotest4 github.com/rsc/vgotest5 github.com/myitcv/vgo_example_compat
++
++rm $GOPATH
++go get github.com/rsc/vgotest5 github.com/myitcv/vgo_example_compat github.com/rsc/vgotest4
++
++rm $GOPATH
++go get github.com/rsc/vgotest5 github.com/rsc/vgotest4 github.com/myitcv/vgo_example_compat
+diff --git a/src/cmd/go/testdata/script/get_non_pkg.txt b/src/cmd/go/testdata/script/get_non_pkg.txt
+new file mode 100644
+index 0000000..5202e88
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_non_pkg.txt
+@@ -0,0 +1,14 @@
++[!net:golang.org] skip
++[!git] skip
++
++env GOBIN=$WORK/tmp/gobin
++env GO111MODULE=off
++
++! go get -d golang.org/x/tools
++stderr 'golang.org/x/tools: no Go files'
++
++! go get -d -u golang.org/x/tools
++stderr 'golang.org/x/tools: no Go files'
++
++! go get -d golang.org/x/tools
++stderr 'golang.org/x/tools: no Go files'
+diff --git a/src/cmd/go/testdata/script/get_race.txt b/src/cmd/go/testdata/script/get_race.txt
+new file mode 100644
+index 0000000..1e06c80
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_race.txt
+@@ -0,0 +1,8 @@
++# Tests issue #20502
++
++[!net:github.com] skip
++[!git] skip
++[!race] skip
++env GO111MODULE=off
++
++go get -race github.com/rsc/go-get-issue-9224-cmd
+diff --git a/src/cmd/go/testdata/script/get_test_only.txt b/src/cmd/go/testdata/script/get_test_only.txt
+new file mode 100644
+index 0000000..af90f74
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_test_only.txt
+@@ -0,0 +1,6 @@
++[!net:golang.org] skip
++[!git] skip
++env GO111MODULE=off
++
++go get golang.org/x/tour/content...
++go get -t golang.org/x/tour/content...
+diff --git a/src/cmd/go/testdata/script/get_tilde.txt b/src/cmd/go/testdata/script/get_tilde.txt
+new file mode 100644
+index 0000000..1c3a029
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_tilde.txt
+@@ -0,0 +1,25 @@
++env GO111MODULE=off
++
++# Paths containing windows short names should be rejected before attempting to fetch.
++! go get vcs-test.golang.org/longna~1.dir/thing
++stderr 'trailing tilde and digits'
++! go get vcs-test.golang.org/longna~1/thing
++stderr 'trailing tilde and digits'
++! go get vcs-test.golang.org/~9999999/thing
++stderr 'trailing tilde and digits'
++
++[short] stop
++
++# A path containing an element that is just a tilde, or a tilde followed by non-digits,
++# should attempt to resolve.
++! go get vcs-test.golang.org/~glenda/notfound
++! stderr 'trailing tilde and digits'
++stderr 'unrecognized import path'
++
++! go get vcs-test.golang.org/~glenda2/notfound
++! stderr 'trailing tilde and digits'
++stderr 'unrecognized import path'
++
++! go get vcs-test.golang.org/~/notfound
++! stderr 'trailing tilde and digits'
++stderr 'unrecognized import path'
+diff --git a/src/cmd/go/testdata/script/get_update.txt b/src/cmd/go/testdata/script/get_update.txt
+new file mode 100644
+index 0000000..a70a80d
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_update.txt
+@@ -0,0 +1,25 @@
++# Tests Issue #9224
++# The recursive updating was trying to walk to
++# former dependencies, not current ones.
++
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++# Rewind
++go get github.com/rsc/go-get-issue-9224-cmd
++cd $GOPATH/src/github.com/rsc/go-get-issue-9224-lib
++exec git reset --hard HEAD~
++cd $GOPATH/src
++
++# Run get
++go get -u 'github.com/rsc/go-get-issue-9224-cmd'
++
++# (Again with -d -u) Rewind
++go get github.com/rsc/go-get-issue-9224-cmd
++cd $GOPATH/src/github.com/rsc/go-get-issue-9224-lib
++exec git reset --hard HEAD~
++cd $GOPATH/src
++
++# (Again with -d -u) Run get
++go get -d -u 'github.com/rsc/go-get-issue-9224-cmd'
+diff --git a/src/cmd/go/testdata/script/get_update_all.txt b/src/cmd/go/testdata/script/get_update_all.txt
+new file mode 100644
+index 0000000..22fe3ed
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_update_all.txt
+@@ -0,0 +1,7 @@
++# Issue 14444: go get -u .../ duplicate loads errors
++# Check that go get update -u ... does not try to load duplicates
++
++env GO111MODULE=off
++
++go get -u -n .../
++! stderr 'duplicate loads of' # make sure old packages are removed from cache
+diff --git a/src/cmd/go/testdata/script/get_update_unknown_protocol.txt b/src/cmd/go/testdata/script/get_update_unknown_protocol.txt
+new file mode 100644
+index 0000000..714ed6a
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_update_unknown_protocol.txt
+@@ -0,0 +1,14 @@
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++# Clone the repo via HTTPS manually.
++exec git clone -q https://github.com/golang/example github.com/golang/example
++
++# Configure the repo to use a protocol unknown to cmd/go
++# that still actually works.
++cd github.com/golang/example
++exec git remote set-url origin xyz://github.com/golang/example
++exec git config --local url.https://github.com/.insteadOf xyz://github.com/
++
++go get -d -u -f github.com/golang/example/hello
+diff --git a/src/cmd/go/testdata/script/get_update_wildcard.txt b/src/cmd/go/testdata/script/get_update_wildcard.txt
+new file mode 100644
+index 0000000..c833783
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_update_wildcard.txt
+@@ -0,0 +1,16 @@
++# Issue 14450: go get -u .../ tried to import not downloaded package
++
++[!net:github.com] skip
++[!git] skip
++env GO111MODULE=off
++
++go get github.com/tmwh/go-get-issue-14450/a
++! go get -u .../
++stderr 'cannot find package.*d-dependency/e'
++
++# Even though get -u failed, the source for others should be downloaded.
++exists github.com/tmwh/go-get-issue-14450/b
++exists github.com/tmwh/go-get-issue-14450-b-dependency/c
++exists github.com/tmwh/go-get-issue-14450-b-dependency/d
++
++! exists github.com/tmwh/go-get-issue-14450-c-dependency/e
+diff --git a/src/cmd/go/testdata/script/get_vcs_error_message.txt b/src/cmd/go/testdata/script/get_vcs_error_message.txt
+new file mode 100644
+index 0000000..8dc84fc
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_vcs_error_message.txt
+@@ -0,0 +1,9 @@
++# Test that the Version Control error message includes the correct directory
++env GO111MODULE=off
++! go get -u foo
++stderr gopath(\\\\|/)src(\\\\|/)foo
++
++-- foo/foo.go --
++package foo
++-- math/math.go --
++package math
+diff --git a/src/cmd/go/testdata/script/get_vendor.txt b/src/cmd/go/testdata/script/get_vendor.txt
+new file mode 100644
+index 0000000..179456d
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_vendor.txt
+@@ -0,0 +1,95 @@
++[short] skip
++env GO111MODULE=off
++
++cd $GOPATH/src/v
++go run m.go
++go test
++go list -f '{{.Imports}}'
++stdout 'v/vendor/vendor.org/p'
++go list -f '{{.TestImports}}'
++stdout 'v/vendor/vendor.org/p'
++go get -d
++go get -t -d
++
++[!net:github.com] stop
++[!git] stop
++
++cd $GOPATH/src
++
++# Update
++go get 'github.com/rsc/go-get-issue-11864'
++go get -u 'github.com/rsc/go-get-issue-11864'
++exists github.com/rsc/go-get-issue-11864/vendor
++
++# get -u
++rm $GOPATH
++mkdir $GOPATH/src
++go get -u 'github.com/rsc/go-get-issue-11864'
++exists github.com/rsc/go-get-issue-11864/vendor
++
++# get -t -u
++rm $GOPATH
++mkdir $GOPATH/src
++go get -t -u 'github.com/rsc/go-get-issue-11864/...'
++exists github.com/rsc/go-get-issue-11864/vendor
++
++# Submodules
++rm $GOPATH
++mkdir $GOPATH/src
++go get -d 'github.com/rsc/go-get-issue-12612'
++go get -u -d 'github.com/rsc/go-get-issue-12612'
++exists github.com/rsc/go-get-issue-12612/vendor/golang.org/x/crypto/.git
++
++# Bad vendor (bad/imp)
++rm $GOPATH
++mkdir $GOPATH/src
++! go get -t -u 'github.com/rsc/go-get-issue-18219/bad/imp'
++stderr 'must be imported as'
++! exists github.com/rsc/go-get-issue-11864/vendor
++
++# Bad vendor (bad/imp2)
++rm $GOPATH
++mkdir $GOPATH/src
++! go get -t -u 'github.com/rsc/go-get-issue-18219/bad/imp2'
++stderr 'must be imported as'
++! exists github.com/rsc/go-get-issue-11864/vendor
++
++# Bad vendor (bad/imp3)
++rm $GOPATH
++mkdir $GOPATH/src
++! go get -t -u 'github.com/rsc/go-get-issue-18219/bad/imp3'
++stderr 'must be imported as'
++! exists github.com/rsc/go-get-issue-11864/vendor
++
++# Bad vendor (bad/...)
++rm $GOPATH
++mkdir $GOPATH/src
++! go get -t -u 'github.com/rsc/go-get-issue-18219/bad/...'
++stderr 'must be imported as'
++! exists github.com/rsc/go-get-issue-11864/vendor
++
++-- v/m.go --
++package main
++
++import (
++	"fmt"
++	"vendor.org/p"
++)
++
++func main() {
++	fmt.Println(p.C)
++}
++-- v/m_test.go --
++package main
++import (
++	"fmt"
++	"testing"
++	"vendor.org/p"
++)
++
++func TestNothing(t *testing.T) {
++	fmt.Println(p.C)
++}
++-- v/vendor/vendor.org/p/p.go --
++package p
++const C = 1
+diff --git a/src/cmd/go/testdata/script/get_with_git_trace.txt b/src/cmd/go/testdata/script/get_with_git_trace.txt
+new file mode 100644
+index 0000000..6f1305a
+--- /dev/null
++++ b/src/cmd/go/testdata/script/get_with_git_trace.txt
+@@ -0,0 +1,9 @@
++env GO111MODULE=off
++
++env GIT_TRACE=1
++
++[!net:golang.org] skip
++[!git] skip
++
++# go get should be success when GIT_TRACE set
++go get golang.org/x/text
+diff --git a/src/cmd/go/testdata/script/gopath_moved_repo.txt b/src/cmd/go/testdata/script/gopath_moved_repo.txt
+new file mode 100644
+index 0000000..8108d9b
+--- /dev/null
++++ b/src/cmd/go/testdata/script/gopath_moved_repo.txt
+@@ -0,0 +1,67 @@
++env GO111MODULE=off
++
++# Test that 'go get -u' reports packages whose VCS configurations do not
++# match their import paths.
++
++[!net:rsc.io] skip
++[short] skip
++
++# We need to execute a custom Go program to break the config files.
++#
++# git will ask for a username and password when we run 'go get -d -f -u',
++# so we also need to set GIT_ASKPASS. Conveniently, a single binary can
++# perform both tasks!
++
++go build -o replace.exe replace
++env GIT_ASKPASS=$PWD/replace.exe
++
++
++# Test that 'go get -u' reports moved git packages.
++
++[git] go get -d rsc.io/pdf
++[git] go get -d -u rsc.io/pdf
++[git] exec ./replace.exe pdf rsc.io/pdf/.git/config
++
++[git] ! go get -d -u rsc.io/pdf
++[git] stderr 'is a custom import path for'
++[git] ! go get -d -f -u rsc.io/pdf
++[git] stderr 'validating server certificate|[nN]ot [fF]ound'
++
++
++# Test that 'go get -u' reports moved Mercurial packages.
++
++[exec:hg] go get -d vcs-test.golang.org/go/custom-hg-hello
++[exec:hg] go get -d -u vcs-test.golang.org/go/custom-hg-hello
++[exec:hg] exec ./replace.exe custom-hg-hello vcs-test.golang.org/go/custom-hg-hello/.hg/hgrc
++
++[exec:hg] ! go get -d -u vcs-test.golang.org/go/custom-hg-hello
++[exec:hg] stderr 'is a custom import path for'
++[exec:hg] ! go get -d -f -u vcs-test.golang.org/go/custom-hg-hello
++[exec:hg] stderr 'validating server certificate|[nN]ot [fF]ound'
++
++
++-- replace/replace.go --
++package main
++
++import (
++	"bytes"
++	"log"
++	"os"
++)
++
++func main() {
++	if len(os.Args) < 3 {
++		return
++	}
++
++	base := []byte(os.Args[1])
++	path := os.Args[2]
++	data, err := os.ReadFile(path)
++	if err != nil {
++		log.Fatal(err)
++	}
++	err = os.WriteFile(path, bytes.ReplaceAll(data, base, append(base, "XXX"...)), 0644)
++	if err != nil {
++		log.Fatal(err)
++	}
++}
+diff --git a/src/cmd/go/testdata/script/govcs.txt b/src/cmd/go/testdata/script/govcs.txt
+index 876f606..dd128cc 100644
+--- a/src/cmd/go/testdata/script/govcs.txt
++++ b/src/cmd/go/testdata/script/govcs.txt
+@@ -84,6 +84,89 @@ env GOVCS=public:git
+ ! go get rsc.io/nonexist.hg/hello
+ stderr '^go: rsc.io/nonexist.hg/hello: GOVCS disallows using hg for public rsc.io/nonexist.hg; see ''go help vcs''$'
+ 
++# Repeat in GOPATH mode. Error texts slightly different.
++
++env GO111MODULE=off
++
++# GOVCS stops go get
++env GOVCS='*:none'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: GOVCS disallows using git for public github.com/google/go-cmp; see ''go help vcs''$'
++env GOPRIVATE='github.com/google'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: GOVCS disallows using git for private github.com/google/go-cmp; see ''go help vcs''$'
++
++# public pattern works
++env GOPRIVATE='github.com/google'
++env GOVCS='public:all,private:none'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: GOVCS disallows using git for private github.com/google/go-cmp; see ''go help vcs''$'
++
++# private pattern works
++env GOPRIVATE='hubgit.com/google'
++env GOVCS='private:all,public:none'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: GOVCS disallows using git for public github.com/google/go-cmp; see ''go help vcs''$'
++
++# other patterns work (for more patterns, see TestGOVCS)
++env GOPRIVATE=
++env GOVCS='github.com:svn|hg'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: GOVCS disallows using git for public github.com/google/go-cmp; see ''go help vcs''$'
++env GOVCS='github.com/google/go-cmp/inner:git,github.com:svn|hg'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: GOVCS disallows using git for public github.com/google/go-cmp; see ''go help vcs''$'
++
++# bad patterns are reported (for more bad patterns, see TestGOVCSErrors)
++env GOVCS='git'
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: malformed entry in GOVCS \(missing colon\): "git"$'
++
++env GOVCS=github.com:hg,github.com:git
++! go get github.com/google/go-cmp
++stderr '^package github.com/google/go-cmp: unreachable pattern in GOVCS: "github.com:git" after "github.com:hg"$'
++
++# bad GOVCS patterns do not stop commands that do not need to check VCS
++go list
++
++# svn is disallowed by default
++env GOPRIVATE=
++env GOVCS=
++! go get rsc.io/nonexist.svn/hello
++stderr '^package rsc.io/nonexist.svn/hello: GOVCS disallows using svn for public rsc.io/nonexist.svn; see ''go help vcs''$'
++
++# fossil is disallowed by default
++env GOPRIVATE=
++env GOVCS=
++! go get rsc.io/nonexist.fossil/hello
++stderr '^package rsc.io/nonexist.fossil/hello: GOVCS disallows using fossil for public rsc.io/nonexist.fossil; see ''go help vcs''$'
++
++# bzr is disallowed by default
++env GOPRIVATE=
++env GOVCS=
++! go get rsc.io/nonexist.bzr/hello
++stderr '^package rsc.io/nonexist.bzr/hello: GOVCS disallows using bzr for public rsc.io/nonexist.bzr; see ''go help vcs''$'
++
++# git is OK by default
++env GOVCS=
++env GONOSUMDB='*'
++[net:rsc.io] [git] [!short] go get rsc.io/sampler
++
++# hg is OK by default
++env GOVCS=
++env GONOSUMDB='*'
++[exec:hg] [!short] go get vcs-test.golang.org/go/custom-hg-hello
++
++# git can be disallowed
++env GOVCS=public:hg
++! go get rsc.io/nonexist.git/hello
++stderr '^package rsc.io/nonexist.git/hello: GOVCS disallows using git for public rsc.io/nonexist.git; see ''go help vcs''$'
++
++# hg can be disallowed
++env GOVCS=public:git
++! go get rsc.io/nonexist.hg/hello
++stderr '^package rsc.io/nonexist.hg/hello: GOVCS disallows using hg for public rsc.io/nonexist.hg; see ''go help vcs''$'
++
+ -- go.mod --
+ module m
+ 
+diff --git a/src/cmd/go/testdata/script/help.txt b/src/cmd/go/testdata/script/help.txt
+index fb15e93..26a0194 100644
+--- a/src/cmd/go/testdata/script/help.txt
++++ b/src/cmd/go/testdata/script/help.txt
+@@ -48,4 +48,4 @@ stderr 'Run ''go help test'' and ''go help testflag'' for details.'
+ # go help get shows usage for get
+ go help get
+ stdout 'usage: go get'
+-stdout 'specific module versions'
++stdout 'get when using GOPATH'
+diff --git a/src/cmd/go/testdata/script/mod_versions.txt b/src/cmd/go/testdata/script/mod_versions.txt
+index aaa4216..9e6322b 100644
+--- a/src/cmd/go/testdata/script/mod_versions.txt
++++ b/src/cmd/go/testdata/script/mod_versions.txt
+@@ -1,7 +1,7 @@
+ # Test rejection of pkg@version in GOPATH mode.
+ env GO111MODULE=off
+ ! go get rsc.io/quote@v1.5.1
+-stderr '^go: modules disabled by GO111MODULE=off'
++stderr '^go: can only use path@version syntax with ''go get'' and ''go install'' in module-aware mode$'
+ ! go build rsc.io/quote@v1.5.1
+ stderr '^package rsc.io/quote@v1.5.1: can only use path@version syntax with ''go get'' and ''go install'' in module-aware mode$'
+ 
+diff --git a/src/cmd/go/testdata/script/vendor_list_issue11977.txt b/src/cmd/go/testdata/script/vendor_list_issue11977.txt
+index f1ed613..f519175 100644
+--- a/src/cmd/go/testdata/script/vendor_list_issue11977.txt
++++ b/src/cmd/go/testdata/script/vendor_list_issue11977.txt
+@@ -1,5 +1,9 @@
++[!net:github.com] skip
++[!git] skip
+ env GO111MODULE=off
+ 
++go get github.com/rsc/go-get-issue-11864
++
+ go list -f '{{join .TestImports "\n"}}' github.com/rsc/go-get-issue-11864/t
+ stdout 'go-get-issue-11864/vendor/vendor.org/p'
+ 
+@@ -11,77 +15,3 @@ stdout 'go-get-issue-11864/vendor/vendor.org/tx2'
+ 
+ go list -f '{{join .XTestImports "\n"}}' github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3
+ stdout 'go-get-issue-11864/vendor/vendor.org/tx3'
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/m.go --
+-package g
+-
+-import _ "vendor.org/p"
+-import _ "vendor.org/p1"
+-
+-func main() {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/t/t_test.go --
+-package t
+-
+-import _ "vendor.org/p"
+-import _ "vendor.org/p1"
+-import "testing"
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/t/t.go --
+-package t
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/tx/tx_test.go --
+-package tx_test
+-
+-import _ "vendor.org/p"
+-import _ "vendor.org/p1"
+-import "testing"
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/tx/tx.go --
+-package tx
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/p1/p1.go --
+-package p1 // import "vendor.org/p1"
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3/tx3_test.go --
+-package tx3_test
+-
+-import "vendor.org/tx3"
+-import "testing"
+-
+-var Found = tx3.Exported
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3/export_test.go --
+-package tx3
+-
+-var Exported = true
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3/tx3.go --
+-package tx3
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2/tx2_test.go --
+-package tx2_test
+-
+-import . "vendor.org/tx2"
+-import "testing"
+-
+-var Found = Exported
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2/export_test.go --
+-package tx2
+-
+-var Exported = true
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2/tx2.go --
+-package tx2
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/p/p.go --
+-package p
+diff --git a/src/cmd/go/testdata/script/vendor_test_issue11864.txt b/src/cmd/go/testdata/script/vendor_test_issue11864.txt
+index 90c9c59..9e34811 100644
+--- a/src/cmd/go/testdata/script/vendor_test_issue11864.txt
++++ b/src/cmd/go/testdata/script/vendor_test_issue11864.txt
+@@ -1,83 +1,12 @@
+-[short] skip
++[!net:github.com] skip
++[!git] skip
+ env GO111MODULE=off
+ 
++go get github.com/rsc/go-get-issue-11864
++
+ # test should work too
+ go test github.com/rsc/go-get-issue-11864
+ go test github.com/rsc/go-get-issue-11864/t
+ 
+ # external tests should observe internal test exports (golang.org/issue/11977)
+ go test github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/m.go --
+-package g
+-
+-import _ "vendor.org/p"
+-import _ "vendor.org/p1"
+-
+-func main() {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/t/t_test.go --
+-package t
+-
+-import _ "vendor.org/p"
+-import _ "vendor.org/p1"
+-import "testing"
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/t/t.go --
+-package t
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/tx/tx_test.go --
+-package tx_test
+-
+-import _ "vendor.org/p"
+-import _ "vendor.org/p1"
+-import "testing"
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/tx/tx.go --
+-package tx
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/p1/p1.go --
+-package p1 // import "vendor.org/p1"
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3/tx3_test.go --
+-package tx3_test
+-
+-import "vendor.org/tx3"
+-import "testing"
+-
+-var Found = tx3.Exported
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3/export_test.go --
+-package tx3
+-
+-var Exported = true
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx3/tx3.go --
+-package tx3
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2/tx2_test.go --
+-package tx2_test
+-
+-import . "vendor.org/tx2"
+-import "testing"
+-
+-var Found = Exported
+-
+-func TestNop(t *testing.T) {}
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2/export_test.go --
+-package tx2
+-
+-var Exported = true
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/tx2/tx2.go --
+-package tx2
+-
+--- $GOPATH/src/github.com/rsc/go-get-issue-11864/vendor/vendor.org/p/p.go --
+-package p
+diff --git a/src/cmd/go/testdata/script/vendor_test_issue14613.txt b/src/cmd/go/testdata/script/vendor_test_issue14613.txt
+index d2f05c9..9535fc1 100644
+--- a/src/cmd/go/testdata/script/vendor_test_issue14613.txt
++++ b/src/cmd/go/testdata/script/vendor_test_issue14613.txt
+@@ -1,6 +1,11 @@
+-[short] skip
++[!net:github.com] skip
++[!git] skip
+ env GO111MODULE=off
+ 
++cd $GOPATH
++
++go get github.com/clsung/go-vendor-issue-14613
++
+ # test folder should work
+ go test github.com/clsung/go-vendor-issue-14613
+ 
+@@ -11,42 +16,3 @@ go test github.com/clsung/go-vendor-issue-14613/vendor_test.go
+ # test with imported and not used
+ ! go test github.com/clsung/go-vendor-issue-14613/vendor/mylibtesttest/myapp/myapp_test.go
+ stderr 'imported and not used'
+-
+--- $GOPATH/src/github.com/clsung/go-vendor-issue-14613/./vendor_test.go --
+-package main
+-
+-import (
+-	"testing"
+-
+-	"github.com/clsung/fake"
+-)
+-
+-func TestVendor(t *testing.T) {
+-	ret := fake.DoNothing()
+-	expected := "Ok"
+-	if expected != ret {
+-		t.Errorf("fake returned %q, expected %q", ret, expected)
+-	}
+-}
+-
+--- $GOPATH/src/github.com/clsung/go-vendor-issue-14613/./vendor/mylibtesttest/myapp/myapp_test.go --
+-package myapp
+-import (
+-   "mylibtesttest/rds"
+-)
+-
+--- $GOPATH/src/github.com/clsung/go-vendor-issue-14613/./vendor/mylibtesttest/rds/rds.go --
+-package rds
+-
+--- $GOPATH/src/github.com/clsung/go-vendor-issue-14613/./vendor/github.com/clsung/fake/fake.go --
+-package fake
+-
+-func DoNothing() string {
+-	return "Ok"
+-}
+-
+--- $GOPATH/src/github.com/clsung/go-vendor-issue-14613/./m.go --
+-package main
+-
+-func main() {}
+-
+-- 
+2.47.0
+
