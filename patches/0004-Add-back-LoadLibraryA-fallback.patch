@@ -1,6 +1,6 @@
-From ed249cf4dbfe31b9cea185100b74c38e5c6e3bd9 Mon Sep 17 00:00:00 2001
+From ea796551e74ca73fa170ed296c290d5644fbae56 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Sat, 9 Nov 2024 18:54:55 +1100
+Date: Tue, 24 Dec 2024 19:18:28 +0700
 Subject: [PATCH] Add back LoadLibraryA fallback
 
 ---
@@ -8,13 +8,13 @@ Subject: [PATCH] Add back LoadLibraryA fallback
  src/runtime/os_windows.go           | 60 ++++++++++++++++++++++++++++-
  src/runtime/syscall_windows.go      | 17 +++++++-
  src/runtime/syscall_windows_test.go | 23 ++++++++++-
- src/syscall/dll_windows.go          | 28 +++++++++++++-
+ src/syscall/dll_windows.go          | 29 +++++++++++++-
  src/syscall/security_windows.go     |  1 +
  src/syscall/zsyscall_windows.go     | 10 +++++
- 7 files changed, 136 insertions(+), 7 deletions(-)
+ 7 files changed, 137 insertions(+), 7 deletions(-)
 
 diff --git a/src/runtime/export_windows_test.go b/src/runtime/export_windows_test.go
-index 4880e62a55..8bfff0bc93 100644
+index 4880e62..8bfff0b 100644
 --- a/src/runtime/export_windows_test.go
 +++ b/src/runtime/export_windows_test.go
 @@ -36,3 +36,7 @@ func NewContextStub() *ContextStub {
@@ -26,7 +26,7 @@ index 4880e62a55..8bfff0bc93 100644
 +	return useLoadLibraryEx, _LoadLibraryExW != nil, _AddDllDirectory != nil
 +}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index 02735802d4..c76df9da22 100644
+index 0273580..c76df9d 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
 @@ -41,6 +41,7 @@ const (
@@ -139,7 +139,7 @@ index 02735802d4..c76df9da22 100644
  
  // osRelaxMinNS indicates that sysmon shouldn't osRelax if the next
 diff --git a/src/runtime/syscall_windows.go b/src/runtime/syscall_windows.go
-index 85b1b8c902..eb808feea5 100644
+index 85b1b8c..eb808fe 100644
 --- a/src/runtime/syscall_windows.go
 +++ b/src/runtime/syscall_windows.go
 @@ -413,10 +413,23 @@ func callbackWrap(a *callbackArgs) {
@@ -169,7 +169,7 @@ index 85b1b8c902..eb808feea5 100644
  		err = 0
  	}
 diff --git a/src/runtime/syscall_windows_test.go b/src/runtime/syscall_windows_test.go
-index 156cf3eb8e..2db5b61a9b 100644
+index 156cf3e..2db5b61 100644
 --- a/src/runtime/syscall_windows_test.go
 +++ b/src/runtime/syscall_windows_test.go
 @@ -1166,7 +1166,10 @@ uintptr_t cfunc(void) {
@@ -210,11 +210,14 @@ index 156cf3eb8e..2db5b61a9b 100644
  	modwinmm    = syscall.NewLazyDLL("winmm.dll")
  	modkernel32 = syscall.NewLazyDLL("kernel32.dll")
 diff --git a/src/syscall/dll_windows.go b/src/syscall/dll_windows.go
-index 81134cb0bd..b3554d349b 100644
+index 81134cb..bd82b51 100644
 --- a/src/syscall/dll_windows.go
 +++ b/src/syscall/dll_windows.go
-@@ -44,7 +44,7 @@ func Syscall18(trap, nargs, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a
+@@ -42,9 +42,10 @@ func Syscall15(trap, nargs, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a
+ // Deprecated: Use [SyscallN] instead.
+ func Syscall18(trap, nargs, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15, a16, a17, a18 uintptr) (r1, r2 uintptr, err Errno)
  
++//go:noescape
  func SyscallN(trap uintptr, args ...uintptr) (r1, r2 uintptr, err Errno)
  func loadlibrary(filename *uint16) (handle uintptr, err Errno)
 -func loadsystemlibrary(filename *uint16) (handle uintptr, err Errno)
@@ -222,7 +225,7 @@ index 81134cb0bd..b3554d349b 100644
  func getprocaddress(handle uintptr, procname *uint8) (proc uintptr, err Errno)
  
  // A DLL implements access to a single DLL.
-@@ -53,6 +53,26 @@ type DLL struct {
+@@ -53,6 +54,26 @@ type DLL struct {
  	Handle Handle
  }
  
@@ -249,7 +252,7 @@ index 81134cb0bd..b3554d349b 100644
  // LoadDLL loads the named DLL file into memory.
  //
  // If name is not an absolute path and is not a known system DLL used by
-@@ -69,7 +89,11 @@ func LoadDLL(name string) (*DLL, error) {
+@@ -69,7 +90,11 @@ func LoadDLL(name string) (*DLL, error) {
  	var h uintptr
  	var e Errno
  	if sysdll.IsSystemDLL[name] {
@@ -263,7 +266,7 @@ index 81134cb0bd..b3554d349b 100644
  		h, e = loadlibrary(namep)
  	}
 diff --git a/src/syscall/security_windows.go b/src/syscall/security_windows.go
-index 4e988c418a..45b1908b71 100644
+index 4e988c4..45b1908 100644
 --- a/src/syscall/security_windows.go
 +++ b/src/syscall/security_windows.go
 @@ -290,6 +290,7 @@ type Tokenprimarygroup struct {
@@ -275,7 +278,7 @@ index 4e988c418a..45b1908b71 100644
  // An access token contains the security information for a logon session.
  // The system creates an access token when a user logs on, and every
 diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
-index d8d8594a55..28369e3b91 100644
+index d8d8594..28369e3 100644
 --- a/src/syscall/zsyscall_windows.go
 +++ b/src/syscall/zsyscall_windows.go
 @@ -128,6 +128,7 @@ var (
@@ -303,5 +306,5 @@ index d8d8594a55..28369e3b91 100644
  	Syscall(procGetSystemTimeAsFileTime.Addr(), 1, uintptr(unsafe.Pointer(time)), 0, 0)
  	return
 -- 
-2.47.0
+2.39.5
 
