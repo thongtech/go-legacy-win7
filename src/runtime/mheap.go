@@ -2049,8 +2049,19 @@ func internal_weak_runtime_registerWeakPointer(p unsafe.Pointer) unsafe.Pointer 
 func internal_weak_runtime_makeStrongFromWeak(u unsafe.Pointer) unsafe.Pointer {
 	handle := (*atomic.Uintptr)(u)
 
-	// Prevent preemption. We want to make sure that another GC cycle can't start.
+	// Prevent preemption. We want to make sure that another GC cycle can't start
+	// and that work.strongFromWeak.block can't change out from under us.
 	mp := acquirem()
+
+	// Yield to the GC if necessary.
+	if work.strongFromWeak.block {
+		releasem(mp)
+
+		// Try to park and wait for mark termination.
+		// N.B. gcParkStrongFromWeak calls acquirem before returning.
+		mp = gcParkStrongFromWeak()
+	}
+
 	p := handle.Load()
 	if p == 0 {
 		releasem(mp)
@@ -2092,6 +2103,41 @@ func internal_weak_runtime_makeStrongFromWeak(u unsafe.Pointer) unsafe.Pointer {
 	return ptr
 }
 
+// gcParkStrongFromWeak puts the current goroutine on the weak->strong queue and parks.
+func gcParkStrongFromWeak() *m {
+	// Prevent preemption as we check strongFromWeak, so it can't change out from under us.
+	mp := acquirem()
+
+	for work.strongFromWeak.block {
+		lock(&work.strongFromWeak.lock)
+		releasem(mp) // N.B. Holding the lock prevents preemption.
+
+		// Queue ourselves up.
+		work.strongFromWeak.q.pushBack(getg())
+
+		// Park.
+		goparkunlock(&work.strongFromWeak.lock, waitReasonGCWeakToStrongWait, traceBlockGCWeakToStrongWait, 2)
+
+		// Re-acquire the current M since we're going to check the condition again.
+		mp = acquirem()
+
+		// Re-check condition. We may have awoken in the next GC's mark termination phase.
+	}
+	return mp
+}
+
+// gcWakeAllStrongFromWeak wakes all currently blocked weak->strong
+// conversions. This is used at the end of a GC cycle.
+//
+// work.strongFromWeak.block must be false to prevent woken goroutines
+// from immediately going back to sleep.
+func gcWakeAllStrongFromWeak() {
+	lock(&work.strongFromWeak.lock)
+	list := work.strongFromWeak.q.popList()
+	injectglist(&list)
+	unlock(&work.strongFromWeak.lock)
+}
+
 // Retrieves or creates a weak pointer handle for the object p.
 func getOrAddWeakHandle(p unsafe.Pointer) *atomic.Uintptr {
 	// First try to retrieve without allocating.
@@ -2126,8 +2172,14 @@ func getOrAddWeakHandle(p unsafe.Pointer) *atomic.Uintptr {
 
 		// Keep p alive for the duration of the function to ensure
 		// that it cannot die while we're trying to do this.
+		//
+		// Same for handle, which is only stored in the special.
+		// There's a window where it might die if we don't keep it
+		// alive explicitly. Returning it here is probably good enough,
+		// but let's be defensive and explicit. See #70455.
 		KeepAlive(p)
-		return s.handle
+		KeepAlive(handle)
+		return handle
 	}
 
 	// There was an existing handle. Free the special
@@ -2147,7 +2199,10 @@ func getOrAddWeakHandle(p unsafe.Pointer) *atomic.Uintptr {
 
 	// Keep p alive for the duration of the function to ensure
 	// that it cannot die while we're trying to do this.
+	//
+	// Same for handle, just to be defensive.
 	KeepAlive(p)
+	KeepAlive(handle)
 	return handle
 }
 
