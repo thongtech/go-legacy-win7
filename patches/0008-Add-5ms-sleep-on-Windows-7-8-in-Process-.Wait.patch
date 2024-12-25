@@ -1,0 +1,69 @@
+From cf3a4d4bb96092dcc87454133a9a77ea4454a60d Mon Sep 17 00:00:00 2001
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Wed, 25 Dec 2024 14:16:56 +0700
+Subject: [PATCH] Add 5ms sleep on Windows 7/8 in (*Process).Wait
+
+---
+ src/os/exec_windows.go      | 11 +++++++++++
+ src/syscall/exec_windows.go | 16 ++++++++++++----
+ 2 files changed, 23 insertions(+), 4 deletions(-)
+
+diff --git a/src/os/exec_windows.go b/src/os/exec_windows.go
+index ab2dae1..a2d7d34 100644
+--- a/src/os/exec_windows.go
++++ b/src/os/exec_windows.go
+@@ -44,6 +44,17 @@ func (p *Process) wait() (ps *ProcessState, err error) {
+ 	if e != nil {
+ 		return nil, NewSyscallError("GetProcessTimes", e)
+ 	}
++
++	// NOTE(brainman): It seems that sometimes process is not dead
++	// when WaitForSingleObject returns. But we do not know any
++	// other way to wait for it. Sleeping for a while seems to do
++	// the trick sometimes.
++	// See https://golang.org/issue/25965 for details.
++	_, isWin10AndAbove := syscall.WindowsVersion()
++	if !isWin10AndAbove {
++		defer time.Sleep(5 * time.Millisecond)
++	}
++	
+ 	defer p.Release()
+ 	return &ProcessState{p.Pid, syscall.WaitStatus{ExitCode: ec}, &u}, nil
+ }
+diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
+index f099a6f..27b4303 100644
+--- a/src/syscall/exec_windows.go
++++ b/src/syscall/exec_windows.go
+@@ -253,6 +253,16 @@ type SysProcAttr struct {
+ var zeroProcAttr ProcAttr
+ var zeroSysProcAttr SysProcAttr
+ 
++// WindowsVersion returns whether the OS is Windows 7 (or earlier) and Windows 10 (or later)
++func WindowsVersion() (isWin7, isWin10AndAbove bool) {
++	info := _OSVERSIONINFOW{}
++	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
++	rtlGetVersion(&info)
++	isWin7 = info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
++	isWin10AndAbove = info.majorVersion >= 10
++	return
++}
++
+ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle uintptr, err error) {
+ 	if len(argv0) == 0 {
+ 		return 0, 0, EWINDOWS
+@@ -316,10 +326,8 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 		}
+ 	}
+ 
+-	info := _OSVERSIONINFOW{}
+-	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
+-	rtlGetVersion(&info)
+-	isWin7 := info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
++	isWin7, _ := WindowsVersion()
++
+ 	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
+ 	// a tag. The fully set tag correlates with the types of handles we're
+ 	// concerned about here.  Except, the kernel will interpret some
+-- 
+2.39.5
+
