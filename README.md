@@ -27,6 +27,7 @@ Every release includes the following modifications:
 - Added back LoadLibraryA fallback to load system libraries (reverted [a17d959](https://github.com/golang/go/commit/a17d959debdb04cd550016a3501dd09d50cd62e7))
 - Added back sysSocket fallback for socket syscalls (reverted [7c1157f](https://github.com/golang/go/commit/7c1157f9544922e96945196b47b95664b1e39108))
 - Added back Windows 7 console handle workaround (reverted [48042aa](https://github.com/golang/go/commit/48042aa09c2f878c4faa576948b07fe625c4707a))
+- Added back 5ms sleep on Windows 7/8 in (\*Process).Wait (reverted [f0894a0](https://github.com/golang/go/commit/f0894a00f4b756d4b9b4078af2e686b359493583))
 - Restored deprecated `go get` behavior for use outside modules (reverted [de4d503](https://github.com/golang/go/commit/de4d50316fb5c6d1529aa5377dc93b26021ee843))
 - Includes all improvements and bug fixes from the corresponding upstream Go release
 
@@ -64,20 +65,14 @@ Binary distributions are **available at the [release page](https://github.com/th
 
 3. Add the following to your shell configuration file:
 
-   - For bash (add to `~/.bash_profile` or `~/.bashrc`):
+   - For bash, add to `~/.bash_profile` or `~/.bashrc`
+   - For zsh, add to `~/.zshrc`
 
-     ```bash
-     export GOROOT=/usr/local/go-legacy-win7
-     export GOPATH=$HOME/go
-     export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-     ```
-
-   - For zsh (add to `~/.zshrc`):
-     ```zsh
-     export GOROOT=/usr/local/go-legacy-win7
-     export GOPATH=$HOME/go
-     export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
-     ```
+   ```bash
+   export GOROOT=/usr/local/go-legacy-win7
+   export GOPATH=$HOME/go
+   export PATH=$PATH:$GOROOT/bin:$GOPATH/bin
+   ```
 
 4. Apply the changes:
 
