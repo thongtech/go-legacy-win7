@@ -253,6 +253,16 @@ type SysProcAttr struct {
 var zeroProcAttr ProcAttr
 var zeroSysProcAttr SysProcAttr
 
+// WindowsVersion returns whether the OS is Windows 7 (or earlier) and Windows 10 (or later)
+func WindowsVersion() (isWin7, isWin10AndAbove bool) {
+	info := _OSVERSIONINFOW{}
+	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
+	rtlGetVersion(&info)
+	isWin7 = info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
+	isWin10AndAbove = info.majorVersion >= 10
+	return
+}
+
 func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle uintptr, err error) {
 	if len(argv0) == 0 {
 		return 0, 0, EWINDOWS
@@ -316,10 +326,8 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle 
 		}
 	}
 
-	info := _OSVERSIONINFOW{}
-	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
-	rtlGetVersion(&info)
-	isWin7 := info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
+	isWin7, _ := WindowsVersion()
+
 	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
 	// a tag. The fully set tag correlates with the types of handles we're
 	// concerned about here.  Except, the kernel will interpret some
