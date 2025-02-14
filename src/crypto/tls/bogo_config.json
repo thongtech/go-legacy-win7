@@ -12,7 +12,7 @@
 
         "TLS-ECH-Client-Reject-ResumeInnerSession-TLS12": "We won't attempt to negotiate 1.2 if ECH is enabled (we could possibly test this if we had the ability to indicate not to send ECH on resumption?)",
 
-        "TLS-ECH-Client-Reject-EarlyDataRejected": "We don't support switiching out ECH configs with this level of granularity",
+        "TLS-ECH-Client-Reject-EarlyDataRejected": "Go does not support early (0-RTT) data",
 
         "TLS-ECH-Client-NoNPN": "We don't support NPN",
 
@@ -30,8 +30,18 @@
         "TLS-ECH-Client-NoSupportedConfigs": "We don't support fallback to cleartext when there are no valid ECH configs",
         "TLS-ECH-Client-SkipInvalidPublicName": "We don't support fallback to cleartext when there are no valid ECH configs",
 
+        "TLS-ECH-Server-EarlyData": "Go does not support early (0-RTT) data",
+        "TLS-ECH-Server-EarlyDataRejected": "Go does not support early (0-RTT) data",
 
-        "*ECH-Server*": "no ECH server support",
+        "MLKEMKeyShareIncludedSecond": "BoGo wants us to order the key shares based on its preference, but we don't support that",
+        "MLKEMKeyShareIncludedThird": "BoGo wants us to order the key shares based on its preference, but we don't support that",
+        "PostQuantumNotEnabledByDefaultInClients": "We do enable it by default!",
+        "*-Kyber-TLS13": "We don't support Kyber, only ML-KEM (BoGo bug ignoring AllCurves?)",
+
+        "SendEmptySessionTicket-TLS13": "https://github.com/golang/go/issues/70513",
+
+        "*-SignDefault-*": "TODO, partially it encodes BoringSSL defaults, partially we might be missing some implicit behavior of a missing flag",
+
         "SendV2ClientHello*": "We don't support SSLv2",
         "*QUIC*": "No QUIC support",
         "Compliance-fips*": "No FIPS",
@@ -229,5 +239,15 @@
         "EarlyData-UnexpectedHandshake-Server-TLS13": "TODO: first pass, this should be fixed",
         "EarlyData-CipherMismatch-Client-TLS13": "TODO: first pass, this should be fixed",
         "Resume-Server-UnofferedCipher-TLS13": "TODO: first pass, this should be fixed"
+    },
+    "AllCurves": [
+        23,
+        24,
+        25,
+        29,
+        4588
+    ],
+    "ErrorMap": {
+        ":ECH_REJECTED:": "tls: server rejected ECH"
     }
 }

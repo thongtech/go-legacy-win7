@@ -6,8 +6,8 @@ package runtime_test
 
 import (
 	"fmt"
+	"internal/asan"
 	"internal/testenv"
-	"internal/weak"
 	"math/bits"
 	"math/rand"
 	"os"
@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 	"unsafe"
+	"weak"
 )
 
 func TestGcSys(t *testing.T) {
@@ -210,6 +211,9 @@ func TestGcZombieReporting(t *testing.T) {
 }
 
 func TestGCTestMoveStackOnNextCall(t *testing.T) {
+	if asan.Enabled {
+		t.Skip("extra allocations with -asan causes this to fail; see #70079")
+	}
 	t.Parallel()
 	var onStack int
 	// GCTestMoveStackOnNextCall can fail in rare cases if there's
@@ -300,6 +304,9 @@ var pointerClassBSS *int
 var pointerClassData = 42
 
 func TestGCTestPointerClass(t *testing.T) {
+	if asan.Enabled {
+		t.Skip("extra allocations cause this test to fail; see #70079")
+	}
 	t.Parallel()
 	check := func(p unsafe.Pointer, want string) {
 		t.Helper()
@@ -736,7 +743,7 @@ func BenchmarkMSpanCountAlloc(b *testing.B) {
 	// always rounded up 8 bytes.
 	for _, n := range []int{8, 16, 32, 64, 128} {
 		b.Run(fmt.Sprintf("bits=%d", n*8), func(b *testing.B) {
-			// Initialize a new byte slice with pseduo-random data.
+			// Initialize a new byte slice with pseudo-random data.
 			bits := make([]byte, n)
 			rand.Read(bits)
 
@@ -819,7 +826,7 @@ func TestWeakToStrongMarkTermination(t *testing.T) {
 
 	// Start a GC, and wait a little bit to get something spinning in mark termination.
 	// Simultaneously, fire off another goroutine to disable spinning. If everything's
-	// working correctly, then weak.Strong will block, so we need to make sure something
+	// working correctly, then weak.Value will block, so we need to make sure something
 	// prevents the GC from continuing to spin.
 	done := make(chan struct{})
 	go func() {
@@ -827,7 +834,11 @@ func TestWeakToStrongMarkTermination(t *testing.T) {
 		done <- struct{}{}
 	}()
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		// Usleep here instead of time.Sleep. time.Sleep
+		// can allocate, and if we get unlucky, then it
+		// can end up stuck in gcMarkDone with nothing to
+		// wake it.
+		runtime.Usleep(100000) // 100ms
 
 		// Let mark termination continue.
 		runtime.SetSpinInGCMarkDone(false)
@@ -840,7 +851,7 @@ func TestWeakToStrongMarkTermination(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			wp.Strong()
+			wp.Value()
 		}()
 	}
 

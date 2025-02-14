@@ -4,7 +4,9 @@
 
 package event
 
-// Type is the common in-memory representation of the low-leve
+// Type indicates an event's type from which its arguments and semantics can be
+// derived. Its representation matches the wire format's representation of the event
+// types that precede all event data.
 type Type uint8
 
 // Spec is a specification for a trace event. It contains sufficient information
@@ -18,7 +20,7 @@ type Spec struct {
 	//
 	// Argument names follow a certain structure and this structure
 	// is relied on by the testing framework to type-check arguments.
-	// The structure is is:
+	// The structure is:
 	//
 	//     (?P<name>[A-Za-z]+_)?(?P<type>[A-Za-z]+)
 	//

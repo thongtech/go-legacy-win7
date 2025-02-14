@@ -11,6 +11,7 @@ import (
 	"go/token"
 	"internal/buildcfg"
 	. "internal/types/errors"
+	"slices"
 )
 
 func (check *Checker) declare(scope *Scope, id *ast.Ident, obj Object, pos token.Pos) {
@@ -170,9 +171,7 @@ func (check *Checker) objDecl(obj Object, def *TypeName) {
 	defer func(env environment) {
 		check.environment = env
 	}(check.environment)
-	check.environment = environment{
-		scope: d.file,
-	}
+	check.environment = environment{scope: d.file, version: d.version}
 
 	// Const and var declarations must not have initialization
 	// cycles. We track them by remembering the current declaration
@@ -303,14 +302,13 @@ func (check *Checker) cycleError(cycle []Object, start int) {
 	// name returns the (possibly qualified) object name.
 	// This is needed because with generic types, cycles
 	// may refer to imported types. See go.dev/issue/50788.
-	// TODO(gri) Thus functionality is used elsewhere. Factor it out.
+	// TODO(gri) This functionality is used elsewhere. Factor it out.
 	name := func(obj Object) string {
 		return packagePrefix(obj.Pkg(), check.qualifier) + obj.Name()
 	}
 
-	obj := cycle[start]
-	objName := name(obj)
 	// If obj is a type alias, mark it as valid (not broken) in order to avoid follow-on errors.
+	obj := cycle[start]
 	tname, _ := obj.(*TypeName)
 	if tname != nil && tname.IsAlias() {
 		// If we use Alias nodes, it is initialized with Typ[Invalid].
@@ -323,30 +321,25 @@ func (check *Checker) cycleError(cycle []Object, start int) {
 	// report a more concise error for self references
 	if len(cycle) == 1 {
 		if tname != nil {
-			check.errorf(obj, InvalidDeclCycle, "invalid recursive type: %s refers to itself", objName)
+			check.errorf(obj, InvalidDeclCycle, "invalid recursive type: %s refers to itself", name(obj))
 		} else {
-			check.errorf(obj, InvalidDeclCycle, "invalid cycle in declaration: %s refers to itself", objName)
+			check.errorf(obj, InvalidDeclCycle, "invalid cycle in declaration: %s refers to itself", name(obj))
 		}
 		return
 	}
 
 	err := check.newError(InvalidDeclCycle)
 	if tname != nil {
-		err.addf(obj, "invalid recursive type %s", objName)
+		err.addf(obj, "invalid recursive type %s", name(obj))
 	} else {
-		err.addf(obj, "invalid cycle in declaration of %s", objName)
+		err.addf(obj, "invalid cycle in declaration of %s", name(obj))
 	}
-	i := start
-	for range cycle {
-		err.addf(obj, "%s refers to", objName)
-		i++
-		if i >= len(cycle) {
-			i = 0
-		}
-		obj = cycle[i]
-		objName = name(obj)
+	// "cycle[i] refers to cycle[j]" for (i,j) = (s,s+1), (s+1,s+2), ..., (n-1,0), (0,1), ..., (s-1,s) for len(cycle) = n, s = start.
+	for i := range cycle {
+		next := cycle[(start+i+1)%len(cycle)]
+		err.addf(obj, "%s refers to %s", name(obj), name(next))
+		obj = next
 	}
-	err.addf(obj, "%s", objName)
 	err.report()
 }
 
@@ -517,14 +510,7 @@ func (check *Checker) varDecl(obj *Var, lhs []*Var, typ, init ast.Expr) {
 
 	if debug {
 		// obj must be one of lhs
-		found := false
-		for _, lhs := range lhs {
-			if obj == lhs {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if !slices.Contains(lhs, obj) {
 			panic("inconsistent lhs")
 		}
 	}
@@ -674,7 +660,9 @@ func (check *Checker) collectTypeParams(dst **TypeParamList, list *ast.FieldList
 	// list (so we can have mutually recursive parameterized interfaces).
 	scopePos := list.Pos()
 	for _, f := range list.List {
-		tparams = check.declareTypeParams(tparams, f.Names, scopePos)
+		for _, name := range f.Names {
+			tparams = append(tparams, check.declareTypeParam(name, scopePos))
+		}
 	}
 
 	// Set the type parameters before collecting the type constraints because
@@ -743,25 +731,17 @@ func (check *Checker) bound(x ast.Expr) Type {
 	return check.typ(x)
 }
 
-func (check *Checker) declareTypeParams(tparams []*TypeParam, names []*ast.Ident, scopePos token.Pos) []*TypeParam {
+func (check *Checker) declareTypeParam(name *ast.Ident, scopePos token.Pos) *TypeParam {
 	// Use Typ[Invalid] for the type constraint to ensure that a type
 	// is present even if the actual constraint has not been assigned
 	// yet.
 	// TODO(gri) Need to systematically review all uses of type parameter
 	//           constraints to make sure we don't rely on them if they
 	//           are not properly set yet.
-	for _, name := range names {
-		tname := NewTypeName(name.Pos(), check.pkg, name.Name, nil)
-		tpar := check.newTypeParam(tname, Typ[Invalid]) // assigns type to tpar as a side-effect
-		check.declare(check.scope, name, tname, scopePos)
-		tparams = append(tparams, tpar)
-	}
-
-	if check.conf._Trace && len(names) > 0 {
-		check.trace(names[0].Pos(), "type params = %v", tparams[len(tparams)-len(names):])
-	}
-
-	return tparams
+	tname := NewTypeName(name.Pos(), check.pkg, name.Name, nil)
+	tpar := check.newTypeParam(tname, Typ[Invalid]) // assigns type to tname as a side-effect
+	check.declare(check.scope, name, tname, scopePos)
+	return tpar
 }
 
 func (check *Checker) collectMethods(obj *TypeName) {

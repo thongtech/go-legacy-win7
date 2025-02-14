@@ -1,52 +1,56 @@
-From f1f146d4534fc925bceffe523852fe2261841008 Mon Sep 17 00:00:00 2001
+From 8dea0c5555bd5f397aa11a4e052bbec0d71e6495 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Sat, 21 Sep 2024 23:56:11 +1000
-Subject: [PATCH] Switch ProcessPrng back to RtlGenRandom (revert 693def1)
+Date: Fri, 14 Feb 2025 10:39:55 +0700
+Subject: [PATCH] Switch ProcessPrng back to RtlGenRandom
 
 ---
+ src/crypto/internal/sysrand/rand_windows.go   | 13 +++++++-
  src/crypto/rand/rand.go                       |  2 +-
- src/crypto/rand/rand_windows.go               |  7 +++--
  .../syscall/windows/syscall_windows.go        |  2 +-
  .../syscall/windows/zsyscall_windows.go       |  7 ++---
  src/runtime/os_windows.go                     | 30 ++++++++++++-------
- 5 files changed, 29 insertions(+), 19 deletions(-)
+ 5 files changed, 36 insertions(+), 18 deletions(-)
 
+diff --git a/src/crypto/internal/sysrand/rand_windows.go b/src/crypto/internal/sysrand/rand_windows.go
+index 91f1490..d23f180 100644
+--- a/src/crypto/internal/sysrand/rand_windows.go
++++ b/src/crypto/internal/sysrand/rand_windows.go
+@@ -7,5 +7,16 @@ package sysrand
+ import "internal/syscall/windows"
+ 
+ func read(b []byte) error {
+-	return windows.ProcessPrng(b)
++	const maxChunk = 1<<31 - 1
++	for len(b) > 0 {
++		chunk := b
++		if len(chunk) > maxChunk {
++			chunk = chunk[:maxChunk]
++		}
++		if err := windows.RtlGenRandom(chunk); err != nil {
++			return err
++		}
++		b = b[len(chunk):]
++	}
++	return nil
+ }
 diff --git a/src/crypto/rand/rand.go b/src/crypto/rand/rand.go
-index d16d7a1..cdfeb06 100644
+index 1ca16ca..7d5cea8 100644
 --- a/src/crypto/rand/rand.go
 +++ b/src/crypto/rand/rand.go
-@@ -16,7 +16,7 @@ import "io"
- //   - On macOS and iOS, Reader uses arc4random_buf(3).
- //   - On OpenBSD and NetBSD, Reader uses getentropy(2).
- //   - On other Unix-like systems, Reader reads from /dev/urandom.
+@@ -22,7 +22,7 @@ import (
+ //   - On legacy Linux (< 3.17), Reader opens /dev/urandom on first use.
+ //   - On macOS, iOS, and OpenBSD Reader, uses arc4random_buf(3).
+ //   - On NetBSD, Reader uses the kern.arandom sysctl.
 -//   - On Windows, Reader uses the ProcessPrng API.
 +//   - On Windows, Reader uses the RtlGenRandom API.
  //   - On js/wasm, Reader uses the Web Crypto API.
- //   - On wasip1/wasm, Reader uses random_get from wasi_snapshot_preview1.
- var Reader io.Reader
-diff --git a/src/crypto/rand/rand_windows.go b/src/crypto/rand/rand_windows.go
-index 7380f1f..6c0655c 100644
---- a/src/crypto/rand/rand_windows.go
-+++ b/src/crypto/rand/rand_windows.go
-@@ -15,8 +15,11 @@ func init() { Reader = &rngReader{} }
- 
- type rngReader struct{}
- 
--func (r *rngReader) Read(b []byte) (int, error) {
--	if err := windows.ProcessPrng(b); err != nil {
-+func (r *rngReader) Read(b []byte) (n int, err error) {
-+	// RtlGenRandom only returns 1<<32-1 bytes at a time. We only read at
-+	// most 1<<31-1 bytes at a time so that  this works the same on 32-bit
-+	// and 64-bit systems.
-+	if err := batched(windows.RtlGenRandom, 1<<31-1)(b); err != nil {
- 		return 0, err
- 	}
- 	return len(b), nil
+ //   - On wasip1/wasm, Reader uses random_get.
+ //
 diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
-index cc26a50..b0b5a64 100644
+index c848f92..715d072 100644
 --- a/src/internal/syscall/windows/syscall_windows.go
 +++ b/src/internal/syscall/windows/syscall_windows.go
-@@ -414,7 +414,7 @@ func ErrorLoadingGetTempPath2() error {
+@@ -416,7 +416,7 @@ func ErrorLoadingGetTempPath2() error {
  //sys	DestroyEnvironmentBlock(block *uint16) (err error) = userenv.DestroyEnvironmentBlock
  //sys	CreateEvent(eventAttrs *SecurityAttributes, manualReset uint32, initialState uint32, name *uint16) (handle syscall.Handle, err error) = kernel32.CreateEventW
  
@@ -56,7 +60,7 @@ index cc26a50..b0b5a64 100644
  type FILE_ID_BOTH_DIR_INFO struct {
  	NextEntryOffset uint32
 diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
-index 414ad26..062641c 100644
+index 6a6ea7b..9a096cf 100644
 --- a/src/internal/syscall/windows/zsyscall_windows.go
 +++ b/src/internal/syscall/windows/zsyscall_windows.go
 @@ -38,7 +38,6 @@ func errnoErr(e syscall.Errno) error {
@@ -67,7 +71,7 @@ index 414ad26..062641c 100644
  	modiphlpapi         = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
  	modkernel32         = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
  	modnetapi32         = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
-@@ -57,7 +56,7 @@ var (
+@@ -63,7 +62,7 @@ var (
  	procQueryServiceStatus                = modadvapi32.NewProc("QueryServiceStatus")
  	procRevertToSelf                      = modadvapi32.NewProc("RevertToSelf")
  	procSetTokenInformation               = modadvapi32.NewProc("SetTokenInformation")
@@ -76,7 +80,7 @@ index 414ad26..062641c 100644
  	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
  	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
  	procGetACP                            = modkernel32.NewProc("GetACP")
-@@ -183,12 +182,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
+@@ -236,12 +235,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
  	return
  }
  
@@ -92,10 +96,10 @@ index 414ad26..062641c 100644
  		err = errnoErr(e1)
  	}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index 4aabc29..0273580 100644
+index 7183e79..fd65e34 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
-@@ -127,8 +127,15 @@ var (
+@@ -128,8 +128,15 @@ var (
  	_WriteFile,
  	_ stdFunction
  
@@ -113,7 +117,7 @@ index 4aabc29..0273580 100644
  
  	// Load ntdll.dll manually during startup, otherwise Mingw
  	// links wrong printf function to cgo executable (see issue
-@@ -146,10 +153,11 @@ var (
+@@ -147,10 +154,11 @@ var (
  )
  
  var (
@@ -129,7 +133,7 @@ index 4aabc29..0273580 100644
  )
  
  // Function to be called by windows CreateThread
-@@ -263,11 +271,11 @@ func windows_QueryPerformanceFrequency() int64 {
+@@ -264,11 +272,11 @@ func windows_QueryPerformanceFrequency() int64 {
  }
  
  func loadOptionalSyscalls() {
@@ -145,7 +149,7 @@ index 4aabc29..0273580 100644
  
  	n32 := windowsLoadSystemLib(ntdlldll[:])
  	if n32 == 0 {
-@@ -500,7 +508,7 @@ func osinit() {
+@@ -501,7 +509,7 @@ func osinit() {
  //go:nosplit
  func readRandom(r []byte) int {
  	n := 0
@@ -155,5 +159,5 @@ index 4aabc29..0273580 100644
  	}
  	return n
 -- 
-2.47.0
+2.39.5
 

@@ -1,0 +1,157 @@
+From 017970028ebf60ec44fd1b528b691a47f09ea3a6 Mon Sep 17 00:00:00 2001
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 14 Feb 2025 12:13:28 +0700
+Subject: [PATCH] Add Windows 7 console and process handle workaround
+
+---
+ src/os/exec_windows.go          | 11 ++++++++++
+ src/syscall/exec_windows.go     | 38 ++++++++++++++++++++++++++++++++-
+ src/syscall/types_windows.go    | 10 +++++++++
+ src/syscall/zsyscall_windows.go |  7 ++++++
+ 4 files changed, 65 insertions(+), 1 deletion(-)
+
+diff --git a/src/os/exec_windows.go b/src/os/exec_windows.go
+index ab2dae1..f5e3a4f 100644
+--- a/src/os/exec_windows.go
++++ b/src/os/exec_windows.go
+@@ -44,6 +44,17 @@ func (p *Process) wait() (ps *ProcessState, err error) {
+ 	if e != nil {
+ 		return nil, NewSyscallError("GetProcessTimes", e)
+ 	}
++
++	// NOTE(brainman): It seems that sometimes process is not dead
++	// when WaitForSingleObject returns. But we do not know any
++	// other way to wait for it. Sleeping for a while seems to do
++	// the trick sometimes.
++	// See https://golang.org/issue/25965 for details.
++	_, isWin10AndAbove := syscall.WindowsVersion()
++	if !isWin10AndAbove {
++		defer time.Sleep(5 * time.Millisecond)
++	}
++
+ 	defer p.Release()
+ 	return &ProcessState{p.Pid, syscall.WaitStatus{ExitCode: ec}, &u}, nil
+ }
+diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
+index 1220de4..b4b846d 100644
+--- a/src/syscall/exec_windows.go
++++ b/src/syscall/exec_windows.go
+@@ -254,6 +254,16 @@ type SysProcAttr struct {
+ var zeroProcAttr ProcAttr
+ var zeroSysProcAttr SysProcAttr
+ 
++// WindowsVersion returns whether the OS is Windows 7 (or earlier) and Windows 10 (or later)
++func WindowsVersion() (isWin7, isWin10AndAbove bool) {
++	info := _OSVERSIONINFOW{}
++	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
++	rtlGetVersion(&info)
++	isWin7 = info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
++	isWin10AndAbove = info.majorVersion >= 10
++	return
++}
++
+ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle uintptr, err error) {
+ 	if len(argv0) == 0 {
+ 		return 0, 0, EWINDOWS
+@@ -317,6 +327,16 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 		}
+ 	}
+ 
++	isWin7, _ := WindowsVersion()
++
++	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
++	// a tag. The fully set tag correlates with the types of handles we're
++	// concerned about here.  Except, the kernel will interpret some
++	// special handle values, like -1, -2, and so forth, so kernelbase.dll
++	// checks to see that those bottom three bits are checked, but that top
++	// bit is not checked.
++	isLegacyWin7ConsoleHandle := func(handle Handle) bool { return isWin7 && handle&0x10000003 == 3 }
++
+ 	p, _ := GetCurrentProcess()
+ 	parentProcess := p
+ 	if sys.ParentProcess != 0 {
+@@ -325,7 +345,15 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 	fd := make([]Handle, len(attr.Files))
+ 	for i := range attr.Files {
+ 		if attr.Files[i] > 0 {
+-			err := DuplicateHandle(p, Handle(attr.Files[i]), parentProcess, &fd[i], 0, true, DUPLICATE_SAME_ACCESS)
++			destinationProcessHandle := parentProcess
++
++			// On Windows 7, console handles aren't real handles, and can only be duplicated
++			// into the current process, not a parent one, which amounts to the same thing.
++			if parentProcess != p && isLegacyWin7ConsoleHandle(Handle(attr.Files[i])) {
++				destinationProcessHandle = p
++			}
++
++			err := DuplicateHandle(p, Handle(attr.Files[i]), destinationProcessHandle, &fd[i], 0, true, DUPLICATE_SAME_ACCESS)
+ 			if err != nil {
+ 				return 0, 0, err
+ 			}
+@@ -356,6 +384,14 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 
+ 	fd = append(fd, sys.AdditionalInheritedHandles...)
+ 
++	// On Windows 7, console handles aren't real handles, so don't pass them
++	// through to PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
++	for i := range fd {
++		if isLegacyWin7ConsoleHandle(fd[i]) {
++			fd[i] = 0
++		}
++	}
++
+ 	// The presence of a NULL handle in the list is enough to cause PROC_THREAD_ATTRIBUTE_HANDLE_LIST
+ 	// to treat the entire list as empty, so remove NULL handles.
+ 	j := 0
+diff --git a/src/syscall/types_windows.go b/src/syscall/types_windows.go
+index fa34053..f08ebe0 100644
+--- a/src/syscall/types_windows.go
++++ b/src/syscall/types_windows.go
+@@ -1173,3 +1173,13 @@ const (
+ )
+ 
+ const UNIX_PATH_MAX = 108 // defined in afunix.h
++
++// https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_osversioninfow
++type _OSVERSIONINFOW struct {
++	osVersionInfoSize uint32
++	majorVersion      uint32
++	minorVersion      uint32
++	buildNumber       uint32
++	platformId        uint32
++	csdVersion        [128]uint16
++}
+diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
+index 85c66de..e58a384 100644
+--- a/src/syscall/zsyscall_windows.go
++++ b/src/syscall/zsyscall_windows.go
+@@ -43,6 +43,7 @@ var (
+ 	modkernel32 = NewLazyDLL(sysdll.Add("kernel32.dll"))
+ 	modmswsock  = NewLazyDLL(sysdll.Add("mswsock.dll"))
+ 	modnetapi32 = NewLazyDLL(sysdll.Add("netapi32.dll"))
++	modntdll    = NewLazyDLL(sysdll.Add("ntdll.dll"))
+ 	modsecur32  = NewLazyDLL(sysdll.Add("secur32.dll"))
+ 	modshell32  = NewLazyDLL(sysdll.Add("shell32.dll"))
+ 	moduserenv  = NewLazyDLL(sysdll.Add("userenv.dll"))
+@@ -170,6 +171,7 @@ var (
+ 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
+ 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
+ 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
++	procRtlGetVersion                      = modntdll.NewProc("RtlGetVersion")
+ 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
+ 	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
+ 	procGetUserProfileDirectoryW           = moduserenv.NewProc("GetUserProfileDirectoryW")
+@@ -1237,6 +1239,11 @@ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err er
+ 	return
+ }
+ 
++func rtlGetVersion(info *_OSVERSIONINFOW) {
++	Syscall(procRtlGetVersion.Addr(), 1, uintptr(unsafe.Pointer(info)), 0, 0)
++	return
++}
++
+ func TranslateName(accName *uint16, accNameFormat uint32, desiredNameFormat uint32, translatedName *uint16, nSize *uint32) (err error) {
+ 	r1, _, e1 := Syscall6(procTranslateNameW.Addr(), 5, uintptr(unsafe.Pointer(accName)), uintptr(accNameFormat), uintptr(desiredNameFormat), uintptr(unsafe.Pointer(translatedName)), uintptr(unsafe.Pointer(nSize)), 0)
+ 	if r1&0xff == 0 {
+-- 
+2.39.5
+

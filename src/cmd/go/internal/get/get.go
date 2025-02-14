@@ -305,7 +305,7 @@ func download(ctx context.Context, arg string, parent *load.Package, stk *load.I
 	// Download if the package is missing, or update if we're using -u.
 	if p.Dir == "" || *getU {
 		// The actual download.
-		stk.Push(arg)
+		stk.Push(load.ImportInfo{Pkg: arg})
 		err := downloadPackage(p)
 		if err != nil {
 			base.Errorf("%s", &load.PackageError{ImportStack: stk.Copy(), Err: err})
@@ -370,7 +370,7 @@ func download(ctx context.Context, arg string, parent *load.Package, stk *load.I
 		if isWildcard {
 			// Report both the real package and the
 			// wildcard in any error message.
-			stk.Push(p.ImportPath)
+			stk.Push(load.ImportInfo{Pkg: p.ImportPath})
 		}
 
 		// Process dependencies, now that we know what they are.
@@ -393,7 +393,7 @@ func download(ctx context.Context, arg string, parent *load.Package, stk *load.I
 				orig = p.Internal.Build.Imports[i]
 			}
 			if j, ok := load.FindVendor(orig); ok {
-				stk.Push(path)
+				stk.Push(load.ImportInfo{Pkg: path})
 				err := &load.PackageError{
 					ImportStack: stk.Copy(),
 					Err:         load.ImportErrorf(path, "%s must be imported as %s", path, path[j+len("vendor/"):]),

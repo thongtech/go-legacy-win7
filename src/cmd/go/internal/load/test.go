@@ -15,6 +15,7 @@ import (
 	"go/parser"
 	"go/token"
 	"internal/lazytemplate"
+	"maps"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -45,9 +46,10 @@ type TestCover struct {
 }
 
 // TestPackagesFor is like TestPackagesAndErrors but it returns
-// an error if the test packages or their dependencies have errors.
+// the package containing an error if the test packages or
+// their dependencies have errors.
 // Only test packages without errors are returned.
-func TestPackagesFor(ctx context.Context, opts PackageOpts, p *Package, cover *TestCover) (pmain, ptest, pxtest *Package, err error) {
+func TestPackagesFor(ctx context.Context, opts PackageOpts, p *Package, cover *TestCover) (pmain, ptest, pxtest, perr *Package) {
 	pmain, ptest, pxtest = TestPackagesAndErrors(ctx, nil, opts, p, cover)
 	for _, p1 := range []*Package{ptest, pxtest, pmain} {
 		if p1 == nil {
@@ -55,14 +57,14 @@ func TestPackagesFor(ctx context.Context, opts PackageOpts, p *Package, cover *T
 			continue
 		}
 		if p1.Error != nil {
-			err = p1.Error
+			perr = p1
 			break
 		}
 		if p1.Incomplete {
 			ps := PackageList([]*Package{p1})
 			for _, p := range ps {
 				if p.Error != nil {
-					err = p.Error
+					perr = p
 					break
 				}
 			}
@@ -78,7 +80,7 @@ func TestPackagesFor(ctx context.Context, opts PackageOpts, p *Package, cover *T
 	if pxtest != nil && (pxtest.Error != nil || pxtest.Incomplete) {
 		pxtest = nil
 	}
-	return pmain, ptest, pxtest, err
+	return pmain, ptest, pxtest, perr
 }
 
 // TestPackagesAndErrors returns three packages:
@@ -113,7 +115,7 @@ func TestPackagesAndErrors(ctx context.Context, done func(), opts PackageOpts, p
 	var stk ImportStack
 	var testEmbed, xtestEmbed map[string][]string
 	var incomplete bool
-	stk.Push(p.ImportPath + " (test)")
+	stk.Push(ImportInfo{Pkg: p.ImportPath + " (test)"})
 	rawTestImports := str.StringList(p.TestImports)
 	for i, path := range p.TestImports {
 		p1, err := loadImport(ctx, opts, pre, path, p.Dir, p, &stk, p.Internal.Build.TestImportPos[path], ResolveImport)
@@ -140,7 +142,7 @@ func TestPackagesAndErrors(ctx context.Context, done func(), opts PackageOpts, p
 	}
 	stk.Pop()
 
-	stk.Push(p.ImportPath + "_test")
+	stk.Push(ImportInfo{Pkg: p.ImportPath + "_test"})
 	pxtestNeedsPtest := false
 	var pxtestIncomplete bool
 	rawXTestImports := str.StringList(p.XTestImports)
@@ -175,8 +177,10 @@ func TestPackagesAndErrors(ctx context.Context, done func(), opts PackageOpts, p
 	if len(p.TestGoFiles) > 0 || p.Name == "main" || cover != nil && cover.Local {
 		ptest = new(Package)
 		*ptest = *p
-		ptest.Error = ptestErr
-		ptest.Incomplete = incomplete
+		if ptest.Error == nil {
+			ptest.Error = ptestErr
+		}
+		ptest.Incomplete = ptest.Incomplete || incomplete
 		ptest.ForTest = p.ImportPath
 		ptest.GoFiles = nil
 		ptest.GoFiles = append(ptest.GoFiles, p.GoFiles...)
@@ -212,9 +216,7 @@ func TestPackagesAndErrors(ctx context.Context, done func(), opts PackageOpts, p
 		if testEmbed == nil && len(p.Internal.Embed) > 0 {
 			testEmbed = map[string][]string{}
 		}
-		for k, v := range p.Internal.Embed {
-			testEmbed[k] = v
-		}
+		maps.Copy(testEmbed, p.Internal.Embed)
 		ptest.Internal.Embed = testEmbed
 		ptest.EmbedFiles = str.StringList(p.EmbedFiles, p.TestEmbedFiles)
 		ptest.Internal.OrigImportPath = p.Internal.OrigImportPath
@@ -293,10 +295,19 @@ func TestPackagesAndErrors(ctx context.Context, done func(), opts PackageOpts, p
 
 	pb := p.Internal.Build
 	pmain.DefaultGODEBUG = defaultGODEBUG(pmain, pb.Directives, pb.TestDirectives, pb.XTestDirectives)
+	if pmain.Internal.BuildInfo == nil || pmain.DefaultGODEBUG != p.DefaultGODEBUG {
+		// Either we didn't generate build info for the package under test (because it wasn't package main), or
+		// the DefaultGODEBUG used to build the test main package is different from the DefaultGODEBUG
+		// used to build the package under test. If we didn't set build info for the package under test
+		// pmain won't have buildinfo set (since we copy it from the package under test). If the default GODEBUG
+		// used for the package under test is different from that of the test main, the BuildInfo assigned above from the package
+		// under test incorrect for the test main package. Either set or correct pmain's build info.
+		pmain.setBuildInfo(ctx, opts.AutoVCS)
+	}
 
 	// The generated main also imports testing, regexp, and os.
 	// Also the linker introduces implicit dependencies reported by LinkerDeps.
-	stk.Push("testmain")
+	stk.Push(ImportInfo{Pkg: "testmain"})
 	deps := TestMainDeps // cap==len, so safe for append
 	if cover != nil && cfg.Experiment.CoverageRedesign {
 		deps = append(deps, "internal/coverage/cfile")
@@ -536,9 +547,16 @@ func recompileForTest(pmain, preal, ptest, pxtest *Package) *PackageError {
 			// The stack is supposed to be in the order x imports y imports z.
 			// We collect in the reverse order: z is imported by y is imported
 			// by x, and then we reverse it.
-			var stk []string
+			var stk ImportStack
 			for p != nil {
-				stk = append(stk, p.ImportPath)
+				importer, ok := importerOf[p]
+				if importer == nil && ok { // we set importerOf[p] == nil for the initial set of packages p that are imports of ptest
+					importer = ptest
+				}
+				stk = append(stk, ImportInfo{
+					Pkg: p.ImportPath,
+					Pos: extractFirstImport(importer.Internal.Build.ImportPos[p.ImportPath]),
+				})
 				p = importerOf[p]
 			}
 			// complete the cycle: we set importer[p] = nil to break the cycle
@@ -546,9 +564,10 @@ func recompileForTest(pmain, preal, ptest, pxtest *Package) *PackageError {
 			// back here since we reached nil in the loop above to demonstrate
 			// the cycle as (for example) package p imports package q imports package r
 			// imports package p.
-			stk = append(stk, ptest.ImportPath)
+			stk = append(stk, ImportInfo{
+				Pkg: ptest.ImportPath,
+			})
 			slices.Reverse(stk)
-
 			return &PackageError{
 				ImportStack:   stk,
 				Err:           errors.New("import cycle not allowed in test"),

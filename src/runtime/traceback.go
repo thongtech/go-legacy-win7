@@ -8,8 +8,8 @@ import (
 	"internal/abi"
 	"internal/bytealg"
 	"internal/goarch"
+	"internal/runtime/sys"
 	"internal/stringslite"
-	"runtime/internal/sys"
 	"unsafe"
 )
 
@@ -143,7 +143,7 @@ func (u *unwinder) initAt(pc0, sp0, lr0 uintptr, gp *g, flags unwindFlags) {
 		// on another stack. That could confuse callers quite a bit.
 		// Instead, we require that initAt and any other function that
 		// accepts an sp for the current goroutine (typically obtained by
-		// calling getcallersp) must not run on that goroutine's stack but
+		// calling GetCallerSP) must not run on that goroutine's stack but
 		// instead on the g0 stack.
 		throw("cannot trace user goroutine on its own stack")
 	}
@@ -804,7 +804,7 @@ func traceback(pc, sp, lr uintptr, gp *g) {
 }
 
 // tracebacktrap is like traceback but expects that the PC and SP were obtained
-// from a trap, not from gp->sched or gp->syscallpc/gp->syscallsp or getcallerpc/getcallersp.
+// from a trap, not from gp->sched or gp->syscallpc/gp->syscallsp or GetCallerPC/GetCallerSP.
 // Because they are from a trap instead of from a saved pair,
 // the initial PC must not be rewound to the previous instruction.
 // (All the saved pairs record a PC that is a return address, so we
@@ -1090,8 +1090,8 @@ func printAncestorTracebackFuncInfo(f funcInfo, pc uintptr) {
 //
 //go:linkname callers
 func callers(skip int, pcbuf []uintptr) int {
-	sp := getcallersp()
-	pc := getcallerpc()
+	sp := sys.GetCallerSP()
+	pc := sys.GetCallerPC()
 	gp := getg()
 	var n int
 	systemstack(func() {
@@ -1149,11 +1149,10 @@ func showfuncinfo(sf srcFunc, firstFrame bool, calleeID abi.FuncID) bool {
 // It is only for runtime functions, so ASCII A-Z is fine.
 func isExportedRuntime(name string) bool {
 	// Check and remove package qualifier.
-	n := len("runtime.")
-	if len(name) <= n || name[:n] != "runtime." {
+	name, found := stringslite.CutPrefix(name, "runtime.")
+	if !found {
 		return false
 	}
-	name = name[n:]
 	rcvr := ""
 
 	// Extract receiver type, if any.
@@ -1238,6 +1237,9 @@ func goroutineheader(gp *g) {
 	}
 	if gp.lockedm != 0 {
 		print(", locked to thread")
+	}
+	if sg := gp.syncGroup; sg != nil {
+		print(", synctest group ", sg.root.goid)
 	}
 	print("]:\n")
 }

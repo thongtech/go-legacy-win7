@@ -78,6 +78,48 @@ func storeByType(t *types.Type) obj.As {
 	panic("bad store type")
 }
 
+// loadByType2 returns an opcode that can load consecutive memory locations into 2 registers with type t.
+// returns obj.AXXX if no such opcode exists.
+func loadByType2(t *types.Type) obj.As {
+	if t.IsFloat() {
+		switch t.Size() {
+		case 4:
+			return arm64.AFLDPS
+		case 8:
+			return arm64.AFLDPD
+		}
+	} else {
+		switch t.Size() {
+		case 4:
+			return arm64.ALDPW
+		case 8:
+			return arm64.ALDP
+		}
+	}
+	return obj.AXXX
+}
+
+// storeByType2 returns an opcode that can store registers with type t into 2 consecutive memory locations.
+// returns obj.AXXX if no such opcode exists.
+func storeByType2(t *types.Type) obj.As {
+	if t.IsFloat() {
+		switch t.Size() {
+		case 4:
+			return arm64.AFSTPS
+		case 8:
+			return arm64.AFSTPD
+		}
+	} else {
+		switch t.Size() {
+		case 4:
+			return arm64.ASTPW
+		case 8:
+			return arm64.ASTP
+		}
+	}
+	return obj.AXXX
+}
+
 // makeshift encodes a register shifted by a constant, used as an Offset in Prog.
 func makeshift(v *ssa.Value, reg int16, typ int64, s int64) int64 {
 	if s < 0 || s >= 64 {
@@ -167,17 +209,38 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		p.From.Reg = v.Args[0].Reg()
 		ssagen.AddrAuto(&p.To, v)
 	case ssa.OpArgIntReg, ssa.OpArgFloatReg:
+		ssagen.CheckArgReg(v)
 		// The assembler needs to wrap the entry safepoint/stack growth code with spill/unspill
 		// The loop only runs once.
-		for _, a := range v.Block.Func.RegArgs {
-			// Pass the spill/unspill information along to the assembler, offset by size of
-			// the saved LR slot.
-			addr := ssagen.SpillSlotAddr(a, arm64.REGSP, base.Ctxt.Arch.FixedFrameSize)
-			s.FuncInfo().AddSpill(
-				obj.RegSpill{Reg: a.Reg, Addr: addr, Unspill: loadByType(a.Type), Spill: storeByType(a.Type)})
+		args := v.Block.Func.RegArgs
+		if len(args) == 0 {
+			break
 		}
-		v.Block.Func.RegArgs = nil
-		ssagen.CheckArgReg(v)
+		v.Block.Func.RegArgs = nil // prevent from running again
+
+		for i := 0; i < len(args); i++ {
+			a := args[i]
+			// Offset by size of the saved LR slot.
+			addr := ssagen.SpillSlotAddr(a, arm64.REGSP, base.Ctxt.Arch.FixedFrameSize)
+			// Look for double-register operations if we can.
+			if i < len(args)-1 {
+				b := args[i+1]
+				if a.Type.Size() == b.Type.Size() &&
+					a.Type.IsFloat() == b.Type.IsFloat() &&
+					b.Offset == a.Offset+a.Type.Size() {
+					ld := loadByType2(a.Type)
+					st := storeByType2(a.Type)
+					if ld != obj.AXXX && st != obj.AXXX {
+						s.FuncInfo().AddSpill(obj.RegSpill{Reg: a.Reg, Reg2: b.Reg, Addr: addr, Unspill: ld, Spill: st})
+						i++ // b is done also, skip it.
+						continue
+					}
+				}
+			}
+			// Pass the spill/unspill information along to the assembler.
+			s.FuncInfo().AddSpill(obj.RegSpill{Reg: a.Reg, Addr: addr, Unspill: loadByType(a.Type), Spill: storeByType(a.Type)})
+		}
+
 	case ssa.OpARM64ADD,
 		ssa.OpARM64SUB,
 		ssa.OpARM64AND,
@@ -578,15 +641,22 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		p.To.Type = obj.TYPE_REG
 		p.To.Reg = v.Reg()
 	case ssa.OpARM64LoweredAtomicExchange64,
-		ssa.OpARM64LoweredAtomicExchange32:
+		ssa.OpARM64LoweredAtomicExchange32,
+		ssa.OpARM64LoweredAtomicExchange8:
 		// LDAXR	(Rarg0), Rout
 		// STLXR	Rarg1, (Rarg0), Rtmp
 		// CBNZ		Rtmp, -2(PC)
-		ld := arm64.ALDAXR
-		st := arm64.ASTLXR
-		if v.Op == ssa.OpARM64LoweredAtomicExchange32 {
+		var ld, st obj.As
+		switch v.Op {
+		case ssa.OpARM64LoweredAtomicExchange8:
+			ld = arm64.ALDAXRB
+			st = arm64.ASTLXRB
+		case ssa.OpARM64LoweredAtomicExchange32:
 			ld = arm64.ALDAXRW
 			st = arm64.ASTLXRW
+		case ssa.OpARM64LoweredAtomicExchange64:
+			ld = arm64.ALDAXR
+			st = arm64.ASTLXR
 		}
 		r0 := v.Args[0].Reg()
 		r1 := v.Args[1].Reg()
@@ -608,10 +678,16 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		p2.To.Type = obj.TYPE_BRANCH
 		p2.To.SetTarget(p)
 	case ssa.OpARM64LoweredAtomicExchange64Variant,
-		ssa.OpARM64LoweredAtomicExchange32Variant:
-		swap := arm64.ASWPALD
-		if v.Op == ssa.OpARM64LoweredAtomicExchange32Variant {
+		ssa.OpARM64LoweredAtomicExchange32Variant,
+		ssa.OpARM64LoweredAtomicExchange8Variant:
+		var swap obj.As
+		switch v.Op {
+		case ssa.OpARM64LoweredAtomicExchange8Variant:
+			swap = arm64.ASWPALB
+		case ssa.OpARM64LoweredAtomicExchange32Variant:
 			swap = arm64.ASWPALW
+		case ssa.OpARM64LoweredAtomicExchange64Variant:
+			swap = arm64.ASWPALD
 		}
 		r0 := v.Args[0].Reg()
 		r1 := v.Args[1].Reg()

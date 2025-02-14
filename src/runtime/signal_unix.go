@@ -9,7 +9,7 @@ package runtime
 import (
 	"internal/abi"
 	"internal/runtime/atomic"
-	"runtime/internal/sys"
+	"internal/runtime/sys"
 	"unsafe"
 )
 
@@ -405,7 +405,7 @@ func sigFetchG(c *sigctxt) *g {
 			// bottom of the signal stack. Fetch from there.
 			// TODO: in efence mode, stack is sysAlloc'd, so this wouldn't
 			// work.
-			sp := getcallersp()
+			sp := sys.GetCallerSP()
 			s := spanOf(sp)
 			if s != nil && s.state.get() == mSpanManual && s.base() < sp && sp < s.limit {
 				gp := *(**g)(unsafe.Pointer(s.base()))
@@ -479,7 +479,7 @@ func sigtrampgo(sig uint32, info *siginfo, ctx unsafe.Pointer) {
 	var gsignalStack gsignalStack
 	setStack := adjustSignalStack(sig, gp.m, &gsignalStack)
 	if setStack {
-		gp.m.gsignal.stktopsp = getcallersp()
+		gp.m.gsignal.stktopsp = sys.GetCallerSP()
 	}
 
 	if gp.stackguard0 == stackFork {
@@ -584,15 +584,23 @@ func adjustSignalStack(sig uint32, mp *m, gsigStack *gsignalStack) bool {
 	}
 
 	// sp is not within gsignal stack, g0 stack, or sigaltstack. Bad.
+	// Call indirectly to avoid nosplit stack overflow on OpenBSD.
+	adjustSignalStack2Indirect(sig, sp, mp, st.ss_flags&_SS_DISABLE != 0)
+	return false
+}
+
+var adjustSignalStack2Indirect = adjustSignalStack2
+
+//go:nosplit
+func adjustSignalStack2(sig uint32, sp uintptr, mp *m, ssDisable bool) {
 	setg(nil)
 	needm(true)
-	if st.ss_flags&_SS_DISABLE != 0 {
+	if ssDisable {
 		noSignalStack(sig)
 	} else {
 		sigNotOnStack(sig, sp, mp)
 	}
 	dropm()
-	return false
 }
 
 // crashing is the number of m's we have waited for when implementing

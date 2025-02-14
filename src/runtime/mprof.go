@@ -12,7 +12,7 @@ import (
 	"internal/goarch"
 	"internal/profilerecord"
 	"internal/runtime/atomic"
-	"runtime/internal/sys"
+	"internal/runtime/sys"
 	"unsafe"
 )
 
@@ -49,7 +49,7 @@ const (
 	// desired maximum number of frames after expansion.
 	// This should be at least as large as the largest skip value
 	// used for profiling; otherwise stacks may be truncated inconsistently
-	maxSkip = 5
+	maxSkip = 6
 
 	// maxProfStackDepth is the highest valid value for debug.profstackdepth.
 	// It's used for the bucket.stk func.
@@ -242,7 +242,7 @@ func newBucket(typ bucketType, nstk int) *bucket {
 	return b
 }
 
-// stk returns the slice in b holding the stack. The caller can asssume that the
+// stk returns the slice in b holding the stack. The caller can assume that the
 // backing array is immutable.
 func (b *bucket) stk() []uintptr {
 	stk := (*[maxProfStackDepth]uintptr)(add(unsafe.Pointer(b), unsafe.Sizeof(*b)))
@@ -444,7 +444,7 @@ func mProf_Malloc(mp *m, p unsafe.Pointer, size uintptr) {
 	}
 	// Only use the part of mp.profStack we need and ignore the extra space
 	// reserved for delayed inline expansion with frame pointer unwinding.
-	nstk := callers(4, mp.profStack[:debug.profstackdepth])
+	nstk := callers(5, mp.profStack[:debug.profstackdepth])
 	index := (mProfCycle.read() + 2) % uint32(len(memRecord{}.future))
 
 	b := stkbucket(memProfile, size, mp.profStack[:nstk], true)
@@ -718,12 +718,13 @@ type mLockProfile struct {
 	pending    uintptr      // *mutex that experienced contention (to be traceback-ed)
 	cycles     int64        // cycles attributable to "pending" (if set), otherwise to "stack"
 	cyclesLost int64        // contention for which we weren't able to record a call stack
+	haveStack  bool         // stack and cycles are to be added to the mutex profile
 	disabled   bool         // attribute all time to "lost"
 }
 
 func (prof *mLockProfile) recordLock(cycles int64, l *mutex) {
-	if cycles <= 0 {
-		return
+	if cycles < 0 {
+		cycles = 0
 	}
 
 	if prof.disabled {
@@ -745,6 +746,9 @@ func (prof *mLockProfile) recordLock(cycles int64, l *mutex) {
 		// We can only store one call stack for runtime-internal lock contention
 		// on this M, and we've already got one. Decide which should stay, and
 		// add the other to the report for runtime._LostContendedRuntimeLock.
+		if cycles == 0 {
+			return
+		}
 		prevScore := uint64(cheaprand64()) % uint64(prev)
 		thisScore := uint64(cheaprand64()) % uint64(cycles)
 		if prevScore > thisScore {
@@ -769,7 +773,7 @@ func (prof *mLockProfile) recordUnlock(l *mutex) {
 	if uintptr(unsafe.Pointer(l)) == prof.pending {
 		prof.captureStack()
 	}
-	if gp := getg(); gp.m.locks == 1 && gp.m.mLockProfile.cycles != 0 {
+	if gp := getg(); gp.m.locks == 1 && gp.m.mLockProfile.haveStack {
 		prof.store()
 	}
 }
@@ -795,6 +799,7 @@ func (prof *mLockProfile) captureStack() {
 		skip += 1 // runtime.unlockWithRank.func1
 	}
 	prof.pending = 0
+	prof.haveStack = true
 
 	prof.stack[0] = logicalStackSentinel
 	if debug.runtimeContentionStacks.Load() == 0 {
@@ -805,8 +810,8 @@ func (prof *mLockProfile) captureStack() {
 
 	var nstk int
 	gp := getg()
-	sp := getcallersp()
-	pc := getcallerpc()
+	sp := sys.GetCallerSP()
+	pc := sys.GetCallerPC()
 	systemstack(func() {
 		var u unwinder
 		u.initAt(pc, sp, 0, gp, unwindSilentErrors|unwindJumpStack)
@@ -835,6 +840,7 @@ func (prof *mLockProfile) store() {
 
 	cycles, lost := prof.cycles, prof.cyclesLost
 	prof.cycles, prof.cyclesLost = 0, 0
+	prof.haveStack = false
 
 	rate := int64(atomic.Load64(&mutexprofilerate))
 	saveBlockEventStack(cycles, rate, prof.stack[:nstk], mutexProfile)
@@ -1074,7 +1080,7 @@ func copyMemProfileRecord(dst *MemProfileRecord, src profilerecord.MemProfileRec
 	dst.AllocObjects = src.AllocObjects
 	dst.FreeObjects = src.FreeObjects
 	if raceenabled {
-		racewriterangepc(unsafe.Pointer(&dst.Stack0[0]), unsafe.Sizeof(dst.Stack0), getcallerpc(), abi.FuncPCABIInternal(MemProfile))
+		racewriterangepc(unsafe.Pointer(&dst.Stack0[0]), unsafe.Sizeof(dst.Stack0), sys.GetCallerPC(), abi.FuncPCABIInternal(MemProfile))
 	}
 	if msanenabled {
 		msanwrite(unsafe.Pointer(&dst.Stack0[0]), unsafe.Sizeof(dst.Stack0))
@@ -1188,7 +1194,7 @@ func copyBlockProfileRecord(dst *BlockProfileRecord, src profilerecord.BlockProf
 	dst.Count = src.Count
 	dst.Cycles = src.Cycles
 	if raceenabled {
-		racewriterangepc(unsafe.Pointer(&dst.Stack0[0]), unsafe.Sizeof(dst.Stack0), getcallerpc(), abi.FuncPCABIInternal(BlockProfile))
+		racewriterangepc(unsafe.Pointer(&dst.Stack0[0]), unsafe.Sizeof(dst.Stack0), sys.GetCallerPC(), abi.FuncPCABIInternal(BlockProfile))
 	}
 	if msanenabled {
 		msanwrite(unsafe.Pointer(&dst.Stack0[0]), unsafe.Sizeof(dst.Stack0))
@@ -1397,8 +1403,8 @@ func goroutineProfileWithLabelsConcurrent(p []profilerecord.StackRecord, labels 
 	}
 
 	// Save current goroutine.
-	sp := getcallersp()
-	pc := getcallerpc()
+	sp := sys.GetCallerSP()
+	pc := sys.GetCallerPC()
 	systemstack(func() {
 		saveg(pc, sp, ourg, &p[0], pcbuf)
 	})
@@ -1593,8 +1599,8 @@ func goroutineProfileWithLabelsSync(p []profilerecord.StackRecord, labels []unsa
 		r, lbl := p, labels
 
 		// Save current goroutine.
-		sp := getcallersp()
-		pc := getcallerpc()
+		sp := sys.GetCallerSP()
+		pc := sys.GetCallerPC()
 		systemstack(func() {
 			saveg(pc, sp, gp, &r[0], pcbuf)
 		})
@@ -1696,8 +1702,8 @@ func Stack(buf []byte, all bool) int {
 	n := 0
 	if len(buf) > 0 {
 		gp := getg()
-		sp := getcallersp()
-		pc := getcallerpc()
+		sp := sys.GetCallerSP()
+		pc := sys.GetCallerPC()
 		systemstack(func() {
 			g0 := getg()
 			// Force traceback=1 to override GOTRACEBACK setting,

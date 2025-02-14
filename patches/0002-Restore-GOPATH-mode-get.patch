@@ -1,7 +1,7 @@
-From d02338f60a2671b5d8f748956aa90cf7011b72e2 Mon Sep 17 00:00:00 2001
+From 6fb20b1b5f82c5eb0979157d3537b48e5956e723 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Sun, 22 Sep 2024 00:23:47 +1000
-Subject: [PATCH] Restore GOPATH-mode get (revert de4d503)
+Date: Fri, 14 Feb 2025 11:33:18 +0700
+Subject: [PATCH] Restore GOPATH-mode get
 
 ---
  src/cmd/go/alldocs.go                         |  66 ++
@@ -9,7 +9,9 @@ Subject: [PATCH] Restore GOPATH-mode get (revert de4d503)
  src/cmd/go/internal/get/get.go                | 640 ++++++++++++++++++
  src/cmd/go/internal/get/tag_test.go           | 100 +++
  src/cmd/go/internal/help/help.go              |   7 +
+ src/cmd/go/internal/load/pkg.go               |  60 ++
  src/cmd/go/internal/modget/get.go             |  17 +
+ src/cmd/go/internal/vcs/vcs.go                |  39 +-
  src/cmd/go/main.go                            |  10 +
  src/cmd/go/testdata/script/get_404_meta.txt   |   3 +
  src/cmd/go/testdata/script/get_brace.txt      |  51 ++
@@ -48,7 +50,8 @@ Subject: [PATCH] Restore GOPATH-mode get (revert de4d503)
  .../script/vendor_list_issue11977.txt         |  78 +--
  .../script/vendor_test_issue11864.txt         |  79 +--
  .../script/vendor_test_issue14613.txt         |  46 +-
- 44 files changed, 1801 insertions(+), 191 deletions(-)
+ src/cmd/internal/par/work.go                  |  38 ++
+ 47 files changed, 1934 insertions(+), 195 deletions(-)
  create mode 100644 src/cmd/go/internal/get/get.go
  create mode 100644 src/cmd/go/internal/get/tag_test.go
  create mode 100644 src/cmd/go/testdata/script/get_brace.txt
@@ -82,11 +85,11 @@ Subject: [PATCH] Restore GOPATH-mode get (revert de4d503)
  create mode 100644 src/cmd/go/testdata/script/gopath_moved_repo.txt
 
 diff --git a/src/cmd/go/alldocs.go b/src/cmd/go/alldocs.go
-index 75e6d65..abbad2c 100644
+index 2220863..72df60d 100644
 --- a/src/cmd/go/alldocs.go
 +++ b/src/cmd/go/alldocs.go
-@@ -45,9 +45,11 @@
- //	filetype        file types
+@@ -47,9 +47,11 @@
+ //	goauth          GOAUTH environment variable
  //	go.mod          the go.mod file
  //	gopath          GOPATH environment variable
 +//	gopath-get      legacy GOPATH go get
@@ -97,7 +100,7 @@ index 75e6d65..abbad2c 100644
  //	module-auth     module authentication using go.sum
  //	packages        package lists and patterns
  //	private         configuration for downloading non-public code
-@@ -2661,6 +2663,70 @@
+@@ -2820,6 +2822,70 @@
  //
  // See https://golang.org/s/go15vendor for details.
  //
@@ -169,10 +172,10 @@ index 75e6d65..abbad2c 100644
  //
  // A Go module proxy is any web server that can respond to GET requests for
 diff --git a/src/cmd/go/go_test.go b/src/cmd/go/go_test.go
-index b45a905..b06fef6 100644
+index 1df7cf8..c92dcf2 100644
 --- a/src/cmd/go/go_test.go
 +++ b/src/cmd/go/go_test.go
-@@ -972,6 +972,77 @@ func TestNewReleaseRebuildsStalePackagesInGOPATH(t *testing.T) {
+@@ -973,6 +973,77 @@ func TestNewReleaseRebuildsStalePackagesInGOPATH(t *testing.T) {
  	tg.wantNotStale("p1", "", "./testgo list claims p1 is stale after building with old release")
  }
  
@@ -250,7 +253,7 @@ index b45a905..b06fef6 100644
  func TestPackageMainTestCompilerFlags(t *testing.T) {
  	tg := testgo(t)
  	defer tg.cleanup()
-@@ -1292,6 +1363,35 @@ func TestDefaultGOPATH(t *testing.T) {
+@@ -1293,6 +1364,35 @@ func TestDefaultGOPATH(t *testing.T) {
  	tg.grepStdoutNot(".", "want unset GOPATH because GOROOT=$HOME/go/")
  }
  
@@ -288,7 +291,7 @@ index b45a905..b06fef6 100644
  	defer tg.cleanup()
 diff --git a/src/cmd/go/internal/get/get.go b/src/cmd/go/internal/get/get.go
 new file mode 100644
-index 0000000..06b567a
+index 0000000..16175a2
 --- /dev/null
 +++ b/src/cmd/go/internal/get/get.go
 @@ -0,0 +1,640 @@
@@ -599,7 +602,7 @@ index 0000000..06b567a
 +	// Download if the package is missing, or update if we're using -u.
 +	if p.Dir == "" || *getU {
 +		// The actual download.
-+		stk.Push(arg)
++		stk.Push(load.ImportInfo{Pkg: arg})
 +		err := downloadPackage(p)
 +		if err != nil {
 +			base.Errorf("%s", &load.PackageError{ImportStack: stk.Copy(), Err: err})
@@ -664,7 +667,7 @@ index 0000000..06b567a
 +		if isWildcard {
 +			// Report both the real package and the
 +			// wildcard in any error message.
-+			stk.Push(p.ImportPath)
++			stk.Push(load.ImportInfo{Pkg: p.ImportPath})
 +		}
 +
 +		// Process dependencies, now that we know what they are.
@@ -687,7 +690,7 @@ index 0000000..06b567a
 +				orig = p.Internal.Build.Imports[i]
 +			}
 +			if j, ok := load.FindVendor(orig); ok {
-+				stk.Push(path)
++				stk.Push(load.ImportInfo{Pkg: path})
 +				err := &load.PackageError{
 +					ImportStack: stk.Copy(),
 +					Err:         load.ImportErrorf(path, "%s must be imported as %s", path, path[j+len("vendor/"):]),
@@ -1063,11 +1066,96 @@ index 4f2607f..229ebc3 100644
  			cmds = append(cmds, cmd)
  			cmds = append(cmds, cmd.Commands...)
  		}
+diff --git a/src/cmd/go/internal/load/pkg.go b/src/cmd/go/internal/load/pkg.go
+index 15f6b2e..8f6fd27 100644
+--- a/src/cmd/go/internal/load/pkg.go
++++ b/src/cmd/go/internal/load/pkg.go
+@@ -461,6 +461,7 @@ type PackageError struct {
+ 	Pos              string      // position of error
+ 	Err              error       // the error itself
+ 	IsImportCycle    bool        // the error is an import cycle
++	Hard             bool        // whether the error is soft or hard; soft errors are ignored in some places
+ 	alwaysPrintStack bool        // whether to always print the ImportStack
+ }
+ 
+@@ -640,6 +641,51 @@ func (sp *ImportStack) shorterThan(t []string) bool {
+ // we return the same pointer each time.
+ var packageCache = map[string]*Package{}
+ 
++// ClearPackageCache clears the in-memory package cache and the preload caches.
++// It is only for use by GOPATH-based "go get".
++// TODO(jayconrod): When GOPATH-based "go get" is removed, delete this function.
++func ClearPackageCache() {
++	clear(packageCache)
++	resolvedImportCache.Clear()
++	packageDataCache.Clear()
++}
++
++// ClearPackageCachePartial clears packages with the given import paths from the
++// in-memory package cache and the preload caches. It is only for use by
++// GOPATH-based "go get".
++// TODO(jayconrod): When GOPATH-based "go get" is removed, delete this function.
++func ClearPackageCachePartial(args []string) {
++	shouldDelete := make(map[string]bool)
++	for _, arg := range args {
++		shouldDelete[arg] = true
++		if p := packageCache[arg]; p != nil {
++			delete(packageCache, arg)
++		}
++	}
++	resolvedImportCache.DeleteIf(func(key importSpec) bool {
++		return shouldDelete[key.path]
++	})
++	packageDataCache.DeleteIf(func(key string) bool {
++		return shouldDelete[key]
++	})
++}
++
++// ReloadPackageNoFlags is like LoadImport but makes sure
++// not to use the package cache.
++// It is only for use by GOPATH-based "go get".
++// TODO(rsc): When GOPATH-based "go get" is removed, delete this function.
++func ReloadPackageNoFlags(arg string, stk *ImportStack) *Package {
++	p := packageCache[arg]
++	if p != nil {
++		delete(packageCache, arg)
++		resolvedImportCache.DeleteIf(func(key importSpec) bool {
++			return key.path == p.ImportPath
++		})
++		packageDataCache.Delete(p.ImportPath)
++	}
++	return LoadPackage(context.TODO(), PackageOpts{}, arg, base.Cwd(), stk, nil, 0)
++}
++
+ // dirToImportPath returns the pseudo-import path we use for a package
+ // outside the Go path. It begins with _/ and then contains the full path
+ // to the directory. If the package lives in c:\home\gopher\my\pkg then
+@@ -691,6 +737,20 @@ const (
+ 	cmdlinePkgLiteral
+ )
+ 
++// LoadImport scans the directory named by path, which must be an import path,
++// but possibly a local import path (an absolute file system path or one beginning
++// with ./ or ../). A local relative path is interpreted relative to srcDir.
++// It returns a *Package describing the package found in that directory.
++// LoadImport does not set tool flags and should only be used by
++// this package, as part of a bigger load operation, and by GOPATH-based "go get".
++// TODO(rsc): When GOPATH-based "go get" is removed, unexport this function.
++// The returned PackageError, if any, describes why parent is not allowed
++// to import the named package, with the error referring to importPos.
++// The PackageError can only be non-nil when parent is not nil.
++func LoadImport(ctx context.Context, opts PackageOpts, path, srcDir string, parent *Package, stk *ImportStack, importPos []token.Position, mode int) (*Package, *PackageError) {
++	return loadImport(ctx, opts, nil, path, srcDir, parent, stk, importPos, mode)
++}
++
+ // LoadPackage does Load import, but without a parent package load context
+ func LoadPackage(ctx context.Context, opts PackageOpts, path, srcDir string, stk *ImportStack, importPos []token.Position, mode int) *Package {
+ 	p, err := loadImport(ctx, opts, nil, path, srcDir, nil, stk, importPos, mode)
 diff --git a/src/cmd/go/internal/modget/get.go b/src/cmd/go/internal/modget/get.go
-index 7343128..966c504 100644
+index 48ae12f..31407e2 100644
 --- a/src/cmd/go/internal/modget/get.go
 +++ b/src/cmd/go/internal/modget/get.go
-@@ -131,6 +131,23 @@ See also: go build, go install, go clean, go mod.
+@@ -129,6 +129,23 @@ See also: go build, go install, go clean, go mod.
  	`,
  }
  
@@ -1091,8 +1179,82 @@ index 7343128..966c504 100644
  var HelpVCS = &base.Command{
  	UsageLine: "vcs",
  	Short:     "controlling version control with GOVCS",
+diff --git a/src/cmd/go/internal/vcs/vcs.go b/src/cmd/go/internal/vcs/vcs.go
+index 1d10c7f..8f2b8a2 100644
+--- a/src/cmd/go/internal/vcs/vcs.go
++++ b/src/cmd/go/internal/vcs/vcs.go
+@@ -1021,11 +1021,11 @@ var defaultGOVCS = govcsConfig{
+ 	{"public", []string{"git", "hg"}},
+ }
+ 
+-// checkGOVCS checks whether the policy defined by the environment variable
++// CheckGOVCS checks whether the policy defined by the environment variable
+ // GOVCS allows the given vcs command to be used with the given repository
+ // root path. Note that root may not be a real package or module path; it's
+ // the same as the root path in the go-import meta tag.
+-func checkGOVCS(vcs *Cmd, root string) error {
++func CheckGOVCS(vcs *Cmd, root string) error {
+ 	if vcs == vcsMod {
+ 		// Direct module (proxy protocol) fetches don't
+ 		// involve an external version control system
+@@ -1053,6 +1053,37 @@ func checkGOVCS(vcs *Cmd, root string) error {
+ 	return nil
+ }
+ 
++// CheckNested checks for an incorrectly-nested VCS-inside-VCS
++// situation for dir, checking parents up until srcRoot.
++func CheckNested(vcs *Cmd, dir, srcRoot string) error {
++	if len(dir) <= len(srcRoot) || dir[len(srcRoot)] != filepath.Separator {
++		return fmt.Errorf("directory %q is outside source root %q", dir, srcRoot)
++	}
++
++	otherDir := dir
++	for len(otherDir) > len(srcRoot) {
++		for _, otherVCS := range vcsList {
++			if isVCSRoot(otherDir, otherVCS.RootNames) {
++				// Allow expected vcs in original dir.
++				if otherDir == dir && otherVCS == vcs {
++					continue
++				}
++				// Otherwise, we have one VCS inside a different VCS.
++				return fmt.Errorf("directory %q uses %s, but parent %q uses %s", dir, vcs.Cmd, otherDir, otherVCS.Cmd)
++			}
++		}
++		// Move to parent.
++		newDir := filepath.Dir(otherDir)
++		if len(newDir) >= len(otherDir) {
++			// Shouldn't happen, but just in case, stop.
++			break
++		}
++		otherDir = newDir
++	}
++
++	return nil
++}
++
+ // RepoRoot describes the repository root for a tree of source code.
+ type RepoRoot struct {
+ 	Repo     string // repository URL, including scheme
+@@ -1168,7 +1199,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
+ 		if vcs == nil {
+ 			return nil, fmt.Errorf("unknown version control system %q", match["vcs"])
+ 		}
+-		if err := checkGOVCS(vcs, match["root"]); err != nil {
++		if err := CheckGOVCS(vcs, match["root"]); err != nil {
+ 			return nil, err
+ 		}
+ 		var repoURL string
+@@ -1357,7 +1388,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
+ 		}
+ 	}
+ 
+-	if err := checkGOVCS(vcs, mmi.Prefix); err != nil {
++	if err := CheckGOVCS(vcs, mmi.Prefix); err != nil {
+ 		return nil, err
+ 	}
+ 
 diff --git a/src/cmd/go/main.go b/src/cmd/go/main.go
-index 1c58232..722ab87 100644
+index e81969c..2246d11 100644
 --- a/src/cmd/go/main.go
 +++ b/src/cmd/go/main.go
 @@ -27,6 +27,7 @@ import (
@@ -1103,8 +1265,8 @@ index 1c58232..722ab87 100644
  	"cmd/go/internal/help"
  	"cmd/go/internal/list"
  	"cmd/go/internal/modcmd"
-@@ -78,9 +79,11 @@ func init() {
- 		help.HelpFileType,
+@@ -80,9 +81,11 @@ func init() {
+ 		help.HelpGoAuth,
  		modload.HelpGoMod,
  		help.HelpGopath,
 +		get.HelpGopathGet,
@@ -1115,7 +1277,7 @@ index 1c58232..722ab87 100644
  		modfetch.HelpModuleAuth,
  		help.HelpPackages,
  		modfetch.HelpPrivate,
-@@ -112,6 +115,13 @@ func main() {
+@@ -119,6 +122,13 @@ func main() {
  		base.Usage()
  	}
  
@@ -2451,6 +2613,52 @@ index d2f05c9..9535fc1 100644
 -
 -func main() {}
 -
+diff --git a/src/cmd/internal/par/work.go b/src/cmd/internal/par/work.go
+index 881b51b..3f1e69a 100644
+--- a/src/cmd/internal/par/work.go
++++ b/src/cmd/internal/par/work.go
+@@ -180,3 +180,41 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
+ 	}
+ 	return e.result, true
+ }
++
++// Clear removes all entries in the cache.
++//
++// Concurrent calls to Get may return old values. Concurrent calls to Do
++// may return old values or store results in entries that have been deleted.
++//
++// TODO(jayconrod): Delete this after the package cache clearing functions
++// in internal/load have been removed.
++func (c *Cache[K, V]) Clear() {
++	c.m.Clear()
++}
++
++// Delete removes an entry from the map. It is safe to call Delete for an
++// entry that does not exist. Delete will return quickly, even if the result
++// for a key is still being computed; the computation will finish, but the
++// result won't be accessible through the cache.
++//
++// TODO(jayconrod): Delete this after the package cache clearing functions
++// in internal/load have been removed.
++func (c *Cache[K, V]) Delete(key K) {
++	c.m.Delete(key)
++}
++
++// DeleteIf calls pred for each key in the map. If pred returns true for a key,
++// DeleteIf removes the corresponding entry. If the result for a key is
++// still being computed, DeleteIf will remove the entry without waiting for
++// the computation to finish. The result won't be accessible through the cache.
++//
++// TODO(jayconrod): Delete this after the package cache clearing functions
++// in internal/load have been removed.
++func (c *Cache[K, V]) DeleteIf(pred func(key K) bool) {
++	c.m.Range(func(key, _ any) bool {
++		if key := key.(K); pred(key) {
++			c.Delete(key)
++		}
++		return true
++	})
++}
 -- 
-2.47.0
+2.39.5
 

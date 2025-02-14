@@ -7,8 +7,8 @@ package runtime
 import (
 	"internal/abi"
 	"internal/goarch"
-	"runtime/internal/math"
-	"runtime/internal/sys"
+	"internal/runtime/math"
+	"internal/runtime/sys"
 	"unsafe"
 )
 
@@ -18,7 +18,7 @@ type slice struct {
 	cap   int
 }
 
-// A notInHeapSlice is a slice backed by runtime/internal/sys.NotInHeap memory.
+// A notInHeapSlice is a slice backed by internal/runtime/sys.NotInHeap memory.
 type notInHeapSlice struct {
 	array *notInHeap
 	len   int
@@ -73,7 +73,7 @@ func makeslicecopy(et *_type, tolen int, fromlen int, from unsafe.Pointer) unsaf
 	}
 
 	if raceenabled {
-		callerpc := getcallerpc()
+		callerpc := sys.GetCallerPC()
 		pc := abi.FuncPCABIInternal(makeslicecopy)
 		racereadrangepc(from, copymem, callerpc, pc)
 	}
@@ -177,7 +177,7 @@ func makeslice64(et *_type, len64, cap64 int64) unsafe.Pointer {
 func growslice(oldPtr unsafe.Pointer, newLen, oldCap, num int, et *_type) slice {
 	oldLen := newLen - num
 	if raceenabled {
-		callerpc := getcallerpc()
+		callerpc := sys.GetCallerPC()
 		racereadrangepc(oldPtr, uintptr(oldLen*int(et.Size_)), callerpc, abi.FuncPCABIInternal(growslice))
 	}
 	if msanenabled {
@@ -368,7 +368,7 @@ func slicecopy(toPtr unsafe.Pointer, toLen int, fromPtr unsafe.Pointer, fromLen 
 
 	size := uintptr(n) * width
 	if raceenabled {
-		callerpc := getcallerpc()
+		callerpc := sys.GetCallerPC()
 		pc := abi.FuncPCABIInternal(slicecopy)
 		racereadrangepc(fromPtr, size, callerpc, pc)
 		racewriterangepc(toPtr, size, callerpc, pc)

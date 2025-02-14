@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"math/rand/v2"
 	"reflect"
 	"runtime"
@@ -75,12 +76,7 @@ func unregisterAllDrivers() {
 func Drivers() []string {
 	driversMu.RLock()
 	defer driversMu.RUnlock()
-	list := make([]string, 0, len(drivers))
-	for name := range drivers {
-		list = append(list, name)
-	}
-	slices.Sort(list)
-	return list
+	return slices.Sorted(maps.Keys(drivers))
 }
 
 // A NamedArg is a named argument. NamedArg values may be used as
@@ -414,6 +410,8 @@ func (n NullTime) Value() (driver.Value, error) {
 //	} else {
 //	   // NULL value
 //	}
+//
+// T should be one of the types accepted by [driver.Value].
 type Null[T any] struct {
 	V     T
 	Valid bool
@@ -432,7 +430,17 @@ func (n Null[T]) Value() (driver.Value, error) {
 	if !n.Valid {
 		return nil, nil
 	}
-	return n.V, nil
+	v := any(n.V)
+	// See issue 69728.
+	if valuer, ok := v.(driver.Valuer); ok {
+		val, err := callValuerValue(valuer)
+		if err != nil {
+			return val, err
+		}
+		v = val
+	}
+	// See issue 69837.
+	return driver.DefaultParameterConverter.ConvertValue(v)
 }
 
 // Scanner is an interface used by [Rows.Scan].

@@ -90,7 +90,8 @@
 // depending on whether the package wants to make the data available to other packages.
 // It can only be used with variables at package scope, not with local variables.
 //
-// Patterns must not match files outside the package's module, such as ‘.git/*’ or symbolic links.
+// Patterns must not match files outside the package's module, such as ‘.git/*’, symbolic links,
+// 'vendor/', or any directories containing go.mod (these are separate modules).
 // Patterns must not match files whose names include the special punctuation characters  " * < > ? ` ' | / \ and :.
 // Matches for empty directories are ignored. After that, each pattern in a //go:embed line
 // must match at least one file or non-empty directory.
@@ -170,7 +171,7 @@ type FS struct {
 	//
 	//	p       # dir=.    elem=p
 	//	q/      # dir=.    elem=q
-	//	w/      # dir=.    elem=w
+	//	w       # dir=.    elem=w
 	//	q/r     # dir=q    elem=r
 	//	q/s/    # dir=q    elem=s
 	//	q/v     # dir=q    elem=v

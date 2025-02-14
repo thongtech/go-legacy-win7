@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"path"
-	"reflect"
 	"slices"
 	"strings"
 	"testing/iotest"
@@ -72,13 +72,7 @@ func testFS(fsys fs.FS, expected ...string) error {
 	}
 	delete(found, ".")
 	if len(expected) == 0 && len(found) > 0 {
-		var list []string
-		for k := range found {
-			if k != "." {
-				list = append(list, k)
-			}
-		}
-		slices.Sort(list)
+		list := slices.Sorted(maps.Keys(found))
 		if len(list) > 15 {
 			list = append(list[:10], "...")
 		}
@@ -358,7 +352,7 @@ func (t *fsTester) checkGlob(dir string, list []fs.DirEntry) {
 		t.errorf("%s: Glob(%#q): %w", dir, glob, err)
 		return
 	}
-	if reflect.DeepEqual(want, names) {
+	if slices.Equal(want, names) {
 		return
 	}
 
@@ -576,7 +570,7 @@ func (t *fsTester) checkFileRead(file, desc string, data1, data2 []byte) {
 	}
 }
 
-// checkBadPath checks that various invalid forms of file's name cannot be opened using t.fsys.Open.
+// checkOpen validates file opening behavior by attempting to open and then close the given file path.
 func (t *fsTester) checkOpen(file string) {
 	t.checkBadPath(file, "Open", func(file string) error {
 		f, err := t.fsys.Open(file)

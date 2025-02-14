@@ -54,7 +54,7 @@ func (p *Process) wait() (ps *ProcessState, err error) {
 	if !isWin10AndAbove {
 		defer time.Sleep(5 * time.Millisecond)
 	}
-	
+
 	defer p.Release()
 	return &ProcessState{p.Pid, syscall.WaitStatus{ExitCode: ec}, &u}, nil
 }

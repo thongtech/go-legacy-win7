@@ -25,10 +25,10 @@ import (
 	"cmd/go/internal/fsys"
 	"cmd/go/internal/gover"
 	"cmd/go/internal/lockedfile"
-	"cmd/go/internal/par"
-	"cmd/go/internal/robustio"
 	"cmd/go/internal/str"
 	"cmd/go/internal/trace"
+	"cmd/internal/par"
+	"cmd/internal/robustio"
 
 	"golang.org/x/mod/module"
 	"golang.org/x/mod/sumdb/dirhash"
@@ -72,6 +72,30 @@ func Download(ctx context.Context, mod module.Version) (dir string, err error) {
 	})
 }
 
+// Unzip is like Download but is given the explicit zip file to use,
+// rather than downloading it. This is used for the GOFIPS140 zip files,
+// which ship in the Go distribution itself.
+func Unzip(ctx context.Context, mod module.Version, zipfile string) (dir string, err error) {
+	if err := checkCacheDir(ctx); err != nil {
+		base.Fatal(err)
+	}
+
+	return downloadCache.Do(mod, func() (string, error) {
+		ctx, span := trace.StartSpan(ctx, "modfetch.Unzip "+mod.String())
+		defer span.Done()
+
+		dir, err = DownloadDir(ctx, mod)
+		if err == nil {
+			// The directory has already been completely extracted (no .partial file exists).
+			return dir, nil
+		} else if dir == "" || !errors.Is(err, fs.ErrNotExist) {
+			return "", err
+		}
+
+		return unzip(ctx, mod, zipfile)
+	})
+}
+
 func download(ctx context.Context, mod module.Version) (dir string, err error) {
 	ctx, span := trace.StartSpan(ctx, "modfetch.download "+mod.String())
 	defer span.Done()
@@ -92,17 +116,21 @@ func download(ctx context.Context, mod module.Version) (dir string, err error) {
 		return "", err
 	}
 
+	return unzip(ctx, mod, zipfile)
+}
+
+func unzip(ctx context.Context, mod module.Version, zipfile string) (dir string, err error) {
 	unlock, err := lockVersion(ctx, mod)
 	if err != nil {
 		return "", err
 	}
 	defer unlock()
 
-	ctx, span = trace.StartSpan(ctx, "unzip "+zipfile)
+	ctx, span := trace.StartSpan(ctx, "unzip "+zipfile)
 	defer span.Done()
 
 	// Check whether the directory was populated while we were waiting on the lock.
-	_, dirErr := DownloadDir(ctx, mod)
+	dir, dirErr := DownloadDir(ctx, mod)
 	if dirErr == nil {
 		return dir, nil
 	}
@@ -481,11 +509,11 @@ func readGoSumFile(dst map[module.Version][]string, file string) (bool, error) {
 		data []byte
 		err  error
 	)
-	if actualSumFile, ok := fsys.OverlayPath(file); ok {
+	if fsys.Replaced(file) {
 		// Don't lock go.sum if it's part of the overlay.
 		// On Plan 9, locking requires chmod, and we don't want to modify any file
 		// in the overlay. See #44700.
-		data, err = os.ReadFile(actualSumFile)
+		data, err = os.ReadFile(fsys.Actual(file))
 	} else {
 		data, err = lockedfile.Read(file)
 	}
@@ -861,7 +889,7 @@ Outer:
 	if readonly {
 		return ErrGoSumDirty
 	}
-	if _, ok := fsys.OverlayPath(GoSumFile); ok {
+	if fsys.Replaced(GoSumFile) {
 		base.Fatalf("go: updates to go.sum needed, but go.sum is part of the overlay specified with -overlay")
 	}
 
@@ -915,7 +943,7 @@ func tidyGoSum(data []byte, keep map[module.Version]bool) []byte {
 		}
 	}
 
-	var mods []module.Version
+	mods := make([]module.Version, 0, len(goSum.m))
 	for m := range goSum.m {
 		mods = append(mods, m)
 	}

@@ -68,6 +68,7 @@ var (
 
 	flagOutfile    = flag.String("o", "", "write output to `file`")
 	flagPluginPath = flag.String("pluginpath", "", "full path name for plugin")
+	flagFipso      = flag.String("fipso", "", "write fips module to `file`")
 
 	flagInstallSuffix = flag.String("installsuffix", "", "set package directory `suffix`")
 	flagDumpDep       = flag.Bool("dumpdep", false, "dump symbol dependency graph")
@@ -95,7 +96,7 @@ var (
 	flagN             = flag.Bool("n", false, "no-op (deprecated)")
 	FlagS             = flag.Bool("s", false, "disable symbol table")
 	flag8             bool // use 64-bit addresses in symbol table
-	flagHostBuildid   = flag.String("B", "", "set ELF NT_GNU_BUILD_ID `note` or Mach-O UUID; use \"gobuildid\" to generate it from the Go build ID")
+	flagHostBuildid   = flag.String("B", "", "set ELF NT_GNU_BUILD_ID `note` or Mach-O UUID; use \"gobuildid\" to generate it from the Go build ID; \"none\" to disable")
 	flagInterpreter   = flag.String("I", "", "use `linker` as ELF dynamic linker")
 	flagCheckLinkname = flag.Bool("checklinkname", true, "check linkname symbol references")
 	FlagDebugTramp    = flag.Int("debugtramp", 0, "debug trampolines")
@@ -226,7 +227,7 @@ func Main(arch *sys.Arch, theArch Arch) {
 		windowsgui = true
 	default:
 		if err := ctxt.HeadType.Set(*flagHeadType); err != nil {
-			Errorf(nil, "%v", err)
+			Errorf("%v", err)
 			usage()
 		}
 	}
@@ -235,7 +236,7 @@ func Main(arch *sys.Arch, theArch Arch) {
 	}
 
 	if !*flagAslr && ctxt.BuildMode != BuildModeCShared {
-		Errorf(nil, "-aslr=false is only allowed for -buildmode=c-shared")
+		Errorf("-aslr=false is only allowed for -buildmode=c-shared")
 		usage()
 	}
 
@@ -294,9 +295,10 @@ func Main(arch *sys.Arch, theArch Arch) {
 		*flagBuildid = "go-openbsd"
 	}
 
-	if *flagHostBuildid != "" {
-		addbuildinfo(ctxt)
+	if *flagHostBuildid == "" && *flagBuildid != "" {
+		*flagHostBuildid = "gobuildid"
 	}
+	addbuildinfo(ctxt)
 
 	// enable benchmarking
 	var bench *benchmark.Metrics
@@ -306,7 +308,7 @@ func Main(arch *sys.Arch, theArch Arch) {
 		} else if *benchmarkFlag == "cpu" {
 			bench = benchmark.New(benchmark.NoGC, *benchmarkFileFlag)
 		} else {
-			Errorf(nil, "unknown benchmark flag: %q", *benchmarkFlag)
+			Errorf("unknown benchmark flag: %q", *benchmarkFlag)
 			usage()
 		}
 	}
@@ -453,7 +455,6 @@ func Main(arch *sys.Arch, theArch Arch) {
 	// will be applied directly there.
 	bench.Start("Asmb")
 	asmb(ctxt)
-
 	exitIfErrors()
 
 	// Generate additional symbols for the native symbol table just prior
@@ -462,6 +463,8 @@ func Main(arch *sys.Arch, theArch Arch) {
 	if thearch.GenSymsLate != nil {
 		thearch.GenSymsLate(ctxt, ctxt.loader)
 	}
+
+	asmbfips(ctxt, *flagFipso)
 
 	bench.Start("Asmb2")
 	asmb2(ctxt)

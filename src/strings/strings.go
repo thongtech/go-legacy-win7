@@ -10,6 +10,7 @@ package strings
 import (
 	"internal/bytealg"
 	"internal/stringslite"
+	"math/bits"
 	"unicode"
 	"unicode/utf8"
 )
@@ -124,6 +125,7 @@ func IndexByte(s string, c byte) int {
 // If r is [utf8.RuneError], it returns the first instance of any
 // invalid UTF-8 byte sequence.
 func IndexRune(s string, r rune) int {
+	const haveFastIndex = bytealg.MaxBruteForce > 0
 	switch {
 	case 0 <= r && r < utf8.RuneSelf:
 		return IndexByte(s, byte(r))
@@ -137,7 +139,60 @@ func IndexRune(s string, r rune) int {
 	case !utf8.ValidRune(r):
 		return -1
 	default:
-		return Index(s, string(r))
+		// Search for rune r using the last byte of its UTF-8 encoded form.
+		// The distribution of the last byte is more uniform compared to the
+		// first byte which has a 78% chance of being [240, 243, 244].
+		rs := string(r)
+		last := len(rs) - 1
+		i := last
+		fails := 0
+		for i < len(s) {
+			if s[i] != rs[last] {
+				o := IndexByte(s[i+1:], rs[last])
+				if o < 0 {
+					return -1
+				}
+				i += o + 1
+			}
+			// Step backwards comparing bytes.
+			for j := 1; j < len(rs); j++ {
+				if s[i-j] != rs[last-j] {
+					goto next
+				}
+			}
+			return i - last
+		next:
+			fails++
+			i++
+			if (haveFastIndex && fails > bytealg.Cutover(i)) && i < len(s) ||
+				(!haveFastIndex && fails >= 4+i>>4 && i < len(s)) {
+				goto fallback
+			}
+		}
+		return -1
+
+	fallback:
+		// see comment in ../bytes/bytes.go
+		if haveFastIndex {
+			if j := bytealg.IndexString(s[i-last:], string(r)); j >= 0 {
+				return i + j - last
+			}
+		} else {
+			c0 := rs[last]
+			c1 := rs[last-1]
+		loop:
+			for ; i < len(s); i++ {
+				if s[i] == c0 && s[i-1] == c1 {
+					for k := 2; k < len(rs); k++ {
+						if s[i-k] != rs[last-k] {
+							continue loop
+						}
+					}
+					return i - last
+				}
+			}
+		}
+		return -1
 	}
 }
 
@@ -568,10 +623,11 @@ func Repeat(s string, count int) string {
 	if count < 0 {
 		panic("strings: negative Repeat count")
 	}
-	if len(s) > maxInt/count {
+	hi, lo := bits.Mul(uint(len(s)), uint(count))
+	if hi > 0 || lo > uint(maxInt) {
 		panic("strings: Repeat output length overflow")
 	}
-	n := len(s) * count
+	n := int(lo) // lo = len(s) * count
 
 	if len(s) == 0 {
 		return ""
@@ -617,13 +673,7 @@ func Repeat(s string, count int) string {
 	b.Grow(n)
 	b.WriteString(s)
 	for b.Len() < n {
-		chunk := n - b.Len()
-		if chunk > b.Len() {
-			chunk = b.Len()
-		}
-		if chunk > chunkMax {
-			chunk = chunkMax
-		}
+		chunk := min(n-b.Len(), b.Len(), chunkMax)
 		b.WriteString(b.String()[:chunk])
 	}
 	return b.String()

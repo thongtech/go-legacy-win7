@@ -8,6 +8,7 @@ package bytes
 
 import (
 	"internal/bytealg"
+	"math/bits"
 	"unicode"
 	"unicode/utf8"
 	_ "unsafe" // for linkname
@@ -136,6 +137,7 @@ func LastIndexByte(s []byte, c byte) int {
 // If r is [utf8.RuneError], it returns the first instance of any
 // invalid UTF-8 byte sequence.
 func IndexRune(s []byte, r rune) int {
+	const haveFastIndex = bytealg.MaxBruteForce > 0
 	switch {
 	case 0 <= r && r < utf8.RuneSelf:
 		return IndexByte(s, byte(r))
@@ -151,9 +153,64 @@ func IndexRune(s []byte, r rune) int {
 	case !utf8.ValidRune(r):
 		return -1
 	default:
+		// Search for rune r using the last byte of its UTF-8 encoded form.
+		// The distribution of the last byte is more uniform compared to the
+		// first byte which has a 78% chance of being [240, 243, 244].
 		var b [utf8.UTFMax]byte
 		n := utf8.EncodeRune(b[:], r)
-		return Index(s, b[:n])
+		last := n - 1
+		i := last
+		fails := 0
+		for i < len(s) {
+			if s[i] != b[last] {
+				o := IndexByte(s[i+1:], b[last])
+				if o < 0 {
+					return -1
+				}
+				i += o + 1
+			}
+			// Step backwards comparing bytes.
+			for j := 1; j < n; j++ {
+				if s[i-j] != b[last-j] {
+					goto next
+				}
+			}
+			return i - last
+		next:
+			fails++
+			i++
+			if (haveFastIndex && fails > bytealg.Cutover(i)) && i < len(s) ||
+				(!haveFastIndex && fails >= 4+i>>4 && i < len(s)) {
+				goto fallback
+			}
+		}
+		return -1
+
+	fallback:
+		// Switch to bytealg.Index, if available, or a brute force search when
+		// IndexByte returns too many false positives.
+		if haveFastIndex {
+			if j := bytealg.Index(s[i-last:], b[:n]); j >= 0 {
+				return i + j - last
+			}
+		} else {
+			// If bytealg.Index is not available a brute force search is
+			// ~1.5-3x faster than Rabin-Karp since n is small.
+			c0 := b[last]
+			c1 := b[last-1] // There are at least 2 chars to match
+		loop:
+			for ; i < len(s); i++ {
+				if s[i] == c0 && s[i-1] == c1 {
+					for k := 2; k < n; k++ {
+						if s[i-k] != b[last-k] {
+							continue loop
+						}
+					}
+					return i - last
+				}
+			}
+		}
+		return -1
 	}
 }
 
@@ -535,7 +592,7 @@ func Join(s [][]byte, sep []byte) []byte {
 
 // HasPrefix reports whether the byte slice s begins with prefix.
 func HasPrefix(s, prefix []byte) bool {
-	return len(s) >= len(prefix) && Equal(s[0:len(prefix)], prefix)
+	return len(s) >= len(prefix) && Equal(s[:len(prefix)], prefix)
 }
 
 // HasSuffix reports whether the byte slice s ends with suffix.
@@ -594,10 +651,11 @@ func Repeat(b []byte, count int) []byte {
 	if count < 0 {
 		panic("bytes: negative Repeat count")
 	}
-	if len(b) > maxInt/count {
+	hi, lo := bits.Mul(uint(len(b)), uint(count))
+	if hi > 0 || lo > uint(maxInt) {
 		panic("bytes: Repeat output length overflow")
 	}
-	n := len(b) * count
+	n := int(lo) // lo = len(b) * count
 
 	if len(b) == 0 {
 		return []byte{}
@@ -624,10 +682,7 @@ func Repeat(b []byte, count int) []byte {
 	nb := bytealg.MakeNoZero(n)[:n:n]
 	bp := copy(nb, b)
 	for bp < n {
-		chunk := bp
-		if chunk > chunkMax {
-			chunk = chunkMax
-		}
+		chunk := min(bp, chunkMax)
 		bp += copy(nb[bp:], nb[:chunk])
 	}
 	return nb

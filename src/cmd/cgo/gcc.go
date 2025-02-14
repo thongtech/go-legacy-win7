@@ -24,6 +24,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -58,17 +59,17 @@ func cname(s string) string {
 		return t
 	}
 
-	if strings.HasPrefix(s, "struct_") {
-		return "struct " + s[len("struct_"):]
+	if t, ok := strings.CutPrefix(s, "struct_"); ok {
+		return "struct " + t
 	}
-	if strings.HasPrefix(s, "union_") {
-		return "union " + s[len("union_"):]
+	if t, ok := strings.CutPrefix(s, "union_"); ok {
+		return "union " + t
 	}
-	if strings.HasPrefix(s, "enum_") {
-		return "enum " + s[len("enum_"):]
+	if t, ok := strings.CutPrefix(s, "enum_"); ok {
+		return "enum " + t
 	}
-	if strings.HasPrefix(s, "sizeof_") {
-		return "sizeof(" + cname(s[len("sizeof_"):]) + ")"
+	if t, ok := strings.CutPrefix(s, "sizeof_"); ok {
+		return "sizeof(" + cname(t) + ")"
 	}
 	return s
 }
@@ -94,10 +95,8 @@ func (f *File) ProcessCgoDirectives() {
 				directive := fields[1]
 				funcName := fields[2]
 				if directive == "nocallback" {
-					fatalf("#cgo nocallback disabled until Go 1.23")
 					f.NoCallbacks[funcName] = true
 				} else if directive == "noescape" {
-					fatalf("#cgo noescape disabled until Go 1.23")
 					f.NoEscapes[funcName] = true
 				}
 			}
@@ -195,7 +194,6 @@ func (p *Package) Translate(f *File) {
 	var conv typeConv
 	conv.Init(p.PtrSize, p.IntSize)
 
-	p.loadDefines(f)
 	p.typedefs = map[string]bool{}
 	p.typedefList = nil
 	numTypedefs := -1
@@ -235,12 +233,14 @@ func (p *Package) Translate(f *File) {
 
 // loadDefines coerces gcc into spitting out the #defines in use
 // in the file f and saves relevant renamings in f.Name[name].Define.
-func (p *Package) loadDefines(f *File) {
+// Returns true if env:CC is Clang
+func (f *File) loadDefines(gccOptions []string) bool {
 	var b bytes.Buffer
 	b.WriteString(builtinProlog)
 	b.WriteString(f.Preamble)
-	stdout := p.gccDefines(b.Bytes())
+	stdout := gccDefines(b.Bytes(), gccOptions)
 
+	var gccIsClang bool
 	for _, line := range strings.Split(stdout, "\n") {
 		if len(line) < 9 || line[0:7] != "#define" {
 			continue
@@ -263,7 +263,7 @@ func (p *Package) loadDefines(f *File) {
 		}
 
 		if key == "__clang__" {
-			p.GccIsClang = true
+			gccIsClang = true
 		}
 
 		if n := f.Name[key]; n != nil {
@@ -273,6 +273,7 @@ func (p *Package) loadDefines(f *File) {
 			n.Define = val
 		}
 	}
+	return gccIsClang
 }
 
 // guessKinds tricks gcc into revealing the kind of each
@@ -489,7 +490,7 @@ func (p *Package) guessKinds(f *File) []*Name {
 				// Don't report an error, and skip adding n to the needType array.
 				continue
 			}
-			error_(f.NamePos[n], "could not determine kind of name for C.%s", fixGo(n.Go))
+			error_(f.NamePos[n], "could not determine what C.%s refers to", fixGo(n.Go))
 		case notStrLiteral | notType:
 			n.Kind = "iconst"
 		case notIntConst | notStrLiteral | notType:
@@ -781,16 +782,13 @@ func (p *Package) mangleName(n *Name) {
 }
 
 func (f *File) isMangledName(s string) bool {
-	prefix := "_C"
-	if strings.HasPrefix(s, prefix) {
-		t := s[len(prefix):]
-		for _, k := range nameKinds {
-			if strings.HasPrefix(t, k+"_") {
-				return true
-			}
-		}
+	t, ok := strings.CutPrefix(s, "_C")
+	if !ok {
+		return false
 	}
-	return false
+	return slices.ContainsFunc(nameKinds, func(k string) bool {
+		return strings.HasPrefix(t, k+"_")
+	})
 }
 
 // rewriteCalls rewrites all calls that pass pointers to check that
@@ -1050,12 +1048,9 @@ func (p *Package) hasPointer(f *File, t ast.Expr, top bool) bool {
 		}
 		return p.hasPointer(f, t.Elt, top)
 	case *ast.StructType:
-		for _, field := range t.Fields.List {
-			if p.hasPointer(f, field.Type, top) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Fields.List, func(field *ast.Field) bool {
+			return p.hasPointer(f, field.Type, top)
+		})
 	case *ast.StarExpr: // Pointer type.
 		if !top {
 			return true
@@ -1724,7 +1719,7 @@ func checkGCCBaseCmd() ([]string, error) {
 }
 
 // gccMachine returns the gcc -m flag to use, either "-m32", "-m64" or "-marm".
-func (p *Package) gccMachine() []string {
+func gccMachine() []string {
 	switch goarch {
 	case "amd64":
 		if goos == "darwin" {
@@ -1797,7 +1792,7 @@ func (p *Package) gccCmd() []string {
 	}
 
 	c = append(c, p.GccOptions...)
-	c = append(c, p.gccMachine()...)
+	c = append(c, gccMachine()...)
 	if goos == "aix" {
 		c = append(c, "-maix64")
 		c = append(c, "-mcmodel=large")
@@ -1838,8 +1833,8 @@ func (p *Package) gccDebug(stdin []byte, nnames int) (d *dwarf.Data, ints []int6
 		if strings.HasPrefix(s, "___") {
 			s = s[1:]
 		}
-		if strings.HasPrefix(s, "__cgodebug_strlen__") {
-			if n, err := strconv.Atoi(s[len("__cgodebug_strlen__"):]); err == nil {
+		if t, ok := strings.CutPrefix(s, "__cgodebug_strlen__"); ok {
+			if n, err := strconv.Atoi(t); err == nil {
 				return n
 			}
 		}
@@ -2189,10 +2184,10 @@ func (p *Package) gccDebug(stdin []byte, nnames int) (d *dwarf.Data, ints []int6
 // and returns the corresponding standard output, which is the
 // #defines that gcc encountered while processing the input
 // and its included files.
-func (p *Package) gccDefines(stdin []byte) string {
+func gccDefines(stdin []byte, gccOptions []string) string {
 	base := append(gccBaseCmd, "-E", "-dM", "-xc")
-	base = append(base, p.gccMachine()...)
-	stdout, _ := runGcc(stdin, append(append(base, p.GccOptions...), "-"))
+	base = append(base, gccMachine()...)
+	stdout, _ := runGcc(stdin, append(append(base, gccOptions...), "-"))
 	return stdout
 }
 
@@ -3202,12 +3197,9 @@ func (c *typeConv) dwarfHasPointer(dt dwarf.Type, pos token.Pos) bool {
 		return c.dwarfHasPointer(dt.Type, pos)
 
 	case *dwarf.StructType:
-		for _, f := range dt.Field {
-			if c.dwarfHasPointer(f.Type, pos) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(dt.Field, func(f *dwarf.StructField) bool {
+			return c.dwarfHasPointer(f.Type, pos)
+		})
 
 	case *dwarf.TypedefType:
 		if dt.Name == "_GoString_" || dt.Name == "_GoBytes_" {

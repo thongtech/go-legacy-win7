@@ -221,7 +221,6 @@ var gcphase uint32
 // but widely used packages access it using linkname.
 // Notable members of the hall of shame include:
 //   - github.com/bytedance/sonic
-//   - github.com/cloudwego/frugal
 //
 // Do not remove or change the type signature.
 // See go.dev/issue/67401.
@@ -336,11 +335,12 @@ type workType struct {
 
 	// bytesMarked is the number of bytes marked this cycle. This
 	// includes bytes blackened in scanned objects, noscan objects
-	// that go straight to black, and permagrey objects scanned by
-	// markroot during the concurrent scan phase. This is updated
-	// atomically during the cycle. Updates may be batched
-	// arbitrarily, since the value is only read at the end of the
-	// cycle.
+	// that go straight to black, objects allocated as black during
+	// the cycle, and permagrey objects scanned by markroot during
+	// the concurrent scan phase.
+	//
+	// This is updated atomically during the cycle. Updates may be batched
+	// arbitrarily, since the value is only read at the end of the cycle.
 	//
 	// Because of benign races during marking, this number may not
 	// be the exact number of marked bytes, but it should be very
@@ -638,6 +638,17 @@ func gcStart(trigger gcTrigger) {
 	}
 	releasem(mp)
 	mp = nil
+
+	if gp := getg(); gp.syncGroup != nil {
+		// Disassociate the G from its synctest bubble while allocating.
+		// This is less elegant than incrementing the group's active count,
+		// but avoids any contamination between GC and synctest.
+		sg := gp.syncGroup
+		gp.syncGroup = nil
+		defer func() {
+			gp.syncGroup = sg
+		}()
+	}
 
 	// Pick up the remaining unswept/not being swept spans concurrently
 	//
@@ -1774,8 +1785,12 @@ func boring_registerCache(p unsafe.Pointer) {
 
 //go:linkname unique_runtime_registerUniqueMapCleanup unique.runtime_registerUniqueMapCleanup
 func unique_runtime_registerUniqueMapCleanup(f func()) {
+	// Create the channel on the system stack so it doesn't inherit the current G's
+	// synctest bubble (if any).
+	systemstack(func() {
+		uniqueMapCleanup = make(chan struct{}, 1)
+	})
 	// Start the goroutine in the runtime so it's counted as a system goroutine.
-	uniqueMapCleanup = make(chan struct{}, 1)
 	go func(cleanup func()) {
 		for {
 			<-uniqueMapCleanup
@@ -1908,7 +1923,7 @@ func gcTestIsReachable(ptrs ...unsafe.Pointer) (mask uint64) {
 		s := (*specialReachable)(mheap_.specialReachableAlloc.alloc())
 		unlock(&mheap_.speciallock)
 		s.special.kind = _KindSpecialReachable
-		if !addspecial(p, &s.special) {
+		if !addspecial(p, &s.special, false) {
 			throw("already have a reachable special (duplicate pointer?)")
 		}
 		specials[i] = s

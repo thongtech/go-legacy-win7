@@ -59,6 +59,32 @@ func TestParsePKCS1PrivateKey(t *testing.T) {
 	if _, err := ParsePKCS1PrivateKey(data); err == nil {
 		t.Errorf("parsing invalid private key did not result in an error")
 	}
+
+	// A partial key without CRT values should still parse.
+	b, _ := asn1.Marshal(struct {
+		Version int
+		N       *big.Int
+		E       int
+		D       *big.Int
+		P       *big.Int
+		Q       *big.Int
+	}{
+		N: priv.N,
+		E: priv.PublicKey.E,
+		D: priv.D,
+		P: priv.Primes[0],
+		Q: priv.Primes[1],
+	})
+	p2, err := ParsePKCS1PrivateKey(b)
+	if err != nil {
+		t.Fatalf("parsing partial private key resulted in an error: %v", err)
+	}
+	if !p2.Equal(priv) {
+		t.Errorf("partial private key did not match original key")
+	}
+	if p2.Precomputed.Dp == nil || p2.Precomputed.Dq == nil || p2.Precomputed.Qinv == nil {
+		t.Errorf("precomputed values not recomputed")
+	}
 }
 
 func TestPKCS1MismatchPublicKeyFormat(t *testing.T) {
@@ -251,7 +277,62 @@ func TestMarshalRSAPrivateKey(t *testing.T) {
 		priv.Primes[0].Cmp(priv2.Primes[0]) != 0 ||
 		priv.Primes[1].Cmp(priv2.Primes[1]) != 0 ||
 		priv.Primes[2].Cmp(priv2.Primes[2]) != 0 {
-		t.Errorf("got:%+v want:%+v", priv, priv2)
+		t.Errorf("wrong priv:\ngot  %+v\nwant %+v", priv2, priv)
+	}
+
+	if priv.Precomputed.Dp == nil {
+		t.Fatalf("Precomputed.Dp is nil")
+	}
+}
+
+func TestMarshalRSAPrivateKeyInvalid(t *testing.T) {
+	block, _ := pem.Decode([]byte(strings.ReplaceAll(
+		`-----BEGIN RSA TESTING KEY-----
+MIIEowIBAAKCAQEAsPnoGUOnrpiSqt4XynxA+HRP7S+BSObI6qJ7fQAVSPtRkqso
+tWxQYLEYzNEx5ZSHTGypibVsJylvCfuToDTfMul8b/CZjP2Ob0LdpYrNH6l5hvFE
+89FU1nZQF15oVLOpUgA7wGiHuEVawrGfey92UE68mOyUVXGweJIVDdxqdMoPvNNU
+l86BU02vlBiESxOuox+dWmuVV7vfYZ79Toh/LUK43YvJh+rhv4nKuF7iHjVjBd9s
+B6iDjj70HFldzOQ9r8SRI+9NirupPTkF5AKNe6kUhKJ1luB7S27ZkvB3tSTT3P59
+3VVJvnzOjaA1z6Cz+4+eRvcysqhrRgFlwI9TEwIDAQABAoIBAEEYiyDP29vCzx/+
+dS3LqnI5BjUuJhXUnc6AWX/PCgVAO+8A+gZRgvct7PtZb0sM6P9ZcLrweomlGezI
+FrL0/6xQaa8bBr/ve/a8155OgcjFo6fZEw3Dz7ra5fbSiPmu4/b/kvrg+Br1l77J
+aun6uUAs1f5B9wW+vbR7tzbT/mxaUeDiBzKpe15GwcvbJtdIVMa2YErtRjc1/5B2
+BGVXyvlJv0SIlcIEMsHgnAFOp1ZgQ08aDzvilLq8XVMOahAhP1O2A3X8hKdXPyrx
+IVWE9bS9ptTo+eF6eNl+d7htpKGEZHUxinoQpWEBTv+iOoHsVunkEJ3vjLP3lyI/
+fY0NQ1ECgYEA3RBXAjgvIys2gfU3keImF8e/TprLge1I2vbWmV2j6rZCg5r/AS0u
+pii5CvJ5/T5vfJPNgPBy8B/yRDs+6PJO1GmnlhOkG9JAIPkv0RBZvR0PMBtbp6nT
+Y3yo1lwamBVBfY6rc0sLTzosZh2aGoLzrHNMQFMGaauORzBFpY5lU50CgYEAzPHl
+u5DI6Xgep1vr8QvCUuEesCOgJg8Yh1UqVoY/SmQh6MYAv1I9bLGwrb3WW/7kqIoD
+fj0aQV5buVZI2loMomtU9KY5SFIsPV+JuUpy7/+VE01ZQM5FdY8wiYCQiVZYju9X
+Wz5LxMNoz+gT7pwlLCsC4N+R8aoBk404aF1gum8CgYAJ7VTq7Zj4TFV7Soa/T1eE
+k9y8a+kdoYk3BASpCHJ29M5R2KEA7YV9wrBklHTz8VzSTFTbKHEQ5W5csAhoL5Fo
+qoHzFFi3Qx7MHESQb9qHyolHEMNx6QdsHUn7rlEnaTTyrXh3ifQtD6C0yTmFXUIS
+CW9wKApOrnyKJ9nI0HcuZQKBgQCMtoV6e9VGX4AEfpuHvAAnMYQFgeBiYTkBKltQ
+XwozhH63uMMomUmtSG87Sz1TmrXadjAhy8gsG6I0pWaN7QgBuFnzQ/HOkwTm+qKw
+AsrZt4zeXNwsH7QXHEJCFnCmqw9QzEoZTrNtHJHpNboBuVnYcoueZEJrP8OnUG3r
+UjmopwKBgAqB2KYYMUqAOvYcBnEfLDmyZv9BTVNHbR2lKkMYqv5LlvDaBxVfilE0
+2riO4p6BaAdvzXjKeRrGNEKoHNBpOSfYCOM16NjL8hIZB1CaV3WbT5oY+jp7Mzd5
+7d56RZOE+ERK2uz/7JX9VSsM/LbH9pJibd4e8mikDS9ntciqOH/3
+-----END RSA TESTING KEY-----`, "TESTING KEY", "PRIVATE KEY")))
+	testRSA2048, _ := ParsePKCS1PrivateKey(block.Bytes)
+
+	broken := *testRSA2048
+	broken.Precomputed.Dp = new(big.Int).SetUint64(42)
+
+	parsed, err := ParsePKCS1PrivateKey(MarshalPKCS1PrivateKey(&broken))
+	if err == nil {
+		t.Errorf("expected error, got success")
+	}
+
+	t.Setenv("GODEBUG", "x509rsacrt=0")
+
+	parsed, err = ParsePKCS1PrivateKey(MarshalPKCS1PrivateKey(&broken))
+	if err != nil {
+		t.Fatalf("expected success, got error: %v", err)
+	}
+	// Dp should have been recomputed.
+	if parsed.Precomputed.Dp.Cmp(testRSA2048.Precomputed.Dp) != 0 {
+		t.Errorf("Dp recomputation failed: got %v, want %v", parsed.Precomputed.Dp, testRSA2048.Precomputed.Dp)
 	}
 }
 
@@ -673,8 +754,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			IPAddresses:    []net.IP{net.IPv4(127, 0, 0, 1).To4(), net.ParseIP("2001:4860:0:2001::68")},
 			URIs:           []*url.URL{parseURI("https://foo.com/wibble#foo")},
 
-			PolicyIdentifiers:       []asn1.ObjectIdentifier{[]int{1, 2, 3}},
-			Policies:                []OID{mustNewOIDFromInts(t, []uint64{1, 2, 3, math.MaxUint32, math.MaxUint64})},
+			Policies:                []OID{mustNewOIDFromInts([]uint64{1, 2, 3, math.MaxUint32, math.MaxUint64})},
 			PermittedDNSDomains:     []string{".example.com", "example.com"},
 			ExcludedDNSDomains:      []string{"bar.example.com"},
 			PermittedIPRanges:       []*net.IPNet{parseCIDR("192.168.1.1/16"), parseCIDR("1.2.3.4/8")},
@@ -712,8 +792,8 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			continue
 		}
 
-		if len(cert.PolicyIdentifiers) != 1 || !cert.PolicyIdentifiers[0].Equal(template.PolicyIdentifiers[0]) {
-			t.Errorf("%s: failed to parse policy identifiers: got:%#v want:%#v", test.name, cert.PolicyIdentifiers, template.PolicyIdentifiers)
+		if len(cert.Policies) != 1 || !cert.Policies[0].Equal(template.Policies[0]) {
+			t.Errorf("%s: failed to parse policy identifiers: got:%#v want:%#v", test.name, cert.PolicyIdentifiers, template.Policies)
 		}
 
 		if len(cert.PermittedDNSDomains) != 2 || cert.PermittedDNSDomains[0] != ".example.com" || cert.PermittedDNSDomains[1] != "example.com" {
@@ -783,27 +863,27 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			t.Errorf("%s: SignatureAlgorithm wasn't copied from template. Got %v, want %v", test.name, cert.SignatureAlgorithm, test.sigAlgo)
 		}
 
-		if !reflect.DeepEqual(cert.ExtKeyUsage, testExtKeyUsage) {
+		if !slices.Equal(cert.ExtKeyUsage, testExtKeyUsage) {
 			t.Errorf("%s: extkeyusage wasn't correctly copied from the template. Got %v, want %v", test.name, cert.ExtKeyUsage, testExtKeyUsage)
 		}
 
-		if !reflect.DeepEqual(cert.UnknownExtKeyUsage, testUnknownExtKeyUsage) {
+		if !slices.EqualFunc(cert.UnknownExtKeyUsage, testUnknownExtKeyUsage, asn1.ObjectIdentifier.Equal) {
 			t.Errorf("%s: unknown extkeyusage wasn't correctly copied from the template. Got %v, want %v", test.name, cert.UnknownExtKeyUsage, testUnknownExtKeyUsage)
 		}
 
-		if !reflect.DeepEqual(cert.OCSPServer, template.OCSPServer) {
+		if !slices.Equal(cert.OCSPServer, template.OCSPServer) {
 			t.Errorf("%s: OCSP servers differ from template. Got %v, want %v", test.name, cert.OCSPServer, template.OCSPServer)
 		}
 
-		if !reflect.DeepEqual(cert.IssuingCertificateURL, template.IssuingCertificateURL) {
+		if !slices.Equal(cert.IssuingCertificateURL, template.IssuingCertificateURL) {
 			t.Errorf("%s: Issuing certificate URLs differ from template. Got %v, want %v", test.name, cert.IssuingCertificateURL, template.IssuingCertificateURL)
 		}
 
-		if !reflect.DeepEqual(cert.DNSNames, template.DNSNames) {
+		if !slices.Equal(cert.DNSNames, template.DNSNames) {
 			t.Errorf("%s: SAN DNS names differ from template. Got %v, want %v", test.name, cert.DNSNames, template.DNSNames)
 		}
 
-		if !reflect.DeepEqual(cert.EmailAddresses, template.EmailAddresses) {
+		if !slices.Equal(cert.EmailAddresses, template.EmailAddresses) {
 			t.Errorf("%s: SAN emails differ from template. Got %v, want %v", test.name, cert.EmailAddresses, template.EmailAddresses)
 		}
 
@@ -811,11 +891,11 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
 			t.Errorf("%s: URIs differ from template. Got %v, want %v", test.name, cert.URIs, template.URIs)
 		}
 
-		if !reflect.DeepEqual(cert.IPAddresses, template.IPAddresses) {
+		if !slices.EqualFunc(cert.IPAddresses, template.IPAddresses, net.IP.Equal) {
 			t.Errorf("%s: SAN IPs differ from template. Got %v, want %v", test.name, cert.IPAddresses, template.IPAddresses)
 		}
 
-		if !reflect.DeepEqual(cert.CRLDistributionPoints, template.CRLDistributionPoints) {
+		if !slices.Equal(cert.CRLDistributionPoints, template.CRLDistributionPoints) {
 			t.Errorf("%s: CRL distribution points differ from template. Got %v, want %v", test.name, cert.CRLDistributionPoints, template.CRLDistributionPoints)
 		}
 
@@ -1472,6 +1552,7 @@ func TestCreateCertificateRequest(t *testing.T) {
 }
 
 func marshalAndParseCSR(t *testing.T, template *CertificateRequest) *CertificateRequest {
+	t.Helper()
 	derBytes, err := CreateCertificateRequest(rand.Reader, template, testPrivateKey)
 	if err != nil {
 		t.Fatal(err)
@@ -1636,6 +1717,7 @@ func TestCriticalFlagInCSRRequestedExtensions(t *testing.T) {
 // serialiseAndParse generates a self-signed certificate from template and
 // returns a parsed version of it.
 func serialiseAndParse(t *testing.T, template *Certificate) *Certificate {
+	t.Helper()
 	derBytes, err := CreateCertificate(rand.Reader, template, template, &testPrivateKey.PublicKey, testPrivateKey)
 	if err != nil {
 		t.Fatalf("failed to create certificate: %s", err)
@@ -1815,8 +1897,8 @@ func TestInsecureAlgorithmErrorString(t *testing.T) {
 		want string
 	}{
 		{MD5WithRSA, "x509: cannot verify signature: insecure algorithm MD5-RSA"},
-		{SHA1WithRSA, "x509: cannot verify signature: insecure algorithm SHA1-RSA (temporarily override with GODEBUG=x509sha1=1)"},
-		{ECDSAWithSHA1, "x509: cannot verify signature: insecure algorithm ECDSA-SHA1 (temporarily override with GODEBUG=x509sha1=1)"},
+		{SHA1WithRSA, "x509: cannot verify signature: insecure algorithm SHA1-RSA"},
+		{ECDSAWithSHA1, "x509: cannot verify signature: insecure algorithm ECDSA-SHA1"},
 		{MD2WithRSA, "x509: cannot verify signature: insecure algorithm 1"},
 		{-1, "x509: cannot verify signature: insecure algorithm -1"},
 		{0, "x509: cannot verify signature: insecure algorithm 0"},
@@ -1896,11 +1978,6 @@ func TestSHA1(t *testing.T) {
 	}
 	if _, ok := err.(InsecureAlgorithmError); !ok {
 		t.Fatalf("certificate verification returned %v (%T), wanted InsecureAlgorithmError", err, err)
-	}
-
-	t.Setenv("GODEBUG", "x509sha1=1")
-	if err = cert.CheckSignatureFrom(cert); err != nil {
-		t.Fatalf("SHA-1 certificate did not verify with GODEBUG=x509sha1=1: %v", err)
 	}
 }
 
@@ -2327,6 +2404,37 @@ func TestAdditionFieldsInGeneralSubtree(t *testing.T) {
 	}
 }
 
+func TestEmptySerialNumber(t *testing.T) {
+	template := Certificate{
+		DNSNames: []string{"example.com"},
+	}
+
+	for range 100 {
+		derBytes, err := CreateCertificate(rand.Reader, &template, &template, &testPrivateKey.PublicKey, testPrivateKey)
+		if err != nil {
+			t.Fatalf("failed to create certificate: %s", err)
+		}
+
+		cert, err := ParseCertificate(derBytes)
+		if err != nil {
+			t.Fatalf("failed to parse certificate: %s", err)
+		}
+
+		if sign := cert.SerialNumber.Sign(); sign != 1 {
+			t.Fatalf("generated a non positive serial, sign: %d", sign)
+		}
+
+		b, err := asn1.Marshal(cert.SerialNumber)
+		if err != nil {
+			t.Fatalf("failed to marshal generated serial number: %s", err)
+		}
+		// subtract 2 for tag and length
+		if l := len(b) - 2; l > 20 {
+			t.Fatalf("generated serial number larger than 20 octets when encoded: %d", l)
+		}
+	}
+}
+
 func TestEmptySubject(t *testing.T) {
 	template := Certificate{
 		SerialNumber: big.NewInt(1),
@@ -2405,7 +2513,7 @@ func TestMultipleURLsInCRLDP(t *testing.T) {
 		"http://epscd.catcert.net/crl/ec-acc.crl",
 		"http://epscd2.catcert.net/crl/ec-acc.crl",
 	}
-	if got := cert.CRLDistributionPoints; !reflect.DeepEqual(got, want) {
+	if got := cert.CRLDistributionPoints; !slices.Equal(got, want) {
 		t.Errorf("CRL distribution points = %#v, want #%v", got, want)
 	}
 }
@@ -2979,12 +3087,8 @@ func TestUnknownExtKey(t *testing.T) {
 		DNSNames:     []string{"foo"},
 		ExtKeyUsage:  []ExtKeyUsage{ExtKeyUsage(-1)},
 	}
-	signer, err := rsa.GenerateKey(rand.Reader, 1024)
-	if err != nil {
-		t.Errorf("failed to generate key for TestUnknownExtKey")
-	}
 
-	_, err = CreateCertificate(rand.Reader, template, template, signer.Public(), signer)
+	_, err := CreateCertificate(rand.Reader, template, template, testPrivateKey.Public(), testPrivateKey)
 	if !strings.Contains(err.Error(), errorContains) {
 		t.Errorf("expected error containing %q, got %s", errorContains, err)
 	}
@@ -3231,10 +3335,10 @@ func TestCertificateRequestRoundtripFields(t *testing.T) {
 	}
 	out := marshalAndParseCSR(t, in)
 
-	if !reflect.DeepEqual(in.DNSNames, out.DNSNames) {
+	if !slices.Equal(in.DNSNames, out.DNSNames) {
 		t.Fatalf("Unexpected DNSNames: got %v, want %v", out.DNSNames, in.DNSNames)
 	}
-	if !reflect.DeepEqual(in.EmailAddresses, out.EmailAddresses) {
+	if !slices.Equal(in.EmailAddresses, out.EmailAddresses) {
 		t.Fatalf("Unexpected EmailAddresses: got %v, want %v", out.EmailAddresses, in.EmailAddresses)
 	}
 	if len(in.IPAddresses) != len(out.IPAddresses) ||
@@ -3923,7 +4027,9 @@ func TestDuplicateAttributesCSR(t *testing.T) {
 	}
 }
 
-func TestCertificateOIDPolicies(t *testing.T) {
+func TestCertificateOIDPoliciesGODEBUG(t *testing.T) {
+	t.Setenv("GODEBUG", "x509usepolicies=0")
+
 	template := Certificate{
 		SerialNumber:      big.NewInt(1),
 		Subject:           pkix.Name{CommonName: "Cert"},
@@ -3937,7 +4043,7 @@ func TestCertificateOIDPolicies(t *testing.T) {
 	}
 
 	var expectPolicies = []OID{
-		mustNewOIDFromInts(t, []uint64{1, 2, 3}),
+		mustNewOIDFromInts([]uint64{1, 2, 3}),
 	}
 
 	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
@@ -3959,17 +4065,21 @@ func TestCertificateOIDPolicies(t *testing.T) {
 	}
 }
 
-func TestCertificatePoliciesGODEBUG(t *testing.T) {
+func TestCertificatePolicies(t *testing.T) {
+	if x509usepolicies.Value() == "0" {
+		t.Skip("test relies on default x509usepolicies GODEBUG")
+	}
+
 	template := Certificate{
 		SerialNumber:      big.NewInt(1),
 		Subject:           pkix.Name{CommonName: "Cert"},
 		NotBefore:         time.Unix(1000, 0),
 		NotAfter:          time.Unix(100000, 0),
 		PolicyIdentifiers: []asn1.ObjectIdentifier{[]int{1, 2, 3}},
-		Policies:          []OID{mustNewOIDFromInts(t, []uint64{1, 2, math.MaxUint32 + 1})},
+		Policies:          []OID{mustNewOIDFromInts([]uint64{1, 2, math.MaxUint32 + 1})},
 	}
 
-	expectPolicies := []OID{mustNewOIDFromInts(t, []uint64{1, 2, 3})}
+	expectPolicies := []OID{mustNewOIDFromInts([]uint64{1, 2, math.MaxUint32 + 1})}
 	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
 	if err != nil {
 		t.Fatalf("CreateCertificate() unexpected error: %v", err)
@@ -3985,7 +4095,7 @@ func TestCertificatePoliciesGODEBUG(t *testing.T) {
 	}
 
 	t.Setenv("GODEBUG", "x509usepolicies=1")
-	expectPolicies = []OID{mustNewOIDFromInts(t, []uint64{1, 2, math.MaxUint32 + 1})}
+	expectPolicies = []OID{mustNewOIDFromInts([]uint64{1, 2, math.MaxUint32 + 1})}
 
 	certDER, err = CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
 	if err != nil {

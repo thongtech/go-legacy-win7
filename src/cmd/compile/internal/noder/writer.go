@@ -58,6 +58,10 @@ import (
 // and better document the file format boundary between public and
 // private data.
 
+type index = pkgbits.Index
+
+func assert(p bool) { base.Assert(p) }
+
 // A pkgWriter constructs Unified IR export data from the results of
 // running the types2 type checker on a Go compilation unit.
 type pkgWriter struct {
@@ -70,10 +74,10 @@ type pkgWriter struct {
 
 	// Indices for previously written syntax and types2 things.
 
-	posBasesIdx map[*syntax.PosBase]pkgbits.Index
-	pkgsIdx     map[*types2.Package]pkgbits.Index
-	typsIdx     map[types2.Type]pkgbits.Index
-	objsIdx     map[types2.Object]pkgbits.Index
+	posBasesIdx map[*syntax.PosBase]index
+	pkgsIdx     map[*types2.Package]index
+	typsIdx     map[types2.Type]index
+	objsIdx     map[types2.Object]index
 
 	// Maps from types2.Objects back to their syntax.Decl.
 
@@ -92,19 +96,24 @@ type pkgWriter struct {
 // newPkgWriter returns an initialized pkgWriter for the specified
 // package.
 func newPkgWriter(m posMap, pkg *types2.Package, info *types2.Info, otherInfo map[*syntax.FuncLit]bool) *pkgWriter {
+	// Use V2 as the encoded version aliastypeparams GOEXPERIMENT is enabled.
+	version := pkgbits.V1
+	if buildcfg.Experiment.AliasTypeParams {
+		version = pkgbits.V2
+	}
 	return &pkgWriter{
-		PkgEncoder: pkgbits.NewPkgEncoder(base.Debug.SyncFrames),
+		PkgEncoder: pkgbits.NewPkgEncoder(version, base.Debug.SyncFrames),
 
 		m:                     m,
 		curpkg:                pkg,
 		info:                  info,
 		rangeFuncBodyClosures: otherInfo,
 
-		pkgsIdx: make(map[*types2.Package]pkgbits.Index),
-		objsIdx: make(map[types2.Object]pkgbits.Index),
-		typsIdx: make(map[types2.Type]pkgbits.Index),
+		pkgsIdx: make(map[*types2.Package]index),
+		objsIdx: make(map[types2.Object]index),
+		typsIdx: make(map[types2.Type]index),
 
-		posBasesIdx: make(map[*syntax.PosBase]pkgbits.Index),
+		posBasesIdx: make(map[*syntax.PosBase]index),
 
 		funDecls: make(map[*types2.Func]*syntax.FuncDecl),
 		typDecls: make(map[*types2.TypeName]typeDeclGen),
@@ -202,7 +211,7 @@ type writerDict struct {
 
 	// derivedIdx maps a Type to its corresponding index within the
 	// derived slice, if present.
-	derivedIdx map[types2.Type]pkgbits.Index
+	derivedIdx map[types2.Type]index
 
 	// These slices correspond to entries in the runtime dictionary.
 	typeParamMethodExprs []writerMethodExprInfo
@@ -232,8 +241,7 @@ func (dict *writerDict) typeParamIndex(typ *types2.TypeParam) int {
 
 // A derivedInfo represents a reference to an encoded generic Go type.
 type derivedInfo struct {
-	idx    pkgbits.Index
-	needed bool // TODO(mdempsky): Remove.
+	idx index
 }
 
 // A typeInfo represents a reference to an encoded Go type.
@@ -245,23 +253,23 @@ type derivedInfo struct {
 // Otherwise, the typeInfo represents a non-generic Go type, and idx
 // is an index into the reader.typs array instead.
 type typeInfo struct {
-	idx     pkgbits.Index
+	idx     index
 	derived bool
 }
 
 // An objInfo represents a reference to an encoded, instantiated (if
 // applicable) Go object.
 type objInfo struct {
-	idx       pkgbits.Index // index for the generic function declaration
-	explicits []typeInfo    // info for the type arguments
+	idx       index      // index for the generic function declaration
+	explicits []typeInfo // info for the type arguments
 }
 
 // A selectorInfo represents a reference to an encoded field or method
 // name (i.e., objects that can only be accessed using selector
 // expressions).
 type selectorInfo struct {
-	pkgIdx  pkgbits.Index
-	nameIdx pkgbits.Index
+	pkgIdx  index
+	nameIdx index
 }
 
 // anyDerived reports whether any of info's explicit type arguments
@@ -391,7 +399,7 @@ func (w *writer) posBase(b *syntax.PosBase) {
 }
 
 // posBaseIdx returns the index for the given PosBase.
-func (pw *pkgWriter) posBaseIdx(b *syntax.PosBase) pkgbits.Index {
+func (pw *pkgWriter) posBaseIdx(b *syntax.PosBase) index {
 	if idx, ok := pw.posBasesIdx[b]; ok {
 		return idx
 	}
@@ -417,14 +425,14 @@ func (w *writer) pkg(pkg *types2.Package) {
 	w.pkgRef(w.p.pkgIdx(pkg))
 }
 
-func (w *writer) pkgRef(idx pkgbits.Index) {
+func (w *writer) pkgRef(idx index) {
 	w.Sync(pkgbits.SyncPkg)
 	w.Reloc(pkgbits.RelocPkg, idx)
 }
 
 // pkgIdx returns the index for the given package, adding it to the
 // package export data if needed.
-func (pw *pkgWriter) pkgIdx(pkg *types2.Package) pkgbits.Index {
+func (pw *pkgWriter) pkgIdx(pkg *types2.Package) index {
 	if idx, ok := pw.pkgsIdx[pkg]; ok {
 		return idx
 	}
@@ -602,7 +610,7 @@ func (pw *pkgWriter) typIdx(typ types2.Type, dict *writerDict) typeInfo {
 	}
 
 	if w.derived {
-		idx := pkgbits.Index(len(dict.derived))
+		idx := index(len(dict.derived))
 		dict.derived = append(dict.derived, derivedInfo{idx: w.Flush()})
 		dict.derivedIdx[typ] = idx
 		return typeInfo{idx: idx, derived: true}
@@ -726,7 +734,9 @@ func (w *writer) obj(obj types2.Object, explicits *types2.TypeList) {
 // bitstream.
 func (w *writer) objInfo(info objInfo) {
 	w.Sync(pkgbits.SyncObject)
-	w.Bool(false) // TODO(mdempsky): Remove; was derived func inst.
+	if w.Version().Has(pkgbits.DerivedFuncInstance) {
+		w.Bool(false)
+	}
 	w.Reloc(pkgbits.RelocObj, info.idx)
 
 	w.Len(len(info.explicits))
@@ -748,7 +758,7 @@ func (pw *pkgWriter) objInstIdx(obj types2.Object, explicits *types2.TypeList, d
 
 // objIdx returns the index for the given Object, adding it to the
 // export data as needed.
-func (pw *pkgWriter) objIdx(obj types2.Object) pkgbits.Index {
+func (pw *pkgWriter) objIdx(obj types2.Object) index {
 	// TODO(mdempsky): Validate that obj is a global object (or a local
 	// defined type, which we hoist to global scope anyway).
 
@@ -757,7 +767,7 @@ func (pw *pkgWriter) objIdx(obj types2.Object) pkgbits.Index {
 	}
 
 	dict := &writerDict{
-		derivedIdx: make(map[types2.Type]pkgbits.Index),
+		derivedIdx: make(map[types2.Type]index),
 	}
 
 	if isDefinedType(obj) && obj.Pkg() == pw.curpkg {
@@ -849,11 +859,18 @@ func (w *writer) doObj(wext *writer, obj types2.Object) pkgbits.CodeObj {
 	case *types2.TypeName:
 		if obj.IsAlias() {
 			w.pos(obj)
-			t := obj.Type()
-			if alias, ok := t.(*types2.Alias); ok { // materialized alias
-				t = alias.Rhs()
+			rhs := obj.Type()
+			var tparams *types2.TypeParamList
+			if alias, ok := rhs.(*types2.Alias); ok { // materialized alias
+				assert(alias.TypeArgs() == nil)
+				tparams = alias.TypeParams()
+				rhs = alias.Rhs()
 			}
-			w.typ(t)
+			if w.Version().Has(pkgbits.AliasTypeParamNames) {
+				w.typeParamNames(tparams)
+			}
+			assert(w.Version().Has(pkgbits.AliasTypeParamNames) || tparams.Len() == 0)
+			w.typ(rhs)
 			return pkgbits.ObjAlias
 		}
 
@@ -901,7 +918,9 @@ func (w *writer) objDict(obj types2.Object, dict *writerDict) {
 	w.Len(nderived)
 	for _, typ := range dict.derived {
 		w.Reloc(pkgbits.RelocType, typ.idx)
-		w.Bool(typ.needed)
+		if w.Version().Has(pkgbits.DerivedInfoNeeded) {
+			w.Bool(false)
+		}
 	}
 
 	// Write runtime dictionary information.
@@ -1050,6 +1069,7 @@ func (w *writer) funcExt(obj *types2.Func) {
 		w.p.errorf(decl, "go:nosplit and go:systemstack cannot be combined")
 	}
 	wi := asWasmImport(decl.Pragma)
+	we := asWasmExport(decl.Pragma)
 
 	if decl.Body != nil {
 		if pragma&ir.Noescape != 0 {
@@ -1104,6 +1124,11 @@ func (w *writer) funcExt(obj *types2.Func) {
 			w.String("")
 			w.String("")
 		}
+		if we != nil {
+			w.String(we.Name)
+		} else {
+			w.String("")
+		}
 	}
 
 	w.Bool(false) // stub extension
@@ -1144,7 +1169,7 @@ func (w *writer) pragmaFlag(p ir.PragmaFlag) {
 
 // bodyIdx returns the index for the given function body (specified by
 // block), adding it to the export data
-func (pw *pkgWriter) bodyIdx(sig *types2.Signature, block *syntax.BlockStmt, dict *writerDict) (idx pkgbits.Index, closureVars []posVar) {
+func (pw *pkgWriter) bodyIdx(sig *types2.Signature, block *syntax.BlockStmt, dict *writerDict) (idx index, closureVars []posVar) {
 	w := pw.newWriter(pkgbits.RelocBody, pkgbits.SyncFuncBody)
 	w.sig = sig
 	w.dict = dict
@@ -1300,13 +1325,31 @@ func (w *writer) stmt1(stmt syntax.Stmt) {
 	case *syntax.BranchStmt:
 		w.Code(stmtBranch)
 		w.pos(stmt)
-		w.op(branchOps[stmt.Tok])
+		var op ir.Op
+		switch stmt.Tok {
+		case syntax.Break:
+			op = ir.OBREAK
+		case syntax.Continue:
+			op = ir.OCONTINUE
+		case syntax.Fallthrough:
+			op = ir.OFALL
+		case syntax.Goto:
+			op = ir.OGOTO
+		}
+		w.op(op)
 		w.optLabel(stmt.Label)
 
 	case *syntax.CallStmt:
 		w.Code(stmtCall)
 		w.pos(stmt)
-		w.op(callOps[stmt.Tok])
+		var op ir.Op
+		switch stmt.Tok {
+		case syntax.Defer:
+			op = ir.ODEFER
+		case syntax.Go:
+			op = ir.OGO
+		}
+		w.op(op)
 		w.expr(stmt.Call)
 		if stmt.Tok == syntax.Defer {
 			w.optExpr(stmt.DeferAt)
@@ -1665,7 +1708,7 @@ func (w *writer) switchStmt(stmt *syntax.SwitchStmt) {
 		Outer:
 			for _, clause := range stmt.Body {
 				for _, cas := range syntax.UnpackListExpr(clause.Cases) {
-					if casType := w.p.typeOf(cas); !types2.AssignableTo(casType, tagType) {
+					if casType := w.p.typeOf(cas); !types2.AssignableTo(casType, tagType) && (types2.IsInterface(casType) || types2.IsInterface(tagType)) {
 						tagType = types2.NewInterfaceType(nil, nil)
 						break Outer
 					}
@@ -2967,11 +3010,11 @@ func objTypeParams(obj types2.Object) *types2.TypeParamList {
 		}
 		return sig.TypeParams()
 	case *types2.TypeName:
-		if !obj.IsAlias() {
-			return obj.Type().(*types2.Named).TypeParams()
-		}
-		if alias, ok := obj.Type().(*types2.Alias); ok {
-			return alias.TypeParams()
+		switch t := obj.Type().(type) {
+		case *types2.Named:
+			return t.TypeParams()
+		case *types2.Alias:
+			return t.TypeParams()
 		}
 	}
 	return nil
@@ -3011,6 +3054,13 @@ func asWasmImport(p syntax.Pragma) *WasmImport {
 	return p.(*pragmas).WasmImport
 }
 
+func asWasmExport(p syntax.Pragma) *WasmExport {
+	if p == nil {
+		return nil
+	}
+	return p.(*pragmas).WasmExport
+}
+
 // isPtrTo reports whether from is the type *to.
 func isPtrTo(from, to types2.Type) bool {
 	ptr, ok := types2.Unalias(from).(*types2.Pointer)
@@ -3020,7 +3070,17 @@ func isPtrTo(from, to types2.Type) bool {
 // hasFallthrough reports whether stmts ends in a fallthrough
 // statement.
 func hasFallthrough(stmts []syntax.Stmt) bool {
-	last, ok := lastNonEmptyStmt(stmts).(*syntax.BranchStmt)
+	// From spec: the last non-empty statement may be a (possibly labeled) "fallthrough" statement
+	// Stripping (possible nested) labeled statement if any.
+	stmt := lastNonEmptyStmt(stmts)
+	for {
+		ls, ok := stmt.(*syntax.LabeledStmt)
+		if !ok {
+			break
+		}
+		stmt = ls.Stmt
+	}
+	last, ok := stmt.(*syntax.BranchStmt)
 	return ok && last.Tok == syntax.Fallthrough
 }
 

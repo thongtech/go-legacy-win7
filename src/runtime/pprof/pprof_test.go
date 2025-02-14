@@ -22,6 +22,7 @@ import (
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -519,15 +520,6 @@ func diffCPUTime(t *testing.T, f func()) (user, system time.Duration) {
 	}
 	t.Fatalf("cannot measure CPU time on GOOS=%s GOARCH=%s", runtime.GOOS, runtime.GOARCH)
 	return 0, 0
-}
-
-func contains(slice []string, s string) bool {
-	for i := range slice {
-		if slice[i] == s {
-			return true
-		}
-	}
-	return false
 }
 
 // stackContains matches if a function named spec appears anywhere in the stack trace.
@@ -1237,7 +1229,7 @@ func blockFrequentShort(rate int) {
 	}
 }
 
-// blockFrequentShort produces 10000 block events with an average duration of
+// blockInfrequentLong produces 10000 block events with an average duration of
 // rate.
 func blockInfrequentLong(rate int) {
 	for i := 0; i < 10000; i++ {
@@ -1410,7 +1402,7 @@ func TestMutexProfileRateAdjust(t *testing.T) {
 
 	blockMutex(t)
 	contentions, delay := readProfile()
-	if contentions == 0 || delay == 0 {
+	if contentions == 0 { // low-resolution timers can have delay of 0 in mutex profile
 		t.Fatal("did not see expected function in profile")
 	}
 	runtime.SetMutexProfileFraction(0)
@@ -1490,11 +1482,11 @@ func TestGoroutineCounts(t *testing.T) {
 	goroutineProf.WriteTo(&w, 1)
 	prof := w.String()
 
-	labels := labelMap{"label": "value"}
+	labels := labelMap{Labels("label", "value")}
 	labelStr := "\n# labels: " + labels.String()
-	selfLabel := labelMap{"self-label": "self-value"}
+	selfLabel := labelMap{Labels("self-label", "self-value")}
 	selfLabelStr := "\n# labels: " + selfLabel.String()
-	fingLabel := labelMap{"fing-label": "fing-value"}
+	fingLabel := labelMap{Labels("fing-label", "fing-value")}
 	fingLabelStr := "\n# labels: " + fingLabel.String()
 	orderedPrefix := []string{
 		"\n50 @ ",
@@ -1960,7 +1952,7 @@ func stackContainsLabeled(spec string, count uintptr, stk []*profile.Location, l
 	if !ok {
 		panic("missing = in key/value spec")
 	}
-	if !contains(labels[k], v) {
+	if !slices.Contains(labels[k], v) {
 		return false
 	}
 	return stackContains(base, count, stk, labels)
@@ -2077,7 +2069,7 @@ func TestLabelSystemstack(t *testing.T) {
 	// * labelHog should always be labeled.
 	// * The label should _only_ appear on labelHog and the Do call above.
 	for _, s := range p.Sample {
-		isLabeled := s.Label != nil && contains(s.Label["key"], "value")
+		isLabeled := s.Label != nil && slices.Contains(s.Label["key"], "value")
 		var (
 			mayBeLabeled     bool
 			mustBeLabeled    string
@@ -2553,19 +2545,34 @@ func TestProfilerStackDepth(t *testing.T) {
 			t.Logf("Profile = %v", p)
 
 			stks := profileStacks(p)
-			var stk []string
-			for _, s := range stks {
-				if hasPrefix(s, test.prefix) {
-					stk = s
-					break
+			var matchedStacks [][]string
+			for _, stk := range stks {
+				if !hasPrefix(stk, test.prefix) {
+					continue
 				}
+				// We may get multiple stacks which contain the prefix we want, but
+				// which might not have enough frames, e.g. if the profiler hides
+				// some leaf frames that would count against the stack depth limit.
+				// Check for at least one match
+				matchedStacks = append(matchedStacks, stk)
+				if len(stk) != depth {
+					continue
+				}
+				if rootFn, wantFn := stk[depth-1], "runtime/pprof.produceProfileEvents"; rootFn != wantFn {
+					continue
+				}
+				// Found what we wanted
+				return
 			}
-			if len(stk) != depth {
-				t.Fatalf("want stack depth = %d, got %d", depth, len(stk))
-			}
+			for _, stk := range matchedStacks {
+				t.Logf("matched stack=%s", stk)
+				if len(stk) != depth {
+					t.Errorf("want stack depth = %d, got %d", depth, len(stk))
+				}
 
-			if rootFn, wantFn := stk[depth-1], "runtime/pprof.produceProfileEvents"; rootFn != wantFn {
-				t.Fatalf("want stack stack root %s, got %v", wantFn, rootFn)
+				if rootFn, wantFn := stk[depth-1], "runtime/pprof.produceProfileEvents"; rootFn != wantFn {
+					t.Errorf("want stack stack root %s, got %v", wantFn, rootFn)
+				}
 			}
 		})
 	}

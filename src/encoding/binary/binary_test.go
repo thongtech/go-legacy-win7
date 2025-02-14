@@ -7,6 +7,7 @@ package binary
 import (
 	"bytes"
 	"fmt"
+	"internal/asan"
 	"io"
 	"math"
 	"reflect"
@@ -115,6 +116,7 @@ var res = []int32{0x01020304, 0x05060708}
 var putbuf = []byte{0, 0, 0, 0, 0, 0, 0, 0}
 
 func checkResult(t *testing.T, dir string, order ByteOrder, err error, have, want any) {
+	t.Helper()
 	if err != nil {
 		t.Errorf("%v %v: %v", dir, order, err)
 		return
@@ -183,6 +185,7 @@ var decoders = []struct {
 }
 
 func testRead(t *testing.T, order ByteOrder, b []byte, s1 any) {
+	t.Helper()
 	for _, dec := range decoders {
 		t.Run(dec.name, func(t *testing.T) {
 			var s2 Struct
@@ -193,6 +196,7 @@ func testRead(t *testing.T, order ByteOrder, b []byte, s1 any) {
 }
 
 func testWrite(t *testing.T, order ByteOrder, b []byte, s1 any) {
+	t.Helper()
 	for _, enc := range encoders {
 		t.Run(enc.name, func(t *testing.T) {
 			buf, err := enc.fn(order, s1)
@@ -707,6 +711,9 @@ func TestNoFixedSize(t *testing.T) {
 }
 
 func TestAppendAllocs(t *testing.T) {
+	if asan.Enabled {
+		t.Skip("test allocates more with -asan; see #70079")
+	}
 	buf := make([]byte, 0, Size(&s))
 	var err error
 	allocs := testing.AllocsPerRun(1, func() {
@@ -742,6 +749,9 @@ var sizableTypes = []any{
 }
 
 func TestSizeAllocs(t *testing.T) {
+	if asan.Enabled {
+		t.Skip("test allocates more with -asan; see #70079")
+	}
 	for _, data := range sizableTypes {
 		t.Run(fmt.Sprintf("%T", data), func(t *testing.T) {
 			// Size uses a sync.Map behind the scenes. The slow lookup path of

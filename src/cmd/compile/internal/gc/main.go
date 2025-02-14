@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"cmd/compile/internal/base"
 	"cmd/compile/internal/coverage"
+	"cmd/compile/internal/deadlocals"
 	"cmd/compile/internal/dwarfgen"
 	"cmd/compile/internal/escape"
 	"cmd/compile/internal/inline"
@@ -103,6 +104,13 @@ func Main(archInit func(*ssagen.ArchInfo)) {
 	ir.Pkgs.Runtime = types.NewPkg("go.runtime", "runtime")
 	ir.Pkgs.Runtime.Prefix = "runtime"
 
+	if buildcfg.Experiment.SwissMap {
+		// Pseudo-package that contains the compiler's builtin
+		// declarations for maps.
+		ir.Pkgs.InternalMaps = types.NewPkg("go.internal/runtime/maps", "internal/runtime/maps")
+		ir.Pkgs.InternalMaps.Prefix = "internal/runtime/maps"
+	}
+
 	// pseudo-packages used in symbol tables
 	ir.Pkgs.Itab = types.NewPkg("go.itab", "go.itab")
 	ir.Pkgs.Itab.Prefix = "go:itab"
@@ -132,7 +140,7 @@ func Main(archInit func(*ssagen.ArchInfo)) {
 	}
 
 	if base.Flag.SmallFrames {
-		ir.MaxStackVarSize = 128 * 1024
+		ir.MaxStackVarSize = 64 * 1024
 		ir.MaxImplicitStackVarSize = 16 * 1024
 	}
 
@@ -246,6 +254,8 @@ func Main(archInit func(*ssagen.ArchInfo)) {
 	// Generate ABI wrappers. Must happen before escape analysis
 	// and doesn't benefit from dead-coding or inlining.
 	symABIs.GenABIWrappers()
+
+	deadlocals.Funcs(typecheck.Target.Funcs)
 
 	// Escape analysis.
 	// Required for moving heap allocations onto stack,

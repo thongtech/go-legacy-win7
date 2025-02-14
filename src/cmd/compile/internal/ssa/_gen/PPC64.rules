@@ -40,6 +40,8 @@
 (Mul(32|16|8) ...) => (MULLW ...)
 (Select0 (Mul64uhilo x y)) => (MULHDU x y)
 (Select1 (Mul64uhilo x y)) => (MULLD x y)
+(Select0 (Mul64uover x y)) => (MULLD x y)
+(Select1 (Mul64uover x y)) => (SETBCR [2] (CMPconst [0] (MULHDU <x.Type> x y)))
 
 (Div64 [false] x y) => (DIVD x y)
 (Div64u ...) => (DIVDU ...)
@@ -111,6 +113,7 @@
 // Fold transfer of CA -> GPR -> CA. Note 2 uses when feeding into a chained Add64carry.
 (Select1 (ADDCconst n:(ADDZEzero x) [-1])) && n.Uses <= 2 => x
 (ADDE (MOVDconst [0]) y c) => (ADDZE y c)
+(ADDC x (MOVDconst [y])) && is16Bit(y) => (ADDCconst [y] x)
 
 // Borrowing subtraction.
 (Select0 (Sub64borrow x y c)) =>                 (Select0 <typ.UInt64> (SUBE x y (Select1 <typ.UInt64> (SUBCconst c [0]))))
@@ -148,13 +151,18 @@
 
 (ANDconst [m] (SRWconst x [s])) && mergePPC64RShiftMask(m,s,32) == 0 => (MOVDconst [0])
 (ANDconst [m] (SRWconst x [s])) && mergePPC64AndSrwi(m,s) != 0 => (RLWINM [mergePPC64AndSrwi(m,s)] x)
+(ANDconst [m] (SRDconst x [s])) && mergePPC64AndSrdi(m,s) != 0 => (RLWINM [mergePPC64AndSrdi(m,s)] x)
 (AND (MOVDconst [m]) (SRWconst x [s])) && mergePPC64RShiftMask(m,s,32) == 0 => (MOVDconst [0])
 (AND (MOVDconst [m]) (SRWconst x [s])) && mergePPC64AndSrwi(m,s) != 0 => (RLWINM [mergePPC64AndSrwi(m,s)] x)
+(AND (MOVDconst [m]) (SRDconst x [s])) && mergePPC64AndSrdi(m,s) != 0 => (RLWINM [mergePPC64AndSrdi(m,s)] x)
 
 (SRWconst (ANDconst [m] x) [s]) && mergePPC64RShiftMask(m>>uint(s),s,32) == 0 => (MOVDconst [0])
 (SRWconst (ANDconst [m] x) [s]) && mergePPC64AndSrwi(m>>uint(s),s) != 0 => (RLWINM [mergePPC64AndSrwi(m>>uint(s),s)] x)
 (SRWconst (AND (MOVDconst [m]) x) [s]) && mergePPC64RShiftMask(m>>uint(s),s,32) == 0 => (MOVDconst [0])
 (SRWconst (AND (MOVDconst [m]) x) [s]) && mergePPC64AndSrwi(m>>uint(s),s) != 0 => (RLWINM [mergePPC64AndSrwi(m>>uint(s),s)] x)
+
+(ANDconst [m] (SLDconst x [s])) && mergePPC64AndSldi(m,s) != 0 => (RLWINM [mergePPC64AndSldi(m,s)] x)
+(AND (MOVDconst [m]) (SLDconst x [s])) && mergePPC64AndSldi(m,s) != 0 => (RLWINM [mergePPC64AndSldi(m,s)] x)
 
 // Merge shift right + shift left and clear left (e.g for a table lookup)
 (CLRLSLDI [c] (SRWconst [s] x)) && mergePPC64ClrlsldiSrw(int64(c),s) != 0 => (RLWINM [mergePPC64ClrlsldiSrw(int64(c),s)] x)
@@ -608,9 +616,9 @@
 (MOV(H|W)reg (SRAWconst [c] (MOVHreg x))) => (SRAWconst [c] (MOVHreg x))
 (MOVWreg (SRAWconst [c] (MOVWreg x))) => (SRAWconst [c] (MOVWreg x))
 
-(MOV(WZ|W)reg (S(R|RA)Wconst [c] x)) && sizeof(x.Type) <= 32 => (S(R|RA)Wconst [c] x)
-(MOV(HZ|H)reg (S(R|RA)Wconst [c] x)) && sizeof(x.Type) <= 16 => (S(R|RA)Wconst [c] x)
-(MOV(BZ|B)reg (S(R|RA)Wconst [c] x)) && sizeof(x.Type) == 8 => (S(R|RA)Wconst [c] x)
+(MOV(WZ|W)reg (S(R|RA)Wconst [c] x)) && x.Type.Size() <= 32 => (S(R|RA)Wconst [c] x)
+(MOV(HZ|H)reg (S(R|RA)Wconst [c] x)) && x.Type.Size() <= 16 => (S(R|RA)Wconst [c] x)
+(MOV(BZ|B)reg (S(R|RA)Wconst [c] x)) && x.Type.Size() == 8 => (S(R|RA)Wconst [c] x)
 
 // initial right shift will handle sign/zero extend
 (MOVBZreg (SRDconst [c] x)) && c>=56 => (SRDconst [c] x)
@@ -804,7 +812,7 @@
 (AtomicStore(8|32|64)    ptr val mem) => (LoweredAtomicStore(8|32|64) [1] ptr val mem)
 (AtomicStoreRel(32|64)   ptr val mem) => (LoweredAtomicStore(32|64) [0] ptr val mem)
 
-(AtomicExchange(32|64) ...) => (LoweredAtomicExchange(32|64) ...)
+(AtomicExchange(8|32|64) ...) => (LoweredAtomicExchange(8|32|64) ...)
 
 (AtomicAdd(32|64) ...) => (LoweredAtomicAdd(32|64) ...)
 

@@ -12,9 +12,10 @@ import (
 	"go/token"
 	"internal/buildcfg"
 	. "internal/types/errors"
-	"sort"
+	"slices"
 )
 
+// decl may be nil
 func (check *Checker) funcBody(decl *declInfo, name string, sig *Signature, body *ast.BlockStmt, iota constant.Value) {
 	if check.conf.IgnoreFuncBodies {
 		panic("function body not ignored")
@@ -31,10 +32,11 @@ func (check *Checker) funcBody(decl *declInfo, name string, sig *Signature, body
 		check.indent = indent
 	}(check.environment, check.indent)
 	check.environment = environment{
-		decl:  decl,
-		scope: sig.scope,
-		iota:  iota,
-		sig:   sig,
+		decl:    decl,
+		scope:   sig.scope,
+		version: check.version, // TODO(adonovan): would decl.version (if decl != nil) be better?
+		iota:    iota,
+		sig:     sig,
 	}
 	check.indent = 0
 
@@ -61,8 +63,8 @@ func (check *Checker) usage(scope *Scope) {
 			unused = append(unused, v)
 		}
 	}
-	sort.Slice(unused, func(i, j int) bool {
-		return cmpPos(unused[i].pos, unused[j].pos) < 0
+	slices.SortFunc(unused, func(a, b *Var) int {
+		return cmpPos(a.pos, b.pos)
 	})
 	for _, v := range unused {
 		check.softErrorf(v, UnusedVar, "declared and not used: %s", v.name)
@@ -281,10 +283,27 @@ func (check *Checker) isNil(e ast.Expr) bool {
 
 // caseTypes typechecks the type expressions of a type case, checks for duplicate types
 // using the seen map, and verifies that each type is valid with respect to the type of
-// the operand x in the type switch clause. If the type switch expression is invalid, x
-// must be nil. The result is the type of the last type expression; it is nil if the
-// expression denotes the predeclared nil.
-func (check *Checker) caseTypes(x *operand, types []ast.Expr, seen map[Type]ast.Expr) (T Type) {
+// the operand x corresponding to the type switch expression. If that expression is not
+// valid, x must be nil.
+//
+//	switch <x>.(type) {
+//	case <types>: ...
+//	...
+//	}
+//
+// caseTypes returns the case-specific type for a variable v introduced through a short
+// variable declaration by the type switch:
+//
+//	switch v := <x>.(type) {
+//	case <types>: // T is the type of <v> in this case
+//	...
+//	}
+//
+// If there is exactly one type expression, T is the type of that expression. If there
+// are multiple type expressions, or if predeclared nil is among the types, the result
+// is the type of x. If x is invalid (nil), the result is the invalid type.
+func (check *Checker) caseTypes(x *operand, types []ast.Expr, seen map[Type]ast.Expr) Type {
+	var T Type
 	var dummy operand
 L:
 	for _, e := range types {
@@ -319,49 +338,72 @@ L:
 			check.typeAssertion(e, x, T, true)
 		}
 	}
-	return
+
+	// spec: "In clauses with a case listing exactly one type, the variable has that type;
+	// otherwise, the variable has the type of the expression in the TypeSwitchGuard.
+	if len(types) != 1 || T == nil {
+		T = Typ[Invalid]
+		if x != nil {
+			T = x.typ
+		}
+	}
+
+	assert(T != nil)
+	return T
 }
 
 // TODO(gri) Once we are certain that typeHash is correct in all situations, use this version of caseTypes instead.
 // (Currently it may be possible that different types have identical names and import paths due to ImporterFrom.)
-//
-// func (check *Checker) caseTypes(x *operand, xtyp *Interface, types []ast.Expr, seen map[string]ast.Expr) (T Type) {
-// 	var dummy operand
-// L:
-// 	for _, e := range types {
-// 		// The spec allows the value nil instead of a type.
-// 		var hash string
-// 		if check.isNil(e) {
-// 			check.expr(nil, &dummy, e) // run e through expr so we get the usual Info recordings
-// 			T = nil
-// 			hash = "<nil>" // avoid collision with a type named nil
-// 		} else {
-// 			T = check.varType(e)
-// 			if !isValid(T) {
-// 				continue L
-// 			}
-// 			hash = typeHash(T, nil)
-// 		}
-// 		// look for duplicate types
-// 		if other := seen[hash]; other != nil {
-// 			// talk about "case" rather than "type" because of nil case
-// 			Ts := "nil"
-// 			if T != nil {
-// 				Ts = TypeString(T, check.qualifier)
-// 			}
-// 			err := check.newError(_DuplicateCase)
-// 			err.addf(e, "duplicate case %s in type switch", Ts)
-// 			err.addf(other, "previous case")
-// 			err.report()
-// 			continue L
-// 		}
-// 		seen[hash] = e
-// 		if T != nil {
-// 			check.typeAssertion(e.Pos(), x, xtyp, T)
-// 		}
-// 	}
-// 	return
-// }
+func (check *Checker) caseTypes_currently_unused(x *operand, xtyp *Interface, types []ast.Expr, seen map[string]ast.Expr) Type {
+	var T Type
+	var dummy operand
+L:
+	for _, e := range types {
+		// The spec allows the value nil instead of a type.
+		var hash string
+		if check.isNil(e) {
+			check.expr(nil, &dummy, e) // run e through expr so we get the usual Info recordings
+			T = nil
+			hash = "<nil>" // avoid collision with a type named nil
+		} else {
+			T = check.varType(e)
+			if !isValid(T) {
+				continue L
+			}
+			panic("enable typeHash(T, nil)")
+			// hash = typeHash(T, nil)
+		}
+		// look for duplicate types
+		if other := seen[hash]; other != nil {
+			// talk about "case" rather than "type" because of nil case
+			Ts := "nil"
+			if T != nil {
+				Ts = TypeString(T, check.qualifier)
+			}
+			err := check.newError(DuplicateCase)
+			err.addf(e, "duplicate case %s in type switch", Ts)
+			err.addf(other, "previous case")
+			err.report()
+			continue L
+		}
+		seen[hash] = e
+		if T != nil {
+			check.typeAssertion(e, x, T, true)
+		}
+	}
+
+	// spec: "In clauses with a case listing exactly one type, the variable has that type;
+	// otherwise, the variable has the type of the expression in the TypeSwitchGuard.
+	if len(types) != 1 || T == nil {
+		T = Typ[Invalid]
+		if x != nil {
+			T = x.typ
+		}
+	}
+
+	assert(T != nil)
+	return T
+}
 
 // stmt typechecks statement s.
 func (check *Checker) stmt(ctxt stmtContext, s ast.Stmt) {
@@ -722,23 +764,8 @@ func (check *Checker) stmt(ctxt stmtContext, s ast.Stmt) {
 			check.openScope(clause, "case")
 			// If lhs exists, declare a corresponding variable in the case-local scope.
 			if lhs != nil {
-				// spec: "The TypeSwitchGuard may include a short variable declaration.
-				// When that form is used, the variable is declared at the beginning of
-				// the implicit block in each clause. In clauses with a case listing
-				// exactly one type, the variable has that type; otherwise, the variable
-				// has the type of the expression in the TypeSwitchGuard."
-				if len(clause.List) != 1 || T == nil {
-					T = Typ[Invalid]
-					if sx != nil {
-						T = sx.typ
-					}
-				}
 				obj := NewVar(lhs.Pos(), check.pkg, lhs.Name, T)
-				scopePos := clause.Pos() + token.Pos(len("default")) // for default clause (len(List) == 0)
-				if n := len(clause.List); n > 0 {
-					scopePos = clause.List[n-1].End()
-				}
-				check.declare(check.scope, nil, obj, scopePos)
+				check.declare(check.scope, nil, obj, clause.Colon)
 				check.recordImplicit(clause, obj)
 				// For the "declared and not used" error, all lhs variables act as
 				// one; i.e., if any one of them is 'used', all of them are 'used'.
@@ -864,7 +891,7 @@ func (check *Checker) rangeStmt(inner stmtContext, s *ast.RangeStmt) {
 	if x.mode != invalid {
 		// Ranging over a type parameter is permitted if it has a core type.
 		k, v, cause, ok := rangeKeyVal(x.typ, func(v goVersion) bool {
-			return check.allowVersion(x.expr, v)
+			return check.allowVersion(v)
 		})
 		switch {
 		case !ok && cause != "":
@@ -1003,10 +1030,6 @@ func rangeKeyVal(typ Type, allowVersion func(goVersion) bool) (key, val Type, ca
 	bad := func(cause string) (Type, Type, string, bool) {
 		return Typ[Invalid], Typ[Invalid], cause, false
 	}
-	toSig := func(t Type) *Signature {
-		sig, _ := coreType(t).(*Signature)
-		return sig
-	}
 
 	orig := typ
 	switch typ := arrayPtrDeref(coreType(typ)).(type) {
@@ -1037,23 +1060,31 @@ func rangeKeyVal(typ Type, allowVersion func(goVersion) bool) (key, val Type, ca
 		if !buildcfg.Experiment.RangeFunc && allowVersion != nil && !allowVersion(go1_23) {
 			return bad("requires go1.23 or later")
 		}
-		assert(typ.Recv() == nil)
+		// check iterator arity
 		switch {
 		case typ.Params().Len() != 1:
 			return bad("func must be func(yield func(...) bool): wrong argument count")
-		case toSig(typ.Params().At(0).Type()) == nil:
-			return bad("func must be func(yield func(...) bool): argument is not func")
 		case typ.Results().Len() != 0:
 			return bad("func must be func(yield func(...) bool): unexpected results")
 		}
-		cb := toSig(typ.Params().At(0).Type())
-		assert(cb.Recv() == nil)
+		assert(typ.Recv() == nil)
+		// check iterator argument type
+		cb, _ := coreType(typ.Params().At(0).Type()).(*Signature)
 		switch {
+		case cb == nil:
+			return bad("func must be func(yield func(...) bool): argument is not func")
 		case cb.Params().Len() > 2:
 			return bad("func must be func(yield func(...) bool): yield func has too many parameters")
-		case cb.Results().Len() != 1 || !isBoolean(cb.Results().At(0).Type()):
-			return bad("func must be func(yield func(...) bool): yield func does not return bool")
+		case cb.Results().Len() != 1 || !Identical(cb.Results().At(0).Type(), universeBool):
+			// see go.dev/issues/71131, go.dev/issues/71164
+			if cb.Results().Len() == 1 && isBoolean(cb.Results().At(0).Type()) {
+				return bad("func must be func(yield func(...) bool): yield func returns user-defined boolean, not bool")
+			} else {
+				return bad("func must be func(yield func(...) bool): yield func does not return bool")
+			}
 		}
+		assert(cb.Recv() == nil)
+		// determine key and value types, if any
 		if cb.Params().Len() >= 1 {
 			key = cb.Params().At(0).Type()
 		}

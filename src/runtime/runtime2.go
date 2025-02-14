@@ -8,8 +8,9 @@ import (
 	"internal/abi"
 	"internal/chacha8rand"
 	"internal/goarch"
+	"internal/goexperiment"
 	"internal/runtime/atomic"
-	"runtime/internal/sys"
+	"internal/runtime/sys"
 	"unsafe"
 )
 
@@ -164,33 +165,6 @@ const (
 type mutex struct {
 	// Empty struct if lock ranking is disabled, otherwise includes the lock rank
 	lockRankStruct
-	// Futex-based impl treats it as uint32 key,
-	// while sema-based impl as M* waitm.
-	// Used to be a union, but unions break precise GC.
-	key uintptr
-}
-
-// sleep and wakeup on one-time events.
-// before any calls to notesleep or notewakeup,
-// must call noteclear to initialize the Note.
-// then, exactly one thread can call notesleep
-// and exactly one thread can call notewakeup (once).
-// once notewakeup has been called, the notesleep
-// will return.  future notesleep will return immediately.
-// subsequent noteclear must be called only after
-// previous notesleep has returned, e.g. it's disallowed
-// to call noteclear straight after notewakeup.
-//
-// notetsleep is like notesleep but wakes up after
-// a given number of nanoseconds even if the event
-// has not yet happened.  if a goroutine uses notetsleep to
-// wake up early, it must wait to call noteclear until it
-// can be sure that no other goroutine is calling
-// notewakeup.
-//
-// notesleep/notetsleep are generally called on g0,
-// notetsleepg is similar to notetsleep but is called on user g.
-type note struct {
 	// Futex-based impl treats it as uint32 key,
 	// while sema-based impl as M* waitm.
 	// Used to be a union, but unions break precise GC.
@@ -493,6 +467,7 @@ type g struct {
 	trackingStamp int64 // timestamp of when the G last started being tracked
 	runnableTime  int64 // the amount of time spent runnable, cleared when running, only used when tracking
 	lockedm       muintptr
+	fipsIndicator uint8
 	sig           uint32
 	writebuf      []byte
 	sigcode0      uintptr
@@ -514,7 +489,8 @@ type g struct {
 	// current in-progress goroutine profile
 	goroutineProfiled goroutineProfileStateHolder
 
-	coroarg *coro // argument during coroutine transfers
+	coroarg   *coro // argument during coroutine transfers
+	syncGroup *synctestGroup
 
 	// Per-G tracer state.
 	trace gTraceState
@@ -597,7 +573,7 @@ type m struct {
 	createstack     [32]uintptr // stack that created this thread, it's used for StackRecord.Stack0, so it must align with it.
 	lockedExt       uint32      // tracking for external LockOSThread
 	lockedInt       uint32      // tracking for internal lockOSThread
-	nextwaitm       muintptr    // next m waiting for lock
+	mWaitList       mWaitList   // list of runtime lock waiters
 
 	mLockProfile mLockProfile // fields relating to runtime.lock contention
 	profStack    []uintptr    // used for memory/block/mutex stack traces
@@ -645,6 +621,12 @@ type m struct {
 	// Up to 10 locks held by this m, maintained by the lock ranking code.
 	locksHeldLen int
 	locksHeld    [10]heldLockInfo
+
+	// Size the runtime.m structure so it fits in the 2048-byte size class, and
+	// not in the next-smallest (1792-byte) size class. That leaves the 11 low
+	// bits of muintptr values available for flags, as required for
+	// GOEXPERIMENT=spinbitmutex.
+	_ [goexperiment.SpinbitMutexInt * 700 * (2 - goarch.PtrSize/4)]byte
 }
 
 type p struct {
@@ -1083,6 +1065,7 @@ const (
 	waitReasonSyncMutexLock                           // "sync.Mutex.Lock"
 	waitReasonSyncRWMutexRLock                        // "sync.RWMutex.RLock"
 	waitReasonSyncRWMutexLock                         // "sync.RWMutex.Lock"
+	waitReasonSyncWaitGroupWait                       // "sync.WaitGroup.Wait"
 	waitReasonTraceReaderBlocked                      // "trace reader (blocked)"
 	waitReasonWaitForGCCycle                          // "wait for GC cycle"
 	waitReasonGCWorkerIdle                            // "GC worker (idle)"
@@ -1097,6 +1080,11 @@ const (
 	waitReasonPageTraceFlush                          // "page trace flush"
 	waitReasonCoroutine                               // "coroutine"
 	waitReasonGCWeakToStrongWait                      // "GC weak to strong wait"
+	waitReasonSynctestRun                             // "synctest.Run"
+	waitReasonSynctestWait                            // "synctest.Wait"
+	waitReasonSynctestChanReceive                     // "chan receive (synctest)"
+	waitReasonSynctestChanSend                        // "chan send (synctest)"
+	waitReasonSynctestSelect                          // "select (synctest)"
 )
 
 var waitReasonStrings = [...]string{
@@ -1124,6 +1112,7 @@ var waitReasonStrings = [...]string{
 	waitReasonSyncMutexLock:         "sync.Mutex.Lock",
 	waitReasonSyncRWMutexRLock:      "sync.RWMutex.RLock",
 	waitReasonSyncRWMutexLock:       "sync.RWMutex.Lock",
+	waitReasonSyncWaitGroupWait:     "sync.WaitGroup.Wait",
 	waitReasonTraceReaderBlocked:    "trace reader (blocked)",
 	waitReasonWaitForGCCycle:        "wait for GC cycle",
 	waitReasonGCWorkerIdle:          "GC worker (idle)",
@@ -1138,6 +1127,11 @@ var waitReasonStrings = [...]string{
 	waitReasonPageTraceFlush:        "page trace flush",
 	waitReasonCoroutine:             "coroutine",
 	waitReasonGCWeakToStrongWait:    "GC weak to strong wait",
+	waitReasonSynctestRun:           "synctest.Run",
+	waitReasonSynctestWait:          "synctest.Wait",
+	waitReasonSynctestChanReceive:   "chan receive (synctest)",
+	waitReasonSynctestChanSend:      "chan send (synctest)",
+	waitReasonSynctestSelect:        "select (synctest)",
 }
 
 func (w waitReason) String() string {
@@ -1174,6 +1168,26 @@ var isWaitingForGC = [len(waitReasonStrings)]bool{
 	waitReasonGCAssistMarking:       true,
 	waitReasonGCWorkerActive:        true,
 	waitReasonFlushProcCaches:       true,
+}
+
+func (w waitReason) isIdleInSynctest() bool {
+	return isIdleInSynctest[w]
+}
+
+// isIdleInSynctest indicates that a goroutine is considered idle by synctest.Wait.
+var isIdleInSynctest = [len(waitReasonStrings)]bool{
+	waitReasonChanReceiveNilChan:  true,
+	waitReasonChanSendNilChan:     true,
+	waitReasonSelectNoCases:       true,
+	waitReasonSleep:               true,
+	waitReasonSyncCondWait:        true,
+	waitReasonSyncWaitGroupWait:   true,
+	waitReasonCoroutine:           true,
+	waitReasonSynctestRun:         true,
+	waitReasonSynctestWait:        true,
+	waitReasonSynctestChanReceive: true,
+	waitReasonSynctestChanSend:    true,
+	waitReasonSynctestSelect:      true,
 }
 
 var (

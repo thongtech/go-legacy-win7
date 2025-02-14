@@ -199,10 +199,11 @@ func init() {
 		{name: "MULLWconst", argLength: 1, reg: gp11, asm: "MULLW", aux: "Int32", typ: "Int64"}, // arg0*auxInt (signed 64-bit)
 		{name: "MADDLD", argLength: 3, reg: gp31, asm: "MADDLD", typ: "Int64"},                  // (arg0*arg1)+arg2 (signed 64-bit)
 
-		{name: "MULHD", argLength: 2, reg: gp21, asm: "MULHD", commutative: true},   // (arg0 * arg1) >> 64, signed
-		{name: "MULHW", argLength: 2, reg: gp21, asm: "MULHW", commutative: true},   // (arg0 * arg1) >> 32, signed
-		{name: "MULHDU", argLength: 2, reg: gp21, asm: "MULHDU", commutative: true}, // (arg0 * arg1) >> 64, unsigned
-		{name: "MULHWU", argLength: 2, reg: gp21, asm: "MULHWU", commutative: true}, // (arg0 * arg1) >> 32, unsigned
+		{name: "MULHD", argLength: 2, reg: gp21, asm: "MULHD", commutative: true},                             // (arg0 * arg1) >> 64, signed
+		{name: "MULHW", argLength: 2, reg: gp21, asm: "MULHW", commutative: true},                             // (arg0 * arg1) >> 32, signed
+		{name: "MULHDU", argLength: 2, reg: gp21, asm: "MULHDU", commutative: true},                           // (arg0 * arg1) >> 64, unsigned
+		{name: "MULHDUCC", argLength: 2, reg: gp21, asm: "MULHDUCC", commutative: true, typ: "(Int64,Flags)"}, // (arg0 * arg1) >> 64, unsigned, sets CC
+		{name: "MULHWU", argLength: 2, reg: gp21, asm: "MULHWU", commutative: true},                           // (arg0 * arg1) >> 32, unsigned
 
 		{name: "FMUL", argLength: 2, reg: fp21, asm: "FMUL", commutative: true},   // arg0*arg1
 		{name: "FMULS", argLength: 2, reg: fp21, asm: "FMULS", commutative: true}, // arg0*arg1
@@ -289,7 +290,7 @@ func init() {
 
 		// Movement between float and integer registers with no change in bits; accomplished with stores+loads on PPC.
 		// Because the 32-bit load-literal-bits instructions have impoverished addressability, always widen the
-		// data instead and use FMOVDload and FMOVDstore instead (this will also dodge endianess issues).
+		// data instead and use FMOVDload and FMOVDstore instead (this will also dodge endianness issues).
 		// There are optimizations that should apply -- (Xi2f64 (MOVWload (not-ADD-ptr+offset) ) ) could use
 		// the word-load instructions.  (Xi2f64 (MOVDload ptr )) can be (FMOVDload ptr)
 
@@ -456,7 +457,7 @@ func init() {
 		{name: "LoweredGetCallerSP", argLength: 1, reg: gp01, rematerializeable: true},
 
 		// LoweredGetCallerPC evaluates to the PC to which its "caller" will return.
-		// I.e., if f calls g "calls" getcallerpc,
+		// I.e., if f calls g "calls" sys.GetCallerPC,
 		// the result should be the PC within f that g will return to.
 		// See runtime/stubs.go for a more detailed discussion.
 		{name: "LoweredGetCallerPC", reg: gp01, rematerializeable: true},
@@ -657,13 +658,14 @@ func init() {
 		{name: "LoweredAtomicAdd32", argLength: 3, reg: gpxchg, resultNotInArgs: true, clobberFlags: true, faultOnNilArg0: true, hasSideEffects: true},
 		{name: "LoweredAtomicAdd64", argLength: 3, reg: gpxchg, resultNotInArgs: true, clobberFlags: true, faultOnNilArg0: true, hasSideEffects: true},
 
-		// atomic exchange32, 64
+		// atomic exchange8, 32, 64
 		// LWSYNC
 		// LDAR         (Rarg0), Rout
 		// STDCCC       Rarg1, (Rarg0)
 		// BNE          -2(PC)
 		// ISYNC
 		// return old val
+		{name: "LoweredAtomicExchange8", argLength: 3, reg: gpxchg, resultNotInArgs: true, clobberFlags: true, faultOnNilArg0: true, hasSideEffects: true},
 		{name: "LoweredAtomicExchange32", argLength: 3, reg: gpxchg, resultNotInArgs: true, clobberFlags: true, faultOnNilArg0: true, hasSideEffects: true},
 		{name: "LoweredAtomicExchange64", argLength: 3, reg: gpxchg, resultNotInArgs: true, clobberFlags: true, faultOnNilArg0: true, hasSideEffects: true},
 

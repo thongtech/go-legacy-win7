@@ -475,16 +475,7 @@ func log2uint32(n int64) int64 {
 }
 
 // isPowerOfTwoX functions report whether n is a power of 2.
-func isPowerOfTwo8(n int8) bool {
-	return n > 0 && n&(n-1) == 0
-}
-func isPowerOfTwo16(n int16) bool {
-	return n > 0 && n&(n-1) == 0
-}
-func isPowerOfTwo32(n int32) bool {
-	return n > 0 && n&(n-1) == 0
-}
-func isPowerOfTwo64(n int64) bool {
+func isPowerOfTwo[T int8 | int16 | int32 | int64](n T) bool {
 	return n > 0 && n&(n-1) == 0
 }
 
@@ -1188,25 +1179,18 @@ func logRule(s string) {
 
 var ruleFile io.Writer
 
-func min(x, y int64) int64 {
-	if x < y {
-		return x
-	}
-	return y
-}
-func max(x, y int64) int64 {
-	if x > y {
-		return x
-	}
-	return y
-}
-
 func isConstZero(v *Value) bool {
 	switch v.Op {
 	case OpConstNil:
 		return true
 	case OpConst64, OpConst32, OpConst16, OpConst8, OpConstBool, OpConst32F, OpConst64F:
 		return v.AuxInt == 0
+	case OpStringMake, OpIMake, OpComplexMake:
+		return isConstZero(v.Args[0]) && isConstZero(v.Args[1])
+	case OpSliceMake:
+		return isConstZero(v.Args[0]) && isConstZero(v.Args[1]) && isConstZero(v.Args[2])
+	case OpStringPtr, OpStringLen, OpSlicePtr, OpSliceLen, OpSliceCap, OpITab, OpIData, OpComplexReal, OpComplexImag:
+		return isConstZero(v.Args[0])
 	}
 	return false
 }
@@ -1277,10 +1261,6 @@ func overlap(offset1, size1, offset2, size2 int64) bool {
 		return true
 	}
 	return false
-}
-
-func areAdjacentOffsets(off1, off2, size int64) bool {
-	return off1+size == off2 || off1 == off2+size
 }
 
 // check if value zeroes out upper 32-bit of 64-bit register.
@@ -1391,7 +1371,7 @@ func isInlinableMemclr(c *Config, sz int64) bool {
 	switch c.arch {
 	case "amd64", "arm64":
 		return true
-	case "ppc64le", "ppc64":
+	case "ppc64le", "ppc64", "loong64":
 		return sz < 512
 	}
 	return false
@@ -1600,6 +1580,36 @@ func mergePPC64AndSrwi(m, s int64) int64 {
 	return encodePPC64RotateMask((32-s)&31, mask, 32)
 }
 
+// Combine (ANDconst [m] (SRDconst [s])) into (RLWINM [y]) or return 0
+func mergePPC64AndSrdi(m, s int64) int64 {
+	mask := mergePPC64RShiftMask(m, s, 64)
+
+	// Verify the rotate and mask result only uses the lower 32 bits.
+	rv := bits.RotateLeft64(0xFFFFFFFF00000000, -int(s))
+	if rv&uint64(mask) != 0 {
+		return 0
+	}
+	if !isPPC64WordRotateMask(mask) {
+		return 0
+	}
+	return encodePPC64RotateMask((32-s)&31, mask, 32)
+}
+
+// Combine (ANDconst [m] (SLDconst [s])) into (RLWINM [y]) or return 0
+func mergePPC64AndSldi(m, s int64) int64 {
+	mask := -1 << s & m
+
+	// Verify the rotate and mask result only uses the lower 32 bits.
+	rv := bits.RotateLeft64(0xFFFFFFFF00000000, int(s))
+	if rv&uint64(mask) != 0 {
+		return 0
+	}
+	if !isPPC64WordRotateMask(mask) {
+		return 0
+	}
+	return encodePPC64RotateMask(s&31, mask, 32)
+}
+
 // Test if a word shift right feeding into a CLRLSLDI can be merged into RLWINM.
 // Return the encoded RLWINM constant, or 0 if they cannot be merged.
 func mergePPC64ClrlsldiSrw(sld, srw int64) int64 {
@@ -1766,14 +1776,15 @@ func convertPPC64OpToOpCC(op *Value) *Value {
 		OpPPC64ADD:      OpPPC64ADDCC,
 		OpPPC64ADDconst: OpPPC64ADDCCconst,
 		OpPPC64AND:      OpPPC64ANDCC,
-		OpPPC64ANDconst: OpPPC64ANDCCconst,
 		OpPPC64ANDN:     OpPPC64ANDNCC,
+		OpPPC64ANDconst: OpPPC64ANDCCconst,
 		OpPPC64CNTLZD:   OpPPC64CNTLZDCC,
+		OpPPC64MULHDU:   OpPPC64MULHDUCC,
+		OpPPC64NEG:      OpPPC64NEGCC,
+		OpPPC64NOR:      OpPPC64NORCC,
 		OpPPC64OR:       OpPPC64ORCC,
 		OpPPC64RLDICL:   OpPPC64RLDICLCC,
 		OpPPC64SUB:      OpPPC64SUBCC,
-		OpPPC64NEG:      OpPPC64NEGCC,
-		OpPPC64NOR:      OpPPC64NORCC,
 		OpPPC64XOR:      OpPPC64XORCC,
 	}
 	b := op.Block
@@ -1814,19 +1825,19 @@ func armBFAuxInt(lsb, width int64) arm64BitField {
 }
 
 // returns the lsb part of the auxInt field of arm64 bitfield ops.
-func (bfc arm64BitField) getARM64BFlsb() int64 {
+func (bfc arm64BitField) lsb() int64 {
 	return int64(uint64(bfc) >> 8)
 }
 
 // returns the width part of the auxInt field of arm64 bitfield ops.
-func (bfc arm64BitField) getARM64BFwidth() int64 {
+func (bfc arm64BitField) width() int64 {
 	return int64(bfc) & 0xff
 }
 
 // checks if mask >> rshift applied at lsb is a valid arm64 bitfield op mask.
 func isARM64BFMask(lsb, mask, rshift int64) bool {
 	shiftedMask := int64(uint64(mask) >> uint64(rshift))
-	return shiftedMask != 0 && isPowerOfTwo64(shiftedMask+1) && nto(shiftedMask)+lsb < 64
+	return shiftedMask != 0 && isPowerOfTwo(shiftedMask+1) && nto(shiftedMask)+lsb < 64
 }
 
 // returns the bitfield width of mask >> rshift for arm64 bitfield ops.
@@ -1836,12 +1847,6 @@ func arm64BFWidth(mask, rshift int64) int64 {
 		panic("ARM64 BF mask is zero")
 	}
 	return nto(shiftedMask)
-}
-
-// sizeof returns the size of t in bytes.
-// It will panic if t is not a *types.Type.
-func sizeof(t interface{}) int64 {
-	return t.(*types.Type).Size()
 }
 
 // registerizable reports whether t is a primitive type that fits in
@@ -2261,9 +2266,9 @@ func canRotate(c *Config, bits int64) bool {
 		return false
 	}
 	switch c.arch {
-	case "386", "amd64", "arm64", "riscv64":
+	case "386", "amd64", "arm64", "loong64", "riscv64":
 		return true
-	case "arm", "s390x", "ppc64", "ppc64le", "wasm", "loong64":
+	case "arm", "s390x", "ppc64", "ppc64le", "wasm":
 		return bits >= 32
 	default:
 		return false
@@ -2325,4 +2330,97 @@ func isARM64addcon(v int64) bool {
 func setPos(v *Value, pos src.XPos) bool {
 	v.Pos = pos
 	return true
+}
+
+// isNonNegative reports whether v is known to be greater or equal to zero.
+// Note that this is pretty simplistic. The prove pass generates more detailed
+// nonnegative information about values.
+func isNonNegative(v *Value) bool {
+	if !v.Type.IsInteger() {
+		v.Fatalf("isNonNegative bad type: %v", v.Type)
+	}
+	// TODO: return true if !v.Type.IsSigned()
+	// SSA isn't type-safe enough to do that now (issue 37753).
+	// The checks below depend only on the pattern of bits.
+
+	switch v.Op {
+	case OpConst64:
+		return v.AuxInt >= 0
+
+	case OpConst32:
+		return int32(v.AuxInt) >= 0
+
+	case OpConst16:
+		return int16(v.AuxInt) >= 0
+
+	case OpConst8:
+		return int8(v.AuxInt) >= 0
+
+	case OpStringLen, OpSliceLen, OpSliceCap,
+		OpZeroExt8to64, OpZeroExt16to64, OpZeroExt32to64,
+		OpZeroExt8to32, OpZeroExt16to32, OpZeroExt8to16,
+		OpCtz64, OpCtz32, OpCtz16, OpCtz8,
+		OpCtz64NonZero, OpCtz32NonZero, OpCtz16NonZero, OpCtz8NonZero,
+		OpBitLen64, OpBitLen32, OpBitLen16, OpBitLen8:
+		return true
+
+	case OpRsh64Ux64, OpRsh32Ux64:
+		by := v.Args[1]
+		return by.Op == OpConst64 && by.AuxInt > 0
+
+	case OpRsh64x64, OpRsh32x64, OpRsh8x64, OpRsh16x64, OpRsh32x32, OpRsh64x32,
+		OpSignExt32to64, OpSignExt16to64, OpSignExt8to64, OpSignExt16to32, OpSignExt8to32:
+		return isNonNegative(v.Args[0])
+
+	case OpAnd64, OpAnd32, OpAnd16, OpAnd8:
+		return isNonNegative(v.Args[0]) || isNonNegative(v.Args[1])
+
+	case OpMod64, OpMod32, OpMod16, OpMod8,
+		OpDiv64, OpDiv32, OpDiv16, OpDiv8,
+		OpOr64, OpOr32, OpOr16, OpOr8,
+		OpXor64, OpXor32, OpXor16, OpXor8:
+		return isNonNegative(v.Args[0]) && isNonNegative(v.Args[1])
+
+		// We could handle OpPhi here, but the improvements from doing
+		// so are very minor, and it is neither simple nor cheap.
+	}
+	return false
+}
+
+func rewriteStructLoad(v *Value) *Value {
+	b := v.Block
+	ptr := v.Args[0]
+	mem := v.Args[1]
+
+	t := v.Type
+	args := make([]*Value, t.NumFields())
+	for i := range args {
+		ft := t.FieldType(i)
+		addr := b.NewValue1I(v.Pos, OpOffPtr, ft.PtrTo(), t.FieldOff(i), ptr)
+		args[i] = b.NewValue2(v.Pos, OpLoad, ft, addr, mem)
+	}
+
+	v.reset(OpStructMake)
+	v.AddArgs(args...)
+	return v
+}
+
+func rewriteStructStore(v *Value) *Value {
+	b := v.Block
+	dst := v.Args[0]
+	x := v.Args[1]
+	if x.Op != OpStructMake {
+		base.Fatalf("invalid struct store: %v", x)
+	}
+	mem := v.Args[2]
+
+	t := x.Type
+	for i, arg := range x.Args {
+		ft := t.FieldType(i)
+
+		addr := b.NewValue1I(v.Pos, OpOffPtr, ft.PtrTo(), t.FieldOff(i), dst)
+		mem = b.NewValue3A(v.Pos, OpStore, types.TypeMem, typeToAux(ft), addr, arg, mem)
+	}
+
+	return mem
 }

@@ -166,11 +166,27 @@ type Cmd struct {
 	// value in the slice for each duplicate key is used.
 	// As a special case on Windows, SYSTEMROOT is always added if
 	// missing and not explicitly set to the empty string.
+	//
+	// See also the Dir field, which may set PWD in the environment.
 	Env []string
 
 	// Dir specifies the working directory of the command.
 	// If Dir is the empty string, Run runs the command in the
 	// calling process's current directory.
+	//
+	// On Unix systems, the value of Dir also determines the
+	// child process's PWD environment variable if not otherwise
+	// specified. A Unix process represents its working directory
+	// not by name but as an implicit reference to a node in the
+	// file tree. So, if the child process obtains its working
+	// directory by calling a function such as C's getcwd, which
+	// computes the canonical name by walking up the file tree, it
+	// will not recover the original value of Dir if that value
+	// was an alias involving symbolic links. However, if the
+	// child process calls Go's [os.Getwd] or GNU C's
+	// get_current_dir_name, and the value of PWD is an alias for
+	// the current directory, those functions will return the
+	// value of PWD, which matches the value of Dir.
 	Dir string
 
 	// Stdin specifies the process's standard input.
@@ -984,7 +1000,9 @@ func (c *Cmd) awaitGoroutines(timer *time.Timer) error {
 
 // Output runs the command and returns its standard output.
 // Any returned error will usually be of type [*ExitError].
-// If c.Stderr was nil, Output populates [ExitError.Stderr].
+// If c.Stderr was nil and the returned error is of type
+// [*ExitError], Output populates the Stderr field of the
+// returned error.
 func (c *Cmd) Output() ([]byte, error) {
 	if c.Stdout != nil {
 		return nil, errors.New("exec: Stdout already set")

@@ -90,8 +90,8 @@ func sync_runtime_Semrelease(addr *uint32, handoff bool, skipframes int) {
 	semrelease1(addr, handoff, skipframes)
 }
 
-//go:linkname sync_runtime_SemacquireMutex sync.runtime_SemacquireMutex
-func sync_runtime_SemacquireMutex(addr *uint32, lifo bool, skipframes int) {
+//go:linkname internal_sync_runtime_SemacquireMutex internal/sync.runtime_SemacquireMutex
+func internal_sync_runtime_SemacquireMutex(addr *uint32, lifo bool, skipframes int) {
 	semacquire1(addr, lifo, semaBlockProfile|semaMutexProfile, skipframes, waitReasonSyncMutexLock)
 }
 
@@ -105,9 +105,19 @@ func sync_runtime_SemacquireRWMutex(addr *uint32, lifo bool, skipframes int) {
 	semacquire1(addr, lifo, semaBlockProfile|semaMutexProfile, skipframes, waitReasonSyncRWMutexLock)
 }
 
+//go:linkname sync_runtime_SemacquireWaitGroup sync.runtime_SemacquireWaitGroup
+func sync_runtime_SemacquireWaitGroup(addr *uint32) {
+	semacquire1(addr, false, semaBlockProfile, 0, waitReasonSyncWaitGroupWait)
+}
+
 //go:linkname poll_runtime_Semrelease internal/poll.runtime_Semrelease
 func poll_runtime_Semrelease(addr *uint32) {
 	semrelease(addr)
+}
+
+//go:linkname internal_sync_runtime_Semrelease internal/sync.runtime_Semrelease
+func internal_sync_runtime_Semrelease(addr *uint32, handoff bool, skipframes int) {
+	semrelease1(addr, handoff, skipframes)
 }
 
 func readyWithTime(s *sudog, traceskip int) {
@@ -619,6 +629,10 @@ func notifyListNotifyAll(l *notifyList) {
 	for s != nil {
 		next := s.next
 		s.next = nil
+		if s.g.syncGroup != nil && getg().syncGroup != s.g.syncGroup {
+			println("semaphore wake of synctest goroutine", s.g.goid, "from outside bubble")
+			panic("semaphore wake of synctest goroutine from outside bubble")
+		}
 		readyWithTime(s, 4)
 		s = next
 	}
@@ -672,6 +686,10 @@ func notifyListNotifyOne(l *notifyList) {
 			}
 			unlock(&l.lock)
 			s.next = nil
+			if s.g.syncGroup != nil && getg().syncGroup != s.g.syncGroup {
+				println("semaphore wake of synctest goroutine", s.g.goid, "from outside bubble")
+				panic("semaphore wake of synctest goroutine from outside bubble")
+			}
 			readyWithTime(s, 4)
 			return
 		}
@@ -687,7 +705,7 @@ func notifyListCheck(sz uintptr) {
 	}
 }
 
-//go:linkname sync_nanotime sync.runtime_nanotime
-func sync_nanotime() int64 {
+//go:linkname internal_sync_nanotime internal/sync.runtime_nanotime
+func internal_sync_nanotime() int64 {
 	return nanotime()
 }

@@ -88,7 +88,7 @@ import (
 	"internal/abi"
 	"internal/goarch"
 	"internal/goexperiment"
-	"runtime/internal/sys"
+	"internal/runtime/sys"
 	"unsafe"
 )
 
@@ -425,6 +425,13 @@ func cgocallbackg1(fn, frame unsafe.Pointer, ctxt uintptr) {
 	restore := true
 	defer unwindm(&restore)
 
+	var ditAlreadySet bool
+	if debug.dataindependenttiming == 1 && gp.m.isextra {
+		// We only need to enable DIT for threads that were created by C, as it
+		// should already by enabled on threads that were created by Go.
+		ditAlreadySet = sys.EnableDIT()
+	}
+
 	if raceenabled {
 		raceacquire(unsafe.Pointer(&racecgosync))
 	}
@@ -438,6 +445,11 @@ func cgocallbackg1(fn, frame unsafe.Pointer, ctxt uintptr) {
 
 	if raceenabled {
 		racereleasemerge(unsafe.Pointer(&racecgosync))
+	}
+
+	if debug.dataindependenttiming == 1 && !ditAlreadySet {
+		// Only unset DIT if it wasn't already enabled when cgocallback was called.
+		sys.DisableDIT()
 	}
 
 	// Do not unwind m->g0->sched.sp.
@@ -557,6 +569,17 @@ func cgoCheckPointer(ptr any, arg any) {
 			// to the array.
 			ep = aep
 			t = ep._type
+			top = false
+		case abi.Pointer:
+			// The Go code is indexing into a pointer to an array,
+			// and we have been passed the pointer-to-array.
+			// Check the array rather than the pointer.
+			pt := (*abi.PtrType)(unsafe.Pointer(aep._type))
+			t = pt.Elem
+			if t.Kind_&abi.KindMask != abi.Array {
+				throw("can't happen")
+			}
+			ep = aep
 			top = false
 		default:
 			throw("can't happen")

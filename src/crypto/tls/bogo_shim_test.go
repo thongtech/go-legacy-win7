@@ -1,7 +1,12 @@
+// Copyright 2024 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package tls
 
 import (
 	"bytes"
+	"crypto/internal/cryptotest"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -14,12 +19,14 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
+
+	"golang.org/x/crypto/cryptobyte"
 )
 
 var (
@@ -69,6 +76,9 @@ var (
 	onResumeExpectECHAccepted  = flag.Bool("on-resume-expect-ech-accept", false, "")
 	_                          = flag.Bool("on-resume-expect-no-ech-name-override", false, "")
 	expectedServerName         = flag.String("expect-server-name", "", "")
+	echServerConfig            = flagStringSlice("ech-server-config", "")
+	echServerKey               = flagStringSlice("ech-server-key", "")
+	echServerRetryConfig       = flagStringSlice("ech-is-retry-config", "")
 
 	expectSessionMiss = flag.Bool("expect-session-miss", false, "")
 
@@ -77,10 +87,12 @@ var (
 	_                       = flag.Bool("expect-ticket-supports-early-data", false, "")
 	onResumeShimWritesFirst = flag.Bool("on-resume-shim-writes-first", false, "")
 
-	advertiseALPN = flag.String("advertise-alpn", "", "")
-	expectALPN    = flag.String("expect-alpn", "", "")
-	rejectALPN    = flag.Bool("reject-alpn", false, "")
-	declineALPN   = flag.Bool("decline-alpn", false, "")
+	advertiseALPN        = flag.String("advertise-alpn", "", "")
+	expectALPN           = flag.String("expect-alpn", "", "")
+	rejectALPN           = flag.Bool("reject-alpn", false, "")
+	declineALPN          = flag.Bool("decline-alpn", false, "")
+	expectAdvertisedALPN = flag.String("expect-advertised-alpn", "", "")
+	selectALPN           = flag.String("select-alpn", "", "")
 
 	hostName = flag.String("host-name", "", "")
 
@@ -96,12 +108,12 @@ func flagStringSlice(name, usage string) *stringSlice {
 	return f
 }
 
-func (saf stringSlice) String() string {
-	return strings.Join(saf, ",")
+func (saf *stringSlice) String() string {
+	return strings.Join(*saf, ",")
 }
 
-func (saf stringSlice) Set(s string) error {
-	saf = append(saf, s)
+func (saf *stringSlice) Set(s string) error {
+	*saf = append(*saf, s)
 	return nil
 }
 
@@ -118,6 +130,29 @@ func bogoShim() {
 		MaxVersion: uint16(*maxVersion),
 
 		ClientSessionCache: NewLRUClientSessionCache(0),
+
+		GetConfigForClient: func(chi *ClientHelloInfo) (*Config, error) {
+
+			if *expectAdvertisedALPN != "" {
+
+				s := cryptobyte.String(*expectAdvertisedALPN)
+
+				var expectedALPNs []string
+
+				for !s.Empty() {
+					var alpn cryptobyte.String
+					if !s.ReadUint8LengthPrefixed(&alpn) {
+						return nil, fmt.Errorf("unexpected error while parsing arguments for -expect-advertised-alpn")
+					}
+					expectedALPNs = append(expectedALPNs, string(alpn))
+				}
+
+				if !slices.Equal(chi.SupportedProtos, expectedALPNs) {
+					return nil, fmt.Errorf("unexpected ALPN: got %q, want %q", chi.SupportedProtos, expectedALPNs)
+				}
+			}
+			return nil, nil
+		},
 	}
 
 	if *noTLS1 {
@@ -159,6 +194,9 @@ func bogoShim() {
 
 	if *declineALPN {
 		cfg.NextProtos = []string{}
+	}
+	if *selectALPN != "" {
+		cfg.NextProtos = []string{*selectALPN}
 	}
 
 	if *hostName != "" {
@@ -213,6 +251,29 @@ func bogoShim() {
 		}
 	}
 
+	if len(*echServerConfig) != 0 {
+		if len(*echServerConfig) != len(*echServerKey) || len(*echServerConfig) != len(*echServerRetryConfig) {
+			log.Fatal("-ech-server-config, -ech-server-key, and -ech-is-retry-config mismatch")
+		}
+
+		for i, c := range *echServerConfig {
+			configBytes, err := base64.StdEncoding.DecodeString(c)
+			if err != nil {
+				log.Fatalf("parse ech-server-config err: %s", err)
+			}
+			privBytes, err := base64.StdEncoding.DecodeString((*echServerKey)[i])
+			if err != nil {
+				log.Fatalf("parse ech-server-key err: %s", err)
+			}
+
+			cfg.EncryptedClientHelloKeys = append(cfg.EncryptedClientHelloKeys, EncryptedClientHelloKey{
+				Config:      configBytes,
+				PrivateKey:  privBytes,
+				SendAsRetry: (*echServerRetryConfig)[i] == "1",
+			})
+		}
+	}
+
 	for i := 0; i < *resumeCount+1; i++ {
 		if i > 0 && (*onResumeECHConfigListB64 != "") {
 			echConfigList, err := base64.StdEncoding.DecodeString(*onResumeECHConfigListB64)
@@ -230,7 +291,7 @@ func bogoShim() {
 
 		// Write the shim ID we were passed as a little endian uint64
 		shimIDBytes := make([]byte, 8)
-		byteorder.LePutUint64(shimIDBytes, *shimID)
+		byteorder.LEPutUint64(shimIDBytes, *shimID)
 		if _, err := conn.Write(shimIDBytes); err != nil {
 			log.Fatalf("failed to write shim id: %s", err)
 		}
@@ -288,6 +349,11 @@ func bogoShim() {
 			if *expectALPN != "" && cs.NegotiatedProtocol != *expectALPN {
 				log.Fatalf("unexpected protocol negotiated: want %q, got %q", *expectALPN, cs.NegotiatedProtocol)
 			}
+
+			if *selectALPN != "" && cs.NegotiatedProtocol != *selectALPN {
+				log.Fatalf("unexpected protocol negotiated: want %q, got %q", *selectALPN, cs.NegotiatedProtocol)
+			}
+
 			if *expectVersion != 0 && cs.Version != uint16(*expectVersion) {
 				log.Fatalf("expected ssl version %q, got %q", uint16(*expectVersion), cs.Version)
 			}
@@ -334,17 +400,13 @@ func bogoShim() {
 }
 
 func TestBogoSuite(t *testing.T) {
-	testenv.SkipIfShortAndSlow(t)
-	testenv.MustHaveExternalNetwork(t)
-	testenv.MustHaveGoRun(t)
-	testenv.MustHaveExec(t)
-
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
 	if testenv.Builder() != "" && runtime.GOOS == "windows" {
 		t.Skip("#66913: windows network connections are flakey on builders")
 	}
+	skipFIPS(t)
 
 	// In order to make Go test caching work as expected, we stat the
 	// bogo_config.json file, so that the Go testing hooks know that it is
@@ -358,18 +420,8 @@ func TestBogoSuite(t *testing.T) {
 	if *bogoLocalDir != "" {
 		bogoDir = *bogoLocalDir
 	} else {
-		const boringsslModVer = "v0.0.0-20240523173554-273a920f84e8"
-		output, err := exec.Command("go", "mod", "download", "-json", "boringssl.googlesource.com/boringssl.git@"+boringsslModVer).CombinedOutput()
-		if err != nil {
-			t.Fatalf("failed to download boringssl: %s", err)
-		}
-		var j struct {
-			Dir string
-		}
-		if err := json.Unmarshal(output, &j); err != nil {
-			t.Fatalf("failed to parse 'go mod download' output: %s", err)
-		}
-		bogoDir = j.Dir
+		const boringsslModVer = "v0.0.0-20241120195446-5cce3fbd23e1"
+		bogoDir = cryptotest.FetchModule(t, "boringssl.googlesource.com/boringssl.git", boringsslModVer)
 	}
 
 	cwd, err := os.Getwd()
@@ -393,11 +445,7 @@ func TestBogoSuite(t *testing.T) {
 		args = append(args, fmt.Sprintf("-test=%s", *bogoFilter))
 	}
 
-	goCmd, err := testenv.GoTool()
-	if err != nil {
-		t.Fatal(err)
-	}
-	cmd := exec.Command(goCmd, args...)
+	cmd := testenv.Command(t, testenv.GoToolPath(t), args...)
 	out := &strings.Builder{}
 	cmd.Stderr = out
 	cmd.Dir = filepath.Join(bogoDir, "ssl/test/runner")
@@ -425,8 +473,8 @@ func TestBogoSuite(t *testing.T) {
 	// are present in the output. They are only checked if -bogo-filter
 	// was not passed.
 	assertResults := map[string]string{
-		"CurveTest-Client-Kyber-TLS13": "PASS",
-		"CurveTest-Server-Kyber-TLS13": "PASS",
+		"CurveTest-Client-MLKEM-TLS13": "PASS",
+		"CurveTest-Server-MLKEM-TLS13": "PASS",
 	}
 
 	for name, result := range results.Tests {

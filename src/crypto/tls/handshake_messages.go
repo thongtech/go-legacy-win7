@@ -97,6 +97,8 @@ type clientHelloMsg struct {
 	pskBinders                       [][]byte
 	quicTransportParameters          []byte
 	encryptedClientHello             []byte
+	// extensions are only populated on the server-side of a handshake
+	extensions []uint16
 }
 
 func (m *clientHelloMsg) marshalMsg(echInner bool) ([]byte, error) {
@@ -467,6 +469,7 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 			return false
 		}
 		seenExts[extension] = true
+		m.extensions = append(m.extensions, extension)
 
 		switch extension {
 		case extensionServerName:
@@ -658,6 +661,10 @@ func (m *clientHelloMsg) unmarshal(data []byte) bool {
 					return false
 				}
 				m.pskBinders = append(m.pskBinders, binder)
+			}
+		case extensionEncryptedClientHello:
+			if !extData.ReadBytes(&m.encryptedClientHello, len(extData)) {
+				return false
 			}
 		default:
 			// Ignore unknown extensions.

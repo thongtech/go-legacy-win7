@@ -22,22 +22,12 @@ func (check *Checker) ident(x *operand, e *syntax.Name, def *TypeName, wantType 
 	x.mode = invalid
 	x.expr = e
 
-	// Note that we cannot use check.lookup here because the returned scope
-	// may be different from obj.Parent(). See also Scope.LookupParent doc.
-	scope, obj := check.scope.LookupParent(e.Value, check.pos)
+	scope, obj := check.lookupScope(e.Value)
 	switch obj {
 	case nil:
 		if e.Value == "_" {
-			// Blank identifiers are never declared, but the current identifier may
-			// be a placeholder for a receiver type parameter. In this case we can
-			// resolve its type and object from Checker.recvTParamMap.
-			if tpar := check.recvTParamMap[e]; tpar != nil {
-				x.mode = typexpr
-				x.typ = tpar
-			} else {
-				check.error(e, InvalidBlank, "cannot use _ as value or type")
-			}
-		} else {
+			check.error(e, InvalidBlank, "cannot use _ as value or type")
+		} else if isValidName(e.Value) {
 			check.errorf(e, UndeclaredName, "undefined: %s", e.Value)
 		}
 		return
@@ -73,13 +63,16 @@ func (check *Checker) ident(x *operand, e *syntax.Name, def *TypeName, wantType 
 	// Type-check the object.
 	// Only call Checker.objDecl if the object doesn't have a type yet
 	// (in which case we must actually determine it) or the object is a
-	// TypeName and we also want a type (in which case we might detect
-	// a cycle which needs to be reported). Otherwise we can skip the
-	// call and avoid a possible cycle error in favor of the more
-	// informative "not a type/value" error that this function's caller
-	// will issue (see go.dev/issue/25790).
+	// TypeName from the current package and we also want a type (in which case
+	// we might detect a cycle which needs to be reported). Otherwise we can skip
+	// the call and avoid a possible cycle error in favor of the more informative
+	// "not a type/value" error that this function's caller will issue (see
+	// go.dev/issue/25790).
+	//
+	// Note that it is important to avoid calling objDecl on objects from other
+	// packages, to avoid races: see issue #69912.
 	typ := obj.Type()
-	if typ == nil || gotType && wantType {
+	if typ == nil || (gotType && wantType && obj.Pkg() == check.pkg) {
 		check.objDecl(obj, def)
 		typ = obj.Type() // type must have been assigned by Checker.objDecl
 	}
@@ -212,6 +205,10 @@ func (check *Checker) definedType(e syntax.Expr, def *TypeName) Type {
 // genericType is like typ but the type must be an (uninstantiated) generic
 // type. If cause is non-nil and the type expression was a valid type but not
 // generic, cause will be populated with a message describing the error.
+//
+// Note: If the type expression was invalid and an error was reported before,
+// cause will not be populated; thus cause alone cannot be used to determine
+// if an error occurred.
 func (check *Checker) genericType(e syntax.Expr, cause *string) Type {
 	typ := check.typInternal(e, nil)
 	assert(isTyped(typ))
@@ -426,11 +423,6 @@ func setDefType(def *TypeName, typ Type) {
 	if def != nil {
 		switch t := def.typ.(type) {
 		case *Alias:
-			// t.fromRHS should always be set, either to an invalid type
-			// in the beginning, or to typ in certain cyclic declarations.
-			if t.fromRHS != Typ[Invalid] && t.fromRHS != typ {
-				panic(sprintf(nil, true, "t.fromRHS = %s, typ = %s\n", t.fromRHS, typ))
-			}
 			t.fromRHS = typ
 		case *Basic:
 			assert(t == Typ[Invalid])
@@ -458,13 +450,18 @@ func (check *Checker) instantiatedType(x syntax.Expr, xlist []syntax.Expr, def *
 	}()
 
 	var cause string
-	gtyp := check.genericType(x, &cause)
+	typ := check.genericType(x, &cause)
 	if cause != "" {
 		check.errorf(x, NotAGenericType, invalidOp+"%s%s (%s)", x, xlist, cause)
 	}
-	if !isValid(gtyp) {
-		return gtyp // error already reported
+	if !isValid(typ) {
+		return typ // error already reported
 	}
+	// typ must be a generic Alias or Named type (but not a *Signature)
+	if _, ok := typ.(*Signature); ok {
+		panic("unexpected generic signature")
+	}
+	gtyp := typ.(genericType)
 
 	// evaluate arguments
 	targs := check.typeList(xlist)
@@ -472,27 +469,28 @@ func (check *Checker) instantiatedType(x syntax.Expr, xlist []syntax.Expr, def *
 		return Typ[Invalid]
 	}
 
-	if orig, _ := gtyp.(*Alias); orig != nil {
-		return check.instance(x.Pos(), orig, targs, nil, check.context())
+	// create instance
+	// The instance is not generic anymore as it has type arguments, but unless
+	// instantiation failed, it still satisfies the genericType interface because
+	// it has type parameters, too.
+	ityp := check.instance(x.Pos(), gtyp, targs, nil, check.context())
+	inst, _ := ityp.(genericType)
+	if inst == nil {
+		return Typ[Invalid]
 	}
 
-	orig := asNamed(gtyp)
-	if orig == nil {
-		panic(fmt.Sprintf("%v: cannot instantiate %v", x.Pos(), gtyp))
-	}
-
-	// create the instance
-	inst := asNamed(check.instance(x.Pos(), orig, targs, nil, check.context()))
-
-	// orig.tparams may not be set up, so we need to do expansion later.
+	// For Named types, orig.tparams may not be set up, so we need to do expansion later.
 	check.later(func() {
 		// This is an instance from the source, not from recursive substitution,
 		// and so it must be resolved during type-checking so that we can report
 		// errors.
-		check.recordInstance(x, inst.TypeArgs().list(), inst)
+		check.recordInstance(x, targs, inst)
 
-		if check.validateTArgLen(x.Pos(), inst.obj.name, inst.TypeParams().Len(), inst.TypeArgs().Len()) {
-			if i, err := check.verify(x.Pos(), inst.TypeParams().list(), inst.TypeArgs().list(), check.context()); err != nil {
+		name := inst.(interface{ Obj() *TypeName }).Obj().name
+		tparams := inst.TypeParams().list()
+		if check.validateTArgLen(x.Pos(), name, len(tparams), len(targs)) {
+			// check type constraints
+			if i, err := check.verify(x.Pos(), inst.TypeParams().list(), targs, check.context()); err != nil {
 				// best position for error reporting
 				pos := x.Pos()
 				if i < len(xlist) {
@@ -500,15 +498,10 @@ func (check *Checker) instantiatedType(x syntax.Expr, xlist []syntax.Expr, def *
 				}
 				check.softErrorf(pos, InvalidTypeArg, "%s", err)
 			} else {
-				check.mono.recordInstance(check.pkg, x.Pos(), inst.TypeParams().list(), inst.TypeArgs().list(), xlist)
+				check.mono.recordInstance(check.pkg, x.Pos(), tparams, targs, xlist)
 			}
 		}
-
-		// TODO(rfindley): remove this call: we don't need to call validType here,
-		// as cycles can only occur for types used inside a Named type declaration,
-		// and so it suffices to call validType from declared types.
-		check.validType(inst)
-	}).describef(x, "resolve instance %s", inst)
+	}).describef(x, "verify instantiation %s", inst)
 
 	return inst
 }

@@ -7,6 +7,8 @@ package testing_test
 import (
 	"bytes"
 	"cmp"
+	"context"
+	"errors"
 	"runtime"
 	"slices"
 	"strings"
@@ -127,6 +129,34 @@ func TestRunParallelSkipNow(t *testing.T) {
 	})
 }
 
+func TestBenchmarkContext(t *testing.T) {
+	testing.Benchmark(func(b *testing.B) {
+		ctx := b.Context()
+		if err := ctx.Err(); err != nil {
+			b.Fatalf("expected non-canceled context, got %v", err)
+		}
+
+		var innerCtx context.Context
+		b.Run("inner", func(b *testing.B) {
+			innerCtx = b.Context()
+			if err := innerCtx.Err(); err != nil {
+				b.Fatalf("expected inner benchmark to not inherit canceled context, got %v", err)
+			}
+		})
+		b.Run("inner2", func(b *testing.B) {
+			if !errors.Is(innerCtx.Err(), context.Canceled) {
+				t.Fatal("expected context of sibling benchmark to be canceled after its test function finished")
+			}
+		})
+
+		t.Cleanup(func() {
+			if !errors.Is(ctx.Err(), context.Canceled) {
+				t.Fatal("expected context canceled before cleanup")
+			}
+		})
+	})
+}
+
 func ExampleB_RunParallel() {
 	// Parallel benchmark for text/template.Template.Execute on a single object.
 	testing.Benchmark(func(b *testing.B) {
@@ -167,7 +197,7 @@ func ExampleB_ReportMetric() {
 	// specific algorithm (in this case, sorting).
 	testing.Benchmark(func(b *testing.B) {
 		var compares int64
-		for i := 0; i < b.N; i++ {
+		for b.Loop() {
 			s := []int{5, 4, 3, 2, 1}
 			slices.SortFunc(s, func(a, b int) int {
 				compares++

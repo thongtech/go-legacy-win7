@@ -5,9 +5,10 @@
 package gc
 
 import (
+	"cmp"
 	"internal/race"
 	"math/rand"
-	"sort"
+	"slices"
 	"sync"
 
 	"cmd/compile/internal/base"
@@ -39,12 +40,7 @@ func enqueueFunc(fn *ir.Func) {
 		return
 	}
 
-	// Don't try compiling dead hidden closure.
-	if fn.IsDeadcodeClosure() {
-		return
-	}
-
-	if clo := fn.OClosure; clo != nil && !ir.IsTrivialClosure(clo) {
+	if fn.IsClosure() {
 		return // we'll get this as part of its enclosing function
 	}
 
@@ -110,6 +106,11 @@ func prepareFunc(fn *ir.Func) {
 	// Calculate parameter offsets.
 	types.CalcSize(fn.Type())
 
+	// Generate wrappers between Go ABI and Wasm ABI, for a wasmexport
+	// function.
+	// Must be done after InitLSym and CalcSize.
+	ssagen.GenWasmExportWrapper(fn)
+
 	ir.CurFunc = fn
 	walk.Walk(fn)
 	ir.CurFunc = nil // enforce no further uses of CurFunc
@@ -131,8 +132,8 @@ func compileFunctions(profile *pgoir.Profile) {
 		// Compile the longest functions first,
 		// since they're most likely to be the slowest.
 		// This helps avoid stragglers.
-		sort.Slice(compilequeue, func(i, j int) bool {
-			return len(compilequeue[i].Body) > len(compilequeue[j].Body)
+		slices.SortFunc(compilequeue, func(a, b *ir.Func) int {
+			return cmp.Compare(len(b.Body), len(a.Body))
 		})
 	}
 

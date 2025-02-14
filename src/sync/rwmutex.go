@@ -24,6 +24,8 @@ import (
 // the writer has acquired (and released) the lock, to ensure that
 // the lock eventually becomes available to the writer.
 // Note that this prohibits recursive read-locking.
+// A [RWMutex.RLock] cannot be upgraded into a [RWMutex.Lock],
+// nor can a [RWMutex.Lock] be downgraded into a [RWMutex.RLock].
 //
 // In the terminology of [the Go memory model],
 // the n'th call to [RWMutex.Unlock] “synchronizes before” the m'th call to Lock
@@ -64,7 +66,7 @@ const rwmutexMaxReaders = 1 << 30
 // documentation on the [RWMutex] type.
 func (rw *RWMutex) RLock() {
 	if race.Enabled {
-		_ = rw.w.state
+		race.Read(unsafe.Pointer(&rw.w))
 		race.Disable()
 	}
 	if rw.readerCount.Add(1) < 0 {
@@ -84,7 +86,7 @@ func (rw *RWMutex) RLock() {
 // in a particular use of mutexes.
 func (rw *RWMutex) TryRLock() bool {
 	if race.Enabled {
-		_ = rw.w.state
+		race.Read(unsafe.Pointer(&rw.w))
 		race.Disable()
 	}
 	for {
@@ -111,7 +113,7 @@ func (rw *RWMutex) TryRLock() bool {
 // on entry to RUnlock.
 func (rw *RWMutex) RUnlock() {
 	if race.Enabled {
-		_ = rw.w.state
+		race.Read(unsafe.Pointer(&rw.w))
 		race.ReleaseMerge(unsafe.Pointer(&rw.writerSem))
 		race.Disable()
 	}
@@ -141,7 +143,7 @@ func (rw *RWMutex) rUnlockSlow(r int32) {
 // Lock blocks until the lock is available.
 func (rw *RWMutex) Lock() {
 	if race.Enabled {
-		_ = rw.w.state
+		race.Read(unsafe.Pointer(&rw.w))
 		race.Disable()
 	}
 	// First, resolve competition with other writers.
@@ -166,7 +168,7 @@ func (rw *RWMutex) Lock() {
 // in a particular use of mutexes.
 func (rw *RWMutex) TryLock() bool {
 	if race.Enabled {
-		_ = rw.w.state
+		race.Read(unsafe.Pointer(&rw.w))
 		race.Disable()
 	}
 	if !rw.w.TryLock() {
@@ -198,7 +200,7 @@ func (rw *RWMutex) TryLock() bool {
 // arrange for another goroutine to [RWMutex.RUnlock] ([RWMutex.Unlock]) it.
 func (rw *RWMutex) Unlock() {
 	if race.Enabled {
-		_ = rw.w.state
+		race.Read(unsafe.Pointer(&rw.w))
 		race.Release(unsafe.Pointer(&rw.readerSem))
 		race.Disable()
 	}

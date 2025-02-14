@@ -682,6 +682,10 @@ func anyToSockaddr(rsa *RawSockaddrAny) (Sockaddr, error) {
 	return nil, EAFNOSUPPORT
 }
 
+func Accept(fd int) (nfd int, sa Sockaddr, err error) {
+	return Accept4(fd, 0)
+}
+
 func Accept4(fd int, flags int) (nfd int, sa Sockaddr, err error) {
 	var rsa RawSockaddrAny
 	var len _Socklen = SizeofSockaddrAny
@@ -1283,6 +1287,17 @@ func Munmap(b []byte) (err error) {
 //sys	Munlock(b []byte) (err error)
 //sys	Mlockall(flags int) (err error)
 //sys	Munlockall() (err error)
+
+func Getrlimit(resource int, rlim *Rlimit) (err error) {
+	// prlimit1 is the same as prlimit when newlimit == nil
+	return prlimit1(0, resource, nil, rlim)
+}
+
+// setrlimit sets a resource limit.
+// The Setrlimit function is in rlimit.go, and calls this one.
+func setrlimit(resource int, rlim *Rlimit) (err error) {
+	return prlimit1(0, resource, rlim, nil)
+}
 
 // prlimit changes a resource limit. We use a single definition so that
 // we can tell StartProcess to not restore the original NOFILE limit.
