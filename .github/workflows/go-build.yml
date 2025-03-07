@@ -1,0 +1,128 @@
+name: Go Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.23.4-2)"
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    strategy:
+      matrix:
+        target:
+          - windows_amd64
+          - windows_arm64
+          - windows_386
+          - darwin_amd64
+          - darwin_arm64
+          - linux_amd64
+          - linux_arm64
+          - linux_arm
+          - linux_386
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: go-legacy-win7
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go-legacy-win7/src/go.mod"
+          cache: false
+
+      - name: Set execute permissions
+        run: |
+          chmod +x go-legacy-win7/src/make.bash
+
+      - name: Build Go toolchain
+        env:
+          GOOS: ${{ startsWith(matrix.target, 'windows_') && 'windows' || startsWith(matrix.target, 'darwin_') && 'darwin' || 'linux' }}
+          GOARCH: ${{ endsWith(matrix.target, '_386') && '386' || endsWith(matrix.target, '_amd64') && 'amd64' || endsWith(matrix.target, '_arm64') && 'arm64' || 'arm' }}
+          CGO_ENABLED: 0
+        run: |
+          cd go-legacy-win7/src
+          ./make.bash
+
+      - name: Create release directory
+        run: |
+          mkdir -p release
+          cp -r go-legacy-win7 release/
+          cd release/go-legacy-win7
+
+          # Remove development files
+          rm -rf .git*
+          rm -rf codereview.cfg
+          rm -rf patches
+          rm -rf test
+          rm -rf src/**/*_test.go
+          rm -rf src/**/testdata
+          rm -rf doc
+          rm -rf misc
+          rm -rf src/*.bash
+          rm -rf src/*.bat
+          rm -rf src/*.rc
+          rm -rf src/make.*
+          rm -rf src/run.*
+
+          # Process binaries
+          cd bin
+          if [ "${{ matrix.target }}" != "linux_amd64" ]; then
+            rm -f go gofmt
+          fi
+          if [ -d "${{ matrix.target }}" ]; then
+            mv ${{ matrix.target }}/* ./
+          fi
+          rm -rf */
+
+          # Clean up pkg folder
+          cd ../pkg
+          find . -mindepth 1 -maxdepth 1 -type d ! \( -name "include" -o -name "tool" \) -exec rm -rf {} +
+
+          # Clean up pkg/tool folder
+          cd tool
+          find . -mindepth 1 -maxdepth 1 -type d ! -name "${{ matrix.target }}" -exec rm -rf {} +
+
+      - name: Package
+        run: |
+          cd release
+          if [[ "${{ matrix.target }}" == windows_* ]]; then
+            zip -r ../go-legacy-win7-${{ inputs.version }}.${{ matrix.target }}.zip .
+          else
+            tar -czf ../go-legacy-win7-${{ inputs.version }}.${{ matrix.target }}.tar.gz .
+          fi
+
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          cd go-legacy-win7
+
+          git config --global user.email "actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          git fetch --tags
+          if ! git rev-parse "v${{ inputs.version }}" >/dev/null 2>&1; then
+            git tag -a "v${{ inputs.version }}" -m "go-legacy-win7-${{ inputs.version }}"
+            git push origin "v${{ inputs.version }}"
+          fi
+
+          gh release view v${{ inputs.version }} || \
+          gh release create v${{ inputs.version }} \
+            --title "go-legacy-win7-${{ inputs.version }}" \
+            --notes "go-legacy-win7-${{ inputs.version }}" \
+            --draft \
+            --target main
+
+          gh release upload v${{ inputs.version }} \
+            ../go-legacy-win7-${{ inputs.version }}.${{ matrix.target }}.* \
+            --clobber
