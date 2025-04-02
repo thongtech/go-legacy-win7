@@ -13,6 +13,7 @@ import (
 	"compress/zlib"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -7302,4 +7303,121 @@ func testServerReadAfterHandlerAbort100Continue(t *testing.T, mode testMode) {
 	}
 	readyc <- struct{}{} // server starts reading from the request body
 	readyc <- struct{}{} // server finishes reading from the request body
+}
+
+// Issue #72100: Verify that we don't modify the caller's TLS.Config.NextProtos slice.
+func TestServerTLSNextProtos(t *testing.T) {
+	run(t, testServerTLSNextProtos, []testMode{https1Mode, http2Mode})
+}
+func testServerTLSNextProtos(t *testing.T, mode testMode) {
+	CondSkipHTTP2(t)
+
+	cert, err := tls.X509KeyPair(testcert.LocalhostCert, testcert.LocalhostKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leafCert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	certpool := x509.NewCertPool()
+	certpool.AddCert(leafCert)
+
+	protos := new(Protocols)
+	switch mode {
+	case https1Mode:
+		protos.SetHTTP1(true)
+	case http2Mode:
+		protos.SetHTTP2(true)
+	}
+
+	wantNextProtos := []string{"http/1.1", "h2", "other"}
+	nextProtos := slices.Clone(wantNextProtos)
+
+	// We don't use httptest here because it overrides the tls.Config.
+	srv := &Server{
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			NextProtos:   nextProtos,
+		},
+		Handler:   HandlerFunc(func(w ResponseWriter, req *Request) {}),
+		Protocols: protos,
+	}
+	tr := &Transport{
+		TLSClientConfig: &tls.Config{
+			RootCAs:    certpool,
+			NextProtos: nextProtos,
+		},
+		Protocols: protos,
+	}
+
+	listener := newLocalListener(t)
+	srvc := make(chan error, 1)
+	go func() {
+		srvc <- srv.ServeTLS(listener, "", "")
+	}()
+	t.Cleanup(func() {
+		srv.Close()
+		<-srvc
+	})
+
+	client := &Client{Transport: tr}
+	resp, err := client.Get("https://" + listener.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	if !slices.Equal(nextProtos, wantNextProtos) {
+		t.Fatalf("after running test: original NextProtos slice = %v, want %v", nextProtos, wantNextProtos)
+	}
+}
+
+func TestInvalidChunkedBodies(t *testing.T) {
+	for _, test := range []struct {
+		name string
+		b    string
+	}{{
+		name: "bare LF in chunk size",
+		b:    "1\na\r\n0\r\n\r\n",
+	}, {
+		name: "bare LF at body end",
+		b:    "1\r\na\r\n0\r\n\n",
+	}} {
+		t.Run(test.name, func(t *testing.T) {
+			reqc := make(chan error)
+			ts := newClientServerTest(t, http1Mode, HandlerFunc(func(w ResponseWriter, r *Request) {
+				got, err := io.ReadAll(r.Body)
+				if err == nil {
+					t.Logf("read body: %q", got)
+				}
+				reqc <- err
+			})).ts
+
+			serverURL, err := url.Parse(ts.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			conn, err := net.Dial("tcp", serverURL.Host)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := conn.Write([]byte(
+				"POST / HTTP/1.1\r\n" +
+					"Host: localhost\r\n" +
+					"Transfer-Encoding: chunked\r\n" +
+					"Connection: close\r\n" +
+					"\r\n" +
+					test.b)); err != nil {
+				t.Fatal(err)
+			}
+			conn.(*net.TCPConn).CloseWrite()
+
+			if err := <-reqc; err == nil {
+				t.Errorf("server handler: io.ReadAll(r.Body) succeeded, want error")
+			}
+		})
+	}
 }
