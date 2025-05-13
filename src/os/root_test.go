@@ -187,6 +187,30 @@ var rootTestCases = []rootTest{{
 	target:  "target",
 	ltarget: "link",
 }, {
+	name: "symlink dotdot slash",
+	fs: []string{
+		"link => ../",
+	},
+	open:      "link",
+	ltarget:   "link",
+	wantError: true,
+}, {
+	name: "symlink ending in slash",
+	fs: []string{
+		"dir/",
+		"link => dir/",
+	},
+	open:   "link/target",
+	target: "dir/target",
+}, {
+	name: "symlink dotdot dotdot slash",
+	fs: []string{
+		"dir/link => ../../",
+	},
+	open:      "dir/link",
+	ltarget:   "dir/link",
+	wantError: true,
+}, {
 	name: "symlink chain",
 	fs: []string{
 		"link => a/b/c/target",
@@ -213,6 +237,16 @@ var rootTestCases = []rootTest{{
 	},
 	open:   "a/../a/b/../../a/b/../b/target",
 	target: "a/b/target",
+}, {
+	name:      "path with dotdot slash",
+	fs:        []string{},
+	open:      "../",
+	wantError: true,
+}, {
+	name:      "path with dotdot dotdot slash",
+	fs:        []string{},
+	open:      "a/../../",
+	wantError: true,
 }, {
 	name: "dotdot no symlink",
 	fs: []string{
@@ -412,6 +446,12 @@ func TestRootMkdir(t *testing.T) {
 			}
 			if !fi.IsDir() {
 				t.Fatalf(`stat file created with Root.Mkdir(%q): not a directory`, test.open)
+			}
+			if mode := fi.Mode(); mode&0o777 == 0 {
+				// Issue #73559: We're not going to worry about the exact
+				// mode bits (which will have been modified by umask),
+				// but there should be mode bits.
+				t.Fatalf(`stat file created with Root.Mkdir(%q): mode=%v, want non-zero`, test.open, mode)
 			}
 		})
 	}
@@ -1173,6 +1213,33 @@ func TestRootRaceRenameDir(t *testing.T) {
 		if len(got) > 0 && string(got) != "public" {
 			t.Errorf("read file: %q; want error or 'public'", got)
 		}
+	}
+}
+
+func TestRootSymlinkToRoot(t *testing.T) {
+	dir := makefs(t, []string{
+		"d/d => ..",
+	})
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	if err := root.Mkdir("d/d/new", 0777); err != nil {
+		t.Fatal(err)
+	}
+	f, err := root.Open("d/d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	names, err := f.Readdirnames(-1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Sort(names)
+	if got, want := names, []string{"d", "new"}; !slices.Equal(got, want) {
+		t.Errorf("root contains: %q, want %q", got, want)
 	}
 }
 
