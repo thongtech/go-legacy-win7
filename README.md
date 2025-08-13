@@ -37,7 +37,7 @@ The Windows binary provided here also supports Windows 7 and Windows Server 2008
 
 ### Binary Distributions
 
-Binary distributions are **available at the [release page](https://github.com/thongtech/go-legacy-win7/releases)**.
+Binary distributions are **available at the [release page](https://github.com/thongtech/go-legacy-win7/releases/latest)**.
 
 #### Windows Installation
 
