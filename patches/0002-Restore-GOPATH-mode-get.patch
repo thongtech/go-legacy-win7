@@ -1,12 +1,12 @@
-From 6fb20b1b5f82c5eb0979157d3537b48e5956e723 Mon Sep 17 00:00:00 2001
+From 7d330febd42674f6395aad25ea85dce35b4604c5 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 14 Feb 2025 11:33:18 +0700
+Date: Wed, 13 Aug 2025 22:04:56 +0700
 Subject: [PATCH] Restore GOPATH-mode get
 
 ---
  src/cmd/go/alldocs.go                         |  66 ++
  src/cmd/go/go_test.go                         | 100 +++
- src/cmd/go/internal/get/get.go                | 640 ++++++++++++++++++
+ src/cmd/go/internal/get/get.go                | 639 ++++++++++++++++++
  src/cmd/go/internal/get/tag_test.go           | 100 +++
  src/cmd/go/internal/help/help.go              |   7 +
  src/cmd/go/internal/load/pkg.go               |  60 ++
@@ -51,7 +51,7 @@ Subject: [PATCH] Restore GOPATH-mode get
  .../script/vendor_test_issue11864.txt         |  79 +--
  .../script/vendor_test_issue14613.txt         |  46 +-
  src/cmd/internal/par/work.go                  |  38 ++
- 47 files changed, 1934 insertions(+), 195 deletions(-)
+ 47 files changed, 1933 insertions(+), 195 deletions(-)
  create mode 100644 src/cmd/go/internal/get/get.go
  create mode 100644 src/cmd/go/internal/get/tag_test.go
  create mode 100644 src/cmd/go/testdata/script/get_brace.txt
@@ -85,7 +85,7 @@ Subject: [PATCH] Restore GOPATH-mode get
  create mode 100644 src/cmd/go/testdata/script/gopath_moved_repo.txt
 
 diff --git a/src/cmd/go/alldocs.go b/src/cmd/go/alldocs.go
-index 2220863..72df60d 100644
+index 7403b92..de83acf 100644
 --- a/src/cmd/go/alldocs.go
 +++ b/src/cmd/go/alldocs.go
 @@ -47,9 +47,11 @@
@@ -100,7 +100,7 @@ index 2220863..72df60d 100644
  //	module-auth     module authentication using go.sum
  //	packages        package lists and patterns
  //	private         configuration for downloading non-public code
-@@ -2820,6 +2822,70 @@
+@@ -2845,6 +2847,70 @@
  //
  // See https://golang.org/s/go15vendor for details.
  //
@@ -172,7 +172,7 @@ index 2220863..72df60d 100644
  //
  // A Go module proxy is any web server that can respond to GET requests for
 diff --git a/src/cmd/go/go_test.go b/src/cmd/go/go_test.go
-index 1df7cf8..c92dcf2 100644
+index 3e691ab..513ea86 100644
 --- a/src/cmd/go/go_test.go
 +++ b/src/cmd/go/go_test.go
 @@ -973,6 +973,77 @@ func TestNewReleaseRebuildsStalePackagesInGOPATH(t *testing.T) {
@@ -253,7 +253,7 @@ index 1df7cf8..c92dcf2 100644
  func TestPackageMainTestCompilerFlags(t *testing.T) {
  	tg := testgo(t)
  	defer tg.cleanup()
-@@ -1293,6 +1364,35 @@ func TestDefaultGOPATH(t *testing.T) {
+@@ -1295,6 +1366,35 @@ func TestDefaultGOPATH(t *testing.T) {
  	tg.grepStdoutNot(".", "want unset GOPATH because GOROOT=$HOME/go/")
  }
  
@@ -291,10 +291,10 @@ index 1df7cf8..c92dcf2 100644
  	defer tg.cleanup()
 diff --git a/src/cmd/go/internal/get/get.go b/src/cmd/go/internal/get/get.go
 new file mode 100644
-index 0000000..16175a2
+index 0000000..6c39640
 --- /dev/null
 +++ b/src/cmd/go/internal/get/get.go
-@@ -0,0 +1,640 @@
+@@ -0,0 +1,639 @@
 +// Copyright 2011 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -523,8 +523,7 @@ index 0000000..16175a2
 +	base.ExitIfErrors()
 +
 +	var pkgs []string
-+	noModRoots := []string{}
-+	for _, m := range search.ImportPathsQuiet(patterns, noModRoots) {
++	for _, m := range search.ImportPathsQuiet(patterns) {
 +		if len(m.Pkgs) == 0 && strings.Contains(m.Pattern(), "...") {
 +			pkgs = append(pkgs, m.Pattern())
 +		} else {
@@ -1067,10 +1066,10 @@ index 4f2607f..229ebc3 100644
  			cmds = append(cmds, cmd.Commands...)
  		}
 diff --git a/src/cmd/go/internal/load/pkg.go b/src/cmd/go/internal/load/pkg.go
-index 15f6b2e..8f6fd27 100644
+index 1f79154..86a9f9c 100644
 --- a/src/cmd/go/internal/load/pkg.go
 +++ b/src/cmd/go/internal/load/pkg.go
-@@ -461,6 +461,7 @@ type PackageError struct {
+@@ -455,6 +455,7 @@ type PackageError struct {
  	Pos              string      // position of error
  	Err              error       // the error itself
  	IsImportCycle    bool        // the error is an import cycle
@@ -1078,7 +1077,7 @@ index 15f6b2e..8f6fd27 100644
  	alwaysPrintStack bool        // whether to always print the ImportStack
  }
  
-@@ -640,6 +641,51 @@ func (sp *ImportStack) shorterThan(t []string) bool {
+@@ -634,6 +635,51 @@ func (sp *ImportStack) shorterThan(t []string) bool {
  // we return the same pointer each time.
  var packageCache = map[string]*Package{}
  
@@ -1130,7 +1129,7 @@ index 15f6b2e..8f6fd27 100644
  // dirToImportPath returns the pseudo-import path we use for a package
  // outside the Go path. It begins with _/ and then contains the full path
  // to the directory. If the package lives in c:\home\gopher\my\pkg then
-@@ -691,6 +737,20 @@ const (
+@@ -685,6 +731,20 @@ const (
  	cmdlinePkgLiteral
  )
  
@@ -1152,7 +1151,7 @@ index 15f6b2e..8f6fd27 100644
  func LoadPackage(ctx context.Context, opts PackageOpts, path, srcDir string, stk *ImportStack, importPos []token.Position, mode int) *Package {
  	p, err := loadImport(ctx, opts, nil, path, srcDir, nil, stk, importPos, mode)
 diff --git a/src/cmd/go/internal/modget/get.go b/src/cmd/go/internal/modget/get.go
-index 48ae12f..31407e2 100644
+index 31e9244..698c45b 100644
 --- a/src/cmd/go/internal/modget/get.go
 +++ b/src/cmd/go/internal/modget/get.go
 @@ -129,6 +129,23 @@ See also: go build, go install, go clean, go mod.
@@ -1180,10 +1179,10 @@ index 48ae12f..31407e2 100644
  	UsageLine: "vcs",
  	Short:     "controlling version control with GOVCS",
 diff --git a/src/cmd/go/internal/vcs/vcs.go b/src/cmd/go/internal/vcs/vcs.go
-index 1d10c7f..8f2b8a2 100644
+index 7e081eb..6b29068 100644
 --- a/src/cmd/go/internal/vcs/vcs.go
 +++ b/src/cmd/go/internal/vcs/vcs.go
-@@ -1021,11 +1021,11 @@ var defaultGOVCS = govcsConfig{
+@@ -1061,11 +1061,11 @@ var defaultGOVCS = govcsConfig{
  	{"public", []string{"git", "hg"}},
  }
  
@@ -1197,7 +1196,7 @@ index 1d10c7f..8f2b8a2 100644
  	if vcs == vcsMod {
  		// Direct module (proxy protocol) fetches don't
  		// involve an external version control system
-@@ -1053,6 +1053,37 @@ func checkGOVCS(vcs *Cmd, root string) error {
+@@ -1093,6 +1093,37 @@ func checkGOVCS(vcs *Cmd, root string) error {
  	return nil
  }
  
@@ -1235,7 +1234,7 @@ index 1d10c7f..8f2b8a2 100644
  // RepoRoot describes the repository root for a tree of source code.
  type RepoRoot struct {
  	Repo     string // repository URL, including scheme
-@@ -1168,7 +1199,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
+@@ -1209,7 +1240,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
  		if vcs == nil {
  			return nil, fmt.Errorf("unknown version control system %q", match["vcs"])
  		}
@@ -1244,7 +1243,7 @@ index 1d10c7f..8f2b8a2 100644
  			return nil, err
  		}
  		var repoURL string
-@@ -1357,7 +1388,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
+@@ -1398,7 +1429,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
  		}
  	}
  

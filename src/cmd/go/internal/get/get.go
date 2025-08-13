@@ -226,8 +226,7 @@ func downloadPaths(patterns []string) []string {
 	base.ExitIfErrors()
 
 	var pkgs []string
-	noModRoots := []string{}
-	for _, m := range search.ImportPathsQuiet(patterns, noModRoots) {
+	for _, m := range search.ImportPathsQuiet(patterns) {
 		if len(m.Pkgs) == 0 && strings.Contains(m.Pattern(), "...") {
 			pkgs = append(pkgs, m.Pattern())
 		} else {
