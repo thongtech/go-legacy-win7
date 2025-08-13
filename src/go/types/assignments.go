@@ -321,7 +321,7 @@ func (check *Checker) typesSummary(list []Type, variadic, hasDots bool) string {
 			} else {
 				// If we don't have a number, omit the "untyped" qualifier
 				// for compactness.
-				s = strings.Replace(t.(*Basic).name, "untyped ", "", -1)
+				s = strings.ReplaceAll(t.(*Basic).name, "untyped ", "")
 			}
 		default:
 			s = check.sprintf("%s", t)
@@ -569,7 +569,7 @@ func (check *Checker) shortVarDecl(pos positioner, lhs, rhs []ast.Expr) {
 		}
 
 		// declare new variable
-		obj := NewVar(ident.Pos(), check.pkg, name, nil)
+		obj := newVar(LocalVar, ident.Pos(), check.pkg, name, nil)
 		lhsVars[i] = obj
 		if name != "_" {
 			newVars = append(newVars, obj)
@@ -580,7 +580,7 @@ func (check *Checker) shortVarDecl(pos positioner, lhs, rhs []ast.Expr) {
 	// create dummy variables where the lhs is invalid
 	for i, obj := range lhsVars {
 		if obj == nil {
-			lhsVars[i] = NewVar(lhs[i].Pos(), check.pkg, "_", nil)
+			lhsVars[i] = newVar(LocalVar, lhs[i].Pos(), check.pkg, "_", nil)
 		}
 	}
 

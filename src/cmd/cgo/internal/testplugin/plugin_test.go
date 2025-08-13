@@ -145,8 +145,8 @@ func goCmd(t *testing.T, op string, args ...string) string {
 
 // escape converts a string to something suitable for a shell command line.
 func escape(s string) string {
-	s = strings.Replace(s, "\\", "\\\\", -1)
-	s = strings.Replace(s, "'", "\\'", -1)
+	s = strings.ReplaceAll(s, "\\", "\\\\")
+	s = strings.ReplaceAll(s, "'", "\\'")
 	// Conservative guess at characters that will force quoting
 	if s == "" || strings.ContainsAny(s, "\\ ;#*&$~?!|[]()<>{}`") {
 		s = "'" + s + "'"
@@ -194,10 +194,10 @@ func run(t *testing.T, bin string, args ...string) string {
 	out, err := cmd.Output()
 	if err != nil {
 		if t == nil {
-			log.Panicf("%s: %v\n%s", strings.Join(cmd.Args, " "), err, cmd.Stderr)
+			log.Panicf("%#q: %v\n%s", cmd, err, cmd.Stderr)
 		} else {
 			t.Helper()
-			t.Fatalf("%s: %v\n%s", strings.Join(cmd.Args, " "), err, cmd.Stderr)
+			t.Fatalf("%#q: %v\n%s", cmd, err, cmd.Stderr)
 		}
 	}
 
@@ -245,7 +245,7 @@ func TestIssue18676(t *testing.T) {
 	cmd := exec.CommandContext(ctx, "./issue18676.exe")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("%s: %v\n%s", strings.Join(cmd.Args, " "), err, out)
+		t.Fatalf("%#q: %v\n%s", cmd, err, out)
 	}
 }
 

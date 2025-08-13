@@ -9,6 +9,7 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"internal/goexperiment"
 	"math"
 	"math/big"
 	"math/rand"
@@ -859,8 +860,20 @@ func TestUnmarshalInvalidTimes(t *testing.T) {
 		in   string
 		want string
 	}{
-		{`{}`, "Time.UnmarshalJSON: input is not a JSON string"},
-		{`[]`, "Time.UnmarshalJSON: input is not a JSON string"},
+		{`{}`, func() string {
+			if goexperiment.JSONv2 {
+				return "json: cannot unmarshal JSON object into Go type time.Time"
+			} else {
+				return "Time.UnmarshalJSON: input is not a JSON string"
+			}
+		}()},
+		{`[]`, func() string {
+			if goexperiment.JSONv2 {
+				return "json: cannot unmarshal JSON array into Go type time.Time"
+			} else {
+				return "Time.UnmarshalJSON: input is not a JSON string"
+			}
+		}()},
 		{`"2000-01-01T1:12:34Z"`, `<nil>`},
 		{`"2000-01-01T00:00:00,000Z"`, `<nil>`},
 		{`"2000-01-01T00:00:00+24:00"`, `<nil>`},
@@ -1494,6 +1507,20 @@ func BenchmarkNowUnixMilli(b *testing.B) {
 func BenchmarkNowUnixMicro(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		u = Now().UnixMicro()
+	}
+}
+
+func BenchmarkSince(b *testing.B) {
+	start := Now()
+	for b.Loop() {
+		u = int64(Since(start))
+	}
+}
+
+func BenchmarkUntil(b *testing.B) {
+	end := Now().Add(1 * Hour)
+	for b.Loop() {
+		u = int64(Until(end))
 	}
 }
 

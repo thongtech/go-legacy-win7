@@ -47,6 +47,7 @@ func convertNeqBool32(x uint32) bool {
 
 func convertEqBool32(x uint32) bool {
 	// ppc64x:"RLDICL",-"CMPW","XOR",-"ISEL"
+	// amd64:"ANDL","XORL",-"BTL",-"SETCC"
 	return x&1 == 0
 }
 
@@ -57,7 +58,32 @@ func convertNeqBool64(x uint64) bool {
 
 func convertEqBool64(x uint64) bool {
 	// ppc64x:"RLDICL","XOR",-"CMP",-"ISEL"
+	// amd64:"ANDL","XORL",-"BTL",-"SETCC"
 	return x&1 == 0
+}
+
+func phiAnd(a, b bool) bool {
+	var x bool
+	// amd64:-"TESTB"
+	if a {
+		x = b
+	} else {
+		x = a
+	}
+	// amd64:"ANDL"
+	return x
+}
+
+func phiOr(a, b bool) bool {
+	var x bool
+	// amd64:-"TESTB"
+	if a {
+		x = a
+	} else {
+		x = b
+	}
+	// amd64:"ORL"
+	return x
 }
 
 func TestSetEq64(x uint64, y uint64) bool {

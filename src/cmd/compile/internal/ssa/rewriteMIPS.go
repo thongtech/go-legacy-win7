@@ -82,8 +82,12 @@ func rewriteValueMIPS(v *Value) bool {
 		return true
 	case OpAvg32u:
 		return rewriteValueMIPS_OpAvg32u(v)
+	case OpBitLen16:
+		return rewriteValueMIPS_OpBitLen16(v)
 	case OpBitLen32:
 		return rewriteValueMIPS_OpBitLen32(v)
+	case OpBitLen8:
+		return rewriteValueMIPS_OpBitLen8(v)
 	case OpClosureCall:
 		v.Op = OpMIPSCALLclosure
 		return true
@@ -109,9 +113,19 @@ func rewriteValueMIPS(v *Value) bool {
 		return rewriteValueMIPS_OpConstBool(v)
 	case OpConstNil:
 		return rewriteValueMIPS_OpConstNil(v)
+	case OpCtz16:
+		return rewriteValueMIPS_OpCtz16(v)
+	case OpCtz16NonZero:
+		v.Op = OpCtz32
+		return true
 	case OpCtz32:
 		return rewriteValueMIPS_OpCtz32(v)
 	case OpCtz32NonZero:
+		v.Op = OpCtz32
+		return true
+	case OpCtz8:
+		return rewriteValueMIPS_OpCtz8(v)
+	case OpCtz8NonZero:
 		v.Op = OpCtz32
 		return true
 	case OpCvt32Fto32:
@@ -436,6 +450,9 @@ func rewriteValueMIPS(v *Value) bool {
 		return rewriteValueMIPS_OpPanicBounds(v)
 	case OpPanicExtend:
 		return rewriteValueMIPS_OpPanicExtend(v)
+	case OpPubBarrier:
+		v.Op = OpMIPSLoweredPubBarrier
+		return true
 	case OpRotateLeft16:
 		return rewriteValueMIPS_OpRotateLeft16(v)
 	case OpRotateLeft32:
@@ -792,6 +809,21 @@ func rewriteValueMIPS_OpAvg32u(v *Value) bool {
 		return true
 	}
 }
+func rewriteValueMIPS_OpBitLen16(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (BitLen16 x)
+	// result: (BitLen32 (ZeroExt16to32 x))
+	for {
+		x := v_0
+		v.reset(OpBitLen32)
+		v0 := b.NewValue0(v.Pos, OpZeroExt16to32, typ.UInt32)
+		v0.AddArg(x)
+		v.AddArg(v0)
+		return true
+	}
+}
 func rewriteValueMIPS_OpBitLen32(v *Value) bool {
 	v_0 := v.Args[0]
 	b := v.Block
@@ -807,6 +839,21 @@ func rewriteValueMIPS_OpBitLen32(v *Value) bool {
 		v1 := b.NewValue0(v.Pos, OpMIPSCLZ, t)
 		v1.AddArg(x)
 		v.AddArg2(v0, v1)
+		return true
+	}
+}
+func rewriteValueMIPS_OpBitLen8(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (BitLen8 x)
+	// result: (BitLen32 (ZeroExt8to32 x))
+	for {
+		x := v_0
+		v.reset(OpBitLen32)
+		v0 := b.NewValue0(v.Pos, OpZeroExt8to32, typ.UInt32)
+		v0.AddArg(x)
+		v.AddArg(v0)
 		return true
 	}
 }
@@ -895,6 +942,23 @@ func rewriteValueMIPS_OpConstNil(v *Value) bool {
 		return true
 	}
 }
+func rewriteValueMIPS_OpCtz16(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (Ctz16 x)
+	// result: (Ctz32 (Or32 <typ.UInt32> x (MOVWconst [1<<16])))
+	for {
+		x := v_0
+		v.reset(OpCtz32)
+		v0 := b.NewValue0(v.Pos, OpOr32, typ.UInt32)
+		v1 := b.NewValue0(v.Pos, OpMIPSMOVWconst, typ.UInt32)
+		v1.AuxInt = int32ToAuxInt(1 << 16)
+		v0.AddArg2(x, v1)
+		v.AddArg(v0)
+		return true
+	}
+}
 func rewriteValueMIPS_OpCtz32(v *Value) bool {
 	v_0 := v.Args[0]
 	b := v.Block
@@ -917,6 +981,23 @@ func rewriteValueMIPS_OpCtz32(v *Value) bool {
 		v2.AddArg(v3)
 		v1.AddArg(v2)
 		v.AddArg2(v0, v1)
+		return true
+	}
+}
+func rewriteValueMIPS_OpCtz8(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (Ctz8 x)
+	// result: (Ctz32 (Or32 <typ.UInt32> x (MOVWconst [1<<8])))
+	for {
+		x := v_0
+		v.reset(OpCtz32)
+		v0 := b.NewValue0(v.Pos, OpOr32, typ.UInt32)
+		v1 := b.NewValue0(v.Pos, OpMIPSMOVWconst, typ.UInt32)
+		v1.AuxInt = int32ToAuxInt(1 << 8)
+		v0.AddArg2(x, v1)
+		v.AddArg(v0)
 		return true
 	}
 }
@@ -4018,6 +4099,28 @@ func rewriteValueMIPS_OpMIPSMUL(v *Value) bool {
 }
 func rewriteValueMIPS_OpMIPSNEG(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (NEG (SUB x y))
+	// result: (SUB y x)
+	for {
+		if v_0.Op != OpMIPSSUB {
+			break
+		}
+		y := v_0.Args[1]
+		x := v_0.Args[0]
+		v.reset(OpMIPSSUB)
+		v.AddArg2(y, x)
+		return true
+	}
+	// match: (NEG (NEG x))
+	// result: x
+	for {
+		if v_0.Op != OpMIPSNEG {
+			break
+		}
+		x := v_0.Args[0]
+		v.copyOf(x)
+		return true
+	}
 	// match: (NEG (MOVWconst [c]))
 	// result: (MOVWconst [-c])
 	for {
@@ -4668,6 +4771,18 @@ func rewriteValueMIPS_OpMIPSSUB(v *Value) bool {
 		v.reset(OpMIPSSUBconst)
 		v.AuxInt = int32ToAuxInt(c)
 		v.AddArg(x)
+		return true
+	}
+	// match: (SUB x (NEG y))
+	// result: (ADD x y)
+	for {
+		x := v_0
+		if v_1.Op != OpMIPSNEG {
+			break
+		}
+		y := v_1.Args[0]
+		v.reset(OpMIPSADD)
+		v.AddArg2(x, y)
 		return true
 	}
 	// match: (SUB x x)

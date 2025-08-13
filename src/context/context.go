@@ -288,11 +288,17 @@ func withCancel(parent Context) *cancelCtx {
 func Cause(c Context) error {
 	if cc, ok := c.Value(&cancelCtxKey).(*cancelCtx); ok {
 		cc.mu.Lock()
-		defer cc.mu.Unlock()
-		return cc.cause
+		cause := cc.cause
+		cc.mu.Unlock()
+		if cause != nil {
+			return cause
+		}
+		// Either this context is not canceled,
+		// or it is canceled and the cancellation happened in a
+		// custom context implementation rather than a *cancelCtx.
 	}
-	// There is no cancelCtxKey value, so we know that c is
-	// not a descendant of some Context created by WithCancelCause.
+	// There is no cancelCtxKey value with a cause, so we know that c is
+	// not a descendant of some canceled Context created by WithCancelCause.
 	// Therefore, there is no specific cause to return.
 	// If this is not one of the standard Context types,
 	// it might still have an error even though it won't have a cause.
@@ -428,7 +434,7 @@ type cancelCtx struct {
 	mu       sync.Mutex            // protects following fields
 	done     atomic.Value          // of chan struct{}, created lazily, closed by first cancel call
 	children map[canceler]struct{} // set to nil by the first cancel call
-	err      error                 // set to non-nil by the first cancel call
+	err      atomic.Value          // set to non-nil by the first cancel call
 	cause    error                 // set to non-nil by the first cancel call
 }
 
@@ -455,10 +461,11 @@ func (c *cancelCtx) Done() <-chan struct{} {
 }
 
 func (c *cancelCtx) Err() error {
-	c.mu.Lock()
-	err := c.err
-	c.mu.Unlock()
-	return err
+	// An atomic load is ~5x faster than a mutex, which can matter in tight loops.
+	if err := c.err.Load(); err != nil {
+		return err.(error)
+	}
+	return nil
 }
 
 // propagateCancel arranges for child to be canceled when parent is.
@@ -482,9 +489,9 @@ func (c *cancelCtx) propagateCancel(parent Context, child canceler) {
 	if p, ok := parentCancelCtx(parent); ok {
 		// parent is a *cancelCtx, or derives from one.
 		p.mu.Lock()
-		if p.err != nil {
+		if err := p.err.Load(); err != nil {
 			// parent has already been canceled
-			child.cancel(false, p.err, p.cause)
+			child.cancel(false, err.(error), p.cause)
 		} else {
 			if p.children == nil {
 				p.children = make(map[canceler]struct{})
@@ -545,11 +552,11 @@ func (c *cancelCtx) cancel(removeFromParent bool, err, cause error) {
 		cause = err
 	}
 	c.mu.Lock()
-	if c.err != nil {
+	if c.err.Load() != nil {
 		c.mu.Unlock()
 		return // already canceled
 	}
-	c.err = err
+	c.err.Store(err)
 	c.cause = cause
 	d, _ := c.done.Load().(chan struct{})
 	if d == nil {
@@ -639,7 +646,7 @@ func WithDeadlineCause(parent Context, d time.Time, cause error) (Context, Cance
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.err == nil {
+	if c.err.Load() == nil {
 		c.timer = time.AfterFunc(dur, func() {
 			c.cancel(true, DeadlineExceeded, cause)
 		})

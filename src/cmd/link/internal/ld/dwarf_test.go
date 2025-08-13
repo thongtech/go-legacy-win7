@@ -287,7 +287,10 @@ func TestSizes(t *testing.T) {
 	mustHaveDWARF(t)
 
 	// External linking may bring in C symbols with unknown size. Skip.
-	testenv.MustInternalLink(t, false)
+	//
+	// N.B. go build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.NoSpecialBuildTypes)
 
 	t.Parallel()
 
@@ -861,7 +864,9 @@ func TestAbstractOriginSanityIssue26237(t *testing.T) {
 
 func TestRuntimeTypeAttrInternal(t *testing.T) {
 	testenv.MustHaveGoBuild(t)
-	testenv.MustInternalLink(t, false)
+	// N.B. go build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.NoSpecialBuildTypes)
 
 	mustHaveDWARF(t)
 
@@ -1435,9 +1440,15 @@ func TestIssue39757(t *testing.T) {
 
 	maindie := findSubprogramDIE(t, ex, "main.main")
 
-	// Collect the start/end PC for main.main
-	lowpc := maindie.Val(dwarf.AttrLowpc).(uint64)
-	highpc := maindie.Val(dwarf.AttrHighpc).(uint64)
+	// Collect the start/end PC for main.main. The format/class of the
+	// high PC attr may vary depending on which DWARF version we're generating;
+	// invoke a helper to handle the various possibilities.
+	// the low PC as opposed to an address; allow for both possibilities.
+	lowpc, highpc, perr := dwtest.SubprogLoAndHighPc(maindie)
+	if perr != nil {
+		t.Fatalf("main.main DIE malformed: %v", perr)
+	}
+	t.Logf("lo=0x%x hi=0x%x\n", lowpc, highpc)
 
 	// Now read the line table for the 'main' compilation unit.
 	mainIdx := ex.IdxFromOffset(maindie.Offset)
@@ -1485,7 +1496,11 @@ func TestIssue39757(t *testing.T) {
 
 func TestIssue42484(t *testing.T) {
 	testenv.MustHaveGoBuild(t)
-	testenv.MustInternalLink(t, false) // Avoid spurious failures from external linkers.
+	// Avoid spurious failures from external linkers.
+	//
+	// N.B. go build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.NoSpecialBuildTypes)
 
 	mustHaveDWARF(t)
 

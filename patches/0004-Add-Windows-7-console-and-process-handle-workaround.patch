@@ -1,24 +1,23 @@
-From 017970028ebf60ec44fd1b528b691a47f09ea3a6 Mon Sep 17 00:00:00 2001
+From 4c18dbd71ffab945d87cbd5fa86a0027dd6248f1 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 14 Feb 2025 12:13:28 +0700
+Date: Wed, 13 Aug 2025 21:47:16 +0700
 Subject: [PATCH] Add Windows 7 console and process handle workaround
 
 ---
- src/os/exec_windows.go          | 11 ++++++++++
+ src/os/exec_windows.go          | 10 +++++++++
  src/syscall/exec_windows.go     | 38 ++++++++++++++++++++++++++++++++-
  src/syscall/types_windows.go    | 10 +++++++++
  src/syscall/zsyscall_windows.go |  7 ++++++
- 4 files changed, 65 insertions(+), 1 deletion(-)
+ 4 files changed, 64 insertions(+), 1 deletion(-)
 
 diff --git a/src/os/exec_windows.go b/src/os/exec_windows.go
-index ab2dae1..f5e3a4f 100644
+index 68c7064..6a44a7d 100644
 --- a/src/os/exec_windows.go
 +++ b/src/os/exec_windows.go
-@@ -44,6 +44,17 @@ func (p *Process) wait() (ps *ProcessState, err error) {
- 	if e != nil {
+@@ -45,6 +45,16 @@ func (p *Process) wait() (ps *ProcessState, err error) {
  		return nil, NewSyscallError("GetProcessTimes", e)
  	}
-+
+ 
 +	// NOTE(brainman): It seems that sometimes process is not dead
 +	// when WaitForSingleObject returns. But we do not know any
 +	// other way to wait for it. Sleeping for a while seems to do
@@ -29,11 +28,11 @@ index ab2dae1..f5e3a4f 100644
 +		defer time.Sleep(5 * time.Millisecond)
 +	}
 +
- 	defer p.Release()
- 	return &ProcessState{p.Pid, syscall.WaitStatus{ExitCode: ec}, &u}, nil
- }
+ 	// For compatibility we use statusReleased here rather
+ 	// than statusDone.
+ 	p.doRelease(statusReleased)
 diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
-index 1220de4..b4b846d 100644
+index 3ba2fbe..77c0d44 100644
 --- a/src/syscall/exec_windows.go
 +++ b/src/syscall/exec_windows.go
 @@ -254,6 +254,16 @@ type SysProcAttr struct {
@@ -103,10 +102,10 @@ index 1220de4..b4b846d 100644
  	// to treat the entire list as empty, so remove NULL handles.
  	j := 0
 diff --git a/src/syscall/types_windows.go b/src/syscall/types_windows.go
-index fa34053..f08ebe0 100644
+index 92fa796..c9749ba 100644
 --- a/src/syscall/types_windows.go
 +++ b/src/syscall/types_windows.go
-@@ -1173,3 +1173,13 @@ const (
+@@ -1183,3 +1183,13 @@ const (
  )
  
  const UNIX_PATH_MAX = 108 // defined in afunix.h
@@ -121,7 +120,7 @@ index fa34053..f08ebe0 100644
 +	csdVersion        [128]uint16
 +}
 diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
-index 85c66de..e58a384 100644
+index ef00c0b..065977e 100644
 --- a/src/syscall/zsyscall_windows.go
 +++ b/src/syscall/zsyscall_windows.go
 @@ -43,6 +43,7 @@ var (
@@ -132,7 +131,7 @@ index 85c66de..e58a384 100644
  	modsecur32  = NewLazyDLL(sysdll.Add("secur32.dll"))
  	modshell32  = NewLazyDLL(sysdll.Add("shell32.dll"))
  	moduserenv  = NewLazyDLL(sysdll.Add("userenv.dll"))
-@@ -170,6 +171,7 @@ var (
+@@ -171,6 +172,7 @@ var (
  	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
  	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
  	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
@@ -140,7 +139,7 @@ index 85c66de..e58a384 100644
  	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
  	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
  	procGetUserProfileDirectoryW           = moduserenv.NewProc("GetUserProfileDirectoryW")
-@@ -1237,6 +1239,11 @@ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err er
+@@ -1247,6 +1249,11 @@ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err er
  	return
  }
  

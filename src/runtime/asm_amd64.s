@@ -412,11 +412,9 @@ TEXT gogo<>(SB), NOSPLIT, $0
 	MOVQ	DX, g(CX)
 	MOVQ	DX, R14		// set the g register
 	MOVQ	gobuf_sp(BX), SP	// restore SP
-	MOVQ	gobuf_ret(BX), AX
 	MOVQ	gobuf_ctxt(BX), DX
 	MOVQ	gobuf_bp(BX), BP
 	MOVQ	$0, gobuf_sp(BX)	// clear to help garbage collector
-	MOVQ	$0, gobuf_ret(BX)
 	MOVQ	$0, gobuf_ctxt(BX)
 	MOVQ	$0, gobuf_bp(BX)
 	MOVQ	gobuf_pc(BX), BX
@@ -454,6 +452,7 @@ goodm:
 	get_tls(CX)		// Set G in TLS
 	MOVQ	R14, g(CX)
 	MOVQ	(g_sched+gobuf_sp)(R14), SP	// sp = g0.sched.sp
+	MOVQ	$0, BP	// clear frame pointer, as caller may execute on another M
 	PUSHQ	AX	// open up space for fn's arg spill slot
 	MOVQ	0(DX), R12
 	CALL	R12		// fn(g)
@@ -617,7 +616,7 @@ TEXT runtime·morestack(SB),NOSPLIT|NOFRAME,$0-0
 	MOVQ	m_g0(BX), BX
 	MOVQ	BX, g(CX)
 	MOVQ	(g_sched+gobuf_sp)(BX), SP
-	MOVQ	(g_sched+gobuf_bp)(BX), BP
+	MOVQ	$0, BP			// clear frame pointer, as caller may execute on another M
 	CALL	runtime·newstack(SB)
 	CALL	runtime·abort(SB)	// crash if newstack returns
 	RET
@@ -828,7 +827,6 @@ TEXT gosave_systemstack_switch<>(SB),NOSPLIT|NOFRAME,$0
 	MOVQ	R9, (g_sched+gobuf_pc)(R14)
 	LEAQ	8(SP), R9
 	MOVQ	R9, (g_sched+gobuf_sp)(R14)
-	MOVQ	$0, (g_sched+gobuf_ret)(R14)
 	MOVQ	BP, (g_sched+gobuf_bp)(R14)
 	// Assert ctxt is zero. See func save.
 	MOVQ	(g_sched+gobuf_ctxt)(R14), R9
@@ -1679,11 +1677,6 @@ DATA shifts<>+0xf0(SB)/8, $0x0807060504030201
 DATA shifts<>+0xf8(SB)/8, $0xff0f0e0d0c0b0a09
 GLOBL shifts<>(SB),RODATA,$256
 
-TEXT runtime·return0(SB), NOSPLIT, $0
-	MOVL	$0, AX
-	RET
-
-
 // Called from cgo wrappers, this function returns g->m->curg.stack.hi.
 // Must obey the gcc calling convention.
 TEXT _cgo_topofstack(SB),NOSPLIT,$0
@@ -1718,9 +1711,7 @@ TEXT runtime·addmoduledata(SB),NOSPLIT,$0-0
 TEXT ·sigpanic0(SB),NOSPLIT,$0-0
 	get_tls(R14)
 	MOVQ	g(R14), R14
-#ifndef GOOS_plan9
 	XORPS	X15, X15
-#endif
 	JMP	·sigpanic<ABIInternal>(SB)
 
 // gcWriteBarrier informs the GC about heap pointer writes.

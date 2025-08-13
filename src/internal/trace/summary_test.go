@@ -264,7 +264,7 @@ func basicGoroutineSummaryChecks(t *testing.T, summary *trace.GoroutineSummary) 
 }
 
 func summarizeTraceTest(t *testing.T, testPath string) *trace.Summary {
-	trc, _, err := testtrace.ParseFile(testPath)
+	trc, _, _, err := testtrace.ParseFile(testPath)
 	if err != nil {
 		t.Fatalf("malformed test %s: bad trace file: %v", testPath, err)
 	}
@@ -388,7 +388,7 @@ func basicGoroutineExecStatsChecks(t *testing.T, stats *trace.GoroutineExecStats
 
 func TestRelatedGoroutinesV2Trace(t *testing.T) {
 	testPath := "testdata/tests/go122-gc-stress.test"
-	trc, _, err := testtrace.ParseFile(testPath)
+	trc, _, _, err := testtrace.ParseFile(testPath)
 	if err != nil {
 		t.Fatalf("malformed test %s: bad trace file: %v", testPath, err)
 	}
@@ -416,10 +416,10 @@ func TestRelatedGoroutinesV2Trace(t *testing.T) {
 	targetg := trace.GoID(86)
 	got := trace.RelatedGoroutinesV2(events, targetg)
 	want := map[trace.GoID]struct{}{
-		trace.GoID(86):  struct{}{}, // N.B. Result includes target.
-		trace.GoID(71):  struct{}{},
-		trace.GoID(25):  struct{}{},
-		trace.GoID(122): struct{}{},
+		trace.GoID(86):  {}, // N.B. Result includes target.
+		trace.GoID(71):  {},
+		trace.GoID(25):  {},
+		trace.GoID(122): {},
 	}
 	for goid := range got {
 		if _, ok := want[goid]; ok {

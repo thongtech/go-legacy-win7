@@ -148,6 +148,7 @@ func init() {
 		gpstore2  = regInfo{inputs: []regMask{gpspsbg, gpg, gpg}}
 		gpxchg    = regInfo{inputs: []regMask{gpspsbg, gpg}, outputs: []regMask{gp}}
 		gpcas     = regInfo{inputs: []regMask{gpspsbg, gpg, gpg}, outputs: []regMask{gp}}
+		preldreg  = regInfo{inputs: []regMask{gpspg}}
 		fp01      = regInfo{inputs: nil, outputs: []regMask{fp}}
 		fp11      = regInfo{inputs: []regMask{fp}, outputs: []regMask{fp}}
 		fp21      = regInfo{inputs: []regMask{fp, fp}, outputs: []regMask{fp}}
@@ -220,6 +221,8 @@ func init() {
 		{name: "XORconst", argLength: 1, reg: gp11, asm: "XOR", aux: "Int64", typ: "UInt64"}, // arg0 ^ auxInt
 		{name: "NOR", argLength: 2, reg: gp21, asm: "NOR", commutative: true},                // ^(arg0 | arg1)
 		{name: "NORconst", argLength: 1, reg: gp11, asm: "NOR", aux: "Int64"},                // ^(arg0 | auxInt)
+		{name: "ANDN", argLength: 2, reg: gp21, asm: "ANDN"},                                 // arg0 & ^arg1
+		{name: "ORN", argLength: 2, reg: gp21, asm: "ORN"},                                   // arg0 | ^arg1
 
 		{name: "FMADDF", argLength: 3, reg: fp31, asm: "FMADDF", commutative: true, typ: "Float32"},   // (arg0 * arg1) + arg2
 		{name: "FMADDD", argLength: 3, reg: fp31, asm: "FMADDD", commutative: true, typ: "Float64"},   // (arg0 * arg1) + arg2
@@ -240,11 +243,17 @@ func init() {
 		{name: "FCOPYSGD", argLength: 2, reg: fp21, asm: "FCOPYSGD"}, // float64
 
 		// shifts
+		{name: "SLL", argLength: 2, reg: gp21, asm: "SLL"},                        // arg0 << arg1, shift amount is mod 32
 		{name: "SLLV", argLength: 2, reg: gp21, asm: "SLLV"},                      // arg0 << arg1, shift amount is mod 64
+		{name: "SLLconst", argLength: 1, reg: gp11, asm: "SLL", aux: "Int64"},     // arg0 << auxInt, auxInt should be in the range 0 to 31.
 		{name: "SLLVconst", argLength: 1, reg: gp11, asm: "SLLV", aux: "Int64"},   // arg0 << auxInt
+		{name: "SRL", argLength: 2, reg: gp21, asm: "SRL"},                        // arg0 >> arg1, shift amount is mod 32
 		{name: "SRLV", argLength: 2, reg: gp21, asm: "SRLV"},                      // arg0 >> arg1, unsigned, shift amount is mod 64
+		{name: "SRLconst", argLength: 1, reg: gp11, asm: "SRL", aux: "Int64"},     // arg0 >> auxInt, auxInt should be in the range 0 to 31.
 		{name: "SRLVconst", argLength: 1, reg: gp11, asm: "SRLV", aux: "Int64"},   // arg0 >> auxInt, unsigned
+		{name: "SRA", argLength: 2, reg: gp21, asm: "SRA"},                        // arg0 >> arg1, shift amount is mod 32
 		{name: "SRAV", argLength: 2, reg: gp21, asm: "SRAV"},                      // arg0 >> arg1, signed, shift amount is mod 64
+		{name: "SRAconst", argLength: 1, reg: gp11, asm: "SRA", aux: "Int64"},     // arg0 >> auxInt, signed, auxInt should be in the range 0 to 31.
 		{name: "SRAVconst", argLength: 1, reg: gp11, asm: "SRAV", aux: "Int64"},   // arg0 >> auxInt, signed
 		{name: "ROTR", argLength: 2, reg: gp21, asm: "ROTR"},                      // arg0 right rotate by (arg1 mod 32) bits
 		{name: "ROTRV", argLength: 2, reg: gp21, asm: "ROTRV"},                    // arg0 right rotate by (arg1 mod 64) bits
@@ -560,6 +569,14 @@ func init() {
 		{name: "LoweredPanicBoundsA", argLength: 3, aux: "Int64", reg: regInfo{inputs: []regMask{r3, r4}}, typ: "Mem", call: true}, // arg0=idx, arg1=len, arg2=mem, returns memory. AuxInt contains report code (see PanicBounds in genericOps.go).
 		{name: "LoweredPanicBoundsB", argLength: 3, aux: "Int64", reg: regInfo{inputs: []regMask{r2, r3}}, typ: "Mem", call: true}, // arg0=idx, arg1=len, arg2=mem, returns memory. AuxInt contains report code (see PanicBounds in genericOps.go).
 		{name: "LoweredPanicBoundsC", argLength: 3, aux: "Int64", reg: regInfo{inputs: []regMask{r1, r2}}, typ: "Mem", call: true}, // arg0=idx, arg1=len, arg2=mem, returns memory. AuxInt contains report code (see PanicBounds in genericOps.go).
+
+		// Prefetch instruction
+		// Do prefetch arg0 address with option aux. arg0=addr, arg1=memory, aux=option.
+		// Note:
+		//   The aux of PRELDX is actually composed of two values: $hint and $n. bit[4:0]
+		//   is $hint and bit[41:5] is $n.
+		{name: "PRELD", argLength: 2, aux: "Int64", reg: preldreg, asm: "PRELD", hasSideEffects: true},
+		{name: "PRELDX", argLength: 2, aux: "Int64", reg: preldreg, asm: "PRELDX", hasSideEffects: true},
 	}
 
 	blocks := []blockData{

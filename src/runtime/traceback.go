@@ -1131,6 +1131,22 @@ func showfuncinfo(sf srcFunc, firstFrame bool, calleeID abi.FuncID) bool {
 		return false
 	}
 
+	// Always show runtime.runFinalizers and runtime.runCleanups as
+	// context that this goroutine is running finalizers or cleanups,
+	// otherwise there is no obvious indicator.
+	//
+	// TODO(prattmic): A more general approach would be to always show the
+	// outermost frame (besides runtime.goexit), even if it is a runtime.
+	// Hiding the outermost frame allows the apparent outermost frame to
+	// change across different traces, which seems impossible.
+	//
+	// Unfortunately, implementing this requires looking ahead at the next
+	// frame, which goes against traceback's incremental approach (see big
+	// comment in traceback1).
+	if sf.funcID == abi.FuncID_runFinalizers || sf.funcID == abi.FuncID_runCleanups {
+		return true
+	}
+
 	name := sf.name()
 
 	// Special case: always show runtime.gopanic frame
@@ -1232,19 +1248,30 @@ func goroutineheader(gp *g) {
 	if isScan {
 		print(" (scan)")
 	}
+	if bubble := gp.bubble; bubble != nil &&
+		gp.waitreason.isIdleInSynctest() &&
+		!stringslite.HasSuffix(status, "(durable)") {
+		// If this isn't a status where the name includes a (durable)
+		// suffix to distinguish it from the non-durable form, add it here.
+		print(" (durable)")
+	}
 	if waitfor >= 1 {
 		print(", ", waitfor, " minutes")
 	}
 	if gp.lockedm != 0 {
 		print(", locked to thread")
 	}
-	if sg := gp.syncGroup; sg != nil {
-		print(", synctest group ", sg.root.goid)
+	if bubble := gp.bubble; bubble != nil {
+		print(", synctest bubble ", bubble.id)
 	}
 	print("]:\n")
 }
 
 func tracebackothers(me *g) {
+	tracebacksomeothers(me, func(*g) bool { return true })
+}
+
+func tracebacksomeothers(me *g, showf func(*g) bool) {
 	level, _, _ := gotraceback()
 
 	// Show the current goroutine first, if we haven't already.
@@ -1263,7 +1290,7 @@ func tracebackothers(me *g) {
 	// against concurrent creation of new Gs, but even with allglock we may
 	// miss Gs created after this loop.
 	forEachGRace(func(gp *g) {
-		if gp == me || gp == curgp || readgstatus(gp) == _Gdead || isSystemGoroutine(gp, false) && level < 2 {
+		if gp == me || gp == curgp || readgstatus(gp) == _Gdead || !showf(gp) || (isSystemGoroutine(gp, false) && level < 2) {
 			return
 		}
 		print("\n")
@@ -1331,7 +1358,8 @@ func tracebackHexdump(stk stack, frame *stkframe, bad uintptr) {
 // isSystemGoroutine reports whether the goroutine g must be omitted
 // in stack dumps and deadlock detector. This is any goroutine that
 // starts at a runtime.* entry point, except for runtime.main,
-// runtime.handleAsyncEvent (wasm only) and sometimes runtime.runfinq.
+// runtime.handleAsyncEvent (wasm only) and sometimes
+// runtime.runFinalizers/runtime.runCleanups.
 //
 // If fixed is true, any goroutine that can vary between user and
 // system (that is, the finalizer goroutine) is considered a user
@@ -1345,7 +1373,7 @@ func isSystemGoroutine(gp *g, fixed bool) bool {
 	if f.funcID == abi.FuncID_runtime_main || f.funcID == abi.FuncID_corostart || f.funcID == abi.FuncID_handleAsyncEvent {
 		return false
 	}
-	if f.funcID == abi.FuncID_runfinq {
+	if f.funcID == abi.FuncID_runFinalizers {
 		// We include the finalizer goroutine if it's calling
 		// back into user code.
 		if fixed {
@@ -1354,6 +1382,16 @@ func isSystemGoroutine(gp *g, fixed bool) bool {
 			return false
 		}
 		return fingStatus.Load()&fingRunningFinalizer == 0
+	}
+	if f.funcID == abi.FuncID_runCleanups {
+		// We include the cleanup goroutines if they're calling
+		// back into user code.
+		if fixed {
+			// This goroutine can vary. In fixed mode,
+			// always consider it a user goroutine.
+			return false
+		}
+		return !gp.runningCleanups.Load()
 	}
 	return stringslite.HasPrefix(funcname(f), "runtime.")
 }

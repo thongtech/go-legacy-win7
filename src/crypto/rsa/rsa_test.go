@@ -16,10 +16,13 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"crypto/x509"
+	"encoding/hex"
 	"encoding/pem"
 	"flag"
 	"fmt"
+	"io"
 	"math/big"
+	"os"
 	"strings"
 	"testing"
 )
@@ -695,19 +698,48 @@ func BenchmarkEncryptOAEP(b *testing.B) {
 }
 
 func BenchmarkSignPKCS1v15(b *testing.B) {
-	b.Run("2048", func(b *testing.B) {
-		hashed := sha256.Sum256([]byte("testing"))
-
-		var sink byte
-		b.ResetTimer()
-		for i := 0; i < b.N; i++ {
-			s, err := SignPKCS1v15(rand.Reader, test2048Key, crypto.SHA256, hashed[:])
-			if err != nil {
-				b.Fatal(err)
-			}
-			sink ^= s[0]
-		}
+	b.Run("2048", func(b *testing.B) { benchmarkSignPKCS1v15(b, test2048Key) })
+	b.Run("2048/noprecomp/OnlyD", func(b *testing.B) {
+		benchmarkSignPKCS1v15(b, &PrivateKey{
+			PublicKey: test2048Key.PublicKey,
+			D:         test2048Key.D,
+		})
 	})
+	b.Run("2048/noprecomp/Primes", func(b *testing.B) {
+		benchmarkSignPKCS1v15(b, &PrivateKey{
+			PublicKey: test2048Key.PublicKey,
+			D:         test2048Key.D,
+			Primes:    test2048Key.Primes,
+		})
+	})
+	// This is different from "2048" because it's only the public precomputed
+	// values, and not the crypto/internal/fips140/rsa.PrivateKey.
+	b.Run("2048/noprecomp/AllValues", func(b *testing.B) {
+		benchmarkSignPKCS1v15(b, &PrivateKey{
+			PublicKey: test2048Key.PublicKey,
+			D:         test2048Key.D,
+			Primes:    test2048Key.Primes,
+			Precomputed: PrecomputedValues{
+				Dp:   test2048Key.Precomputed.Dp,
+				Dq:   test2048Key.Precomputed.Dq,
+				Qinv: test2048Key.Precomputed.Qinv,
+			},
+		})
+	})
+}
+
+func benchmarkSignPKCS1v15(b *testing.B, k *PrivateKey) {
+	hashed := sha256.Sum256([]byte("testing"))
+
+	var sink byte
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s, err := SignPKCS1v15(rand.Reader, k, crypto.SHA256, hashed[:])
+		if err != nil {
+			b.Fatal(err)
+		}
+		sink ^= s[0]
+	}
 }
 
 func BenchmarkVerifyPKCS1v15(b *testing.B) {
@@ -762,16 +794,6 @@ func BenchmarkVerifyPSS(b *testing.B) {
 	})
 }
 
-func BenchmarkGenerateKey(b *testing.B) {
-	b.Run("2048", func(b *testing.B) {
-		for i := 0; i < b.N; i++ {
-			if _, err := GenerateKey(rand.Reader, 2048); err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
-}
-
 func BenchmarkParsePKCS8PrivateKey(b *testing.B) {
 	b.Run("2048", func(b *testing.B) {
 		p, _ := pem.Decode([]byte(test2048KeyPEM))
@@ -782,6 +804,58 @@ func BenchmarkParsePKCS8PrivateKey(b *testing.B) {
 			}
 		}
 	})
+}
+
+func BenchmarkGenerateKey(b *testing.B) {
+	b.Run("2048", func(b *testing.B) {
+		primes, err := os.ReadFile("testdata/keygen2048.txt")
+		if err != nil {
+			b.Fatal(err)
+		}
+		for b.Loop() {
+			r := &testPrimeReader{primes: string(primes)}
+			if _, err := GenerateKey(r, 2048); err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
+// testPrimeReader feeds prime candidates from a text file,
+// one per line in hex, to GenerateKey.
+type testPrimeReader struct {
+	primes string
+}
+
+func (r *testPrimeReader) Read(p []byte) (n int, err error) {
+	// Neutralize randutil.MaybeReadByte.
+	//
+	// DO NOT COPY this. We *will* break you. We can do this because we're
+	// in the standard library, and can update this along with the
+	// GenerateKey implementation if necessary.
+	//
+	// You have been warned.
+	if len(p) == 1 {
+		return 1, nil
+	}
+
+	var line string
+	for line == "" || line[0] == '#' {
+		var ok bool
+		line, r.primes, ok = strings.Cut(r.primes, "\n")
+		if !ok {
+			return 0, io.EOF
+		}
+	}
+	b, err := hex.DecodeString(line)
+	if err != nil {
+		return 0, err
+	}
+	if len(p) != len(b) {
+		return 0, fmt.Errorf("unexpected read length: %d", len(p))
+	}
+	copy(p, b)
+	return len(p), nil
 }
 
 type testEncryptOAEPMessage struct {
@@ -1070,4 +1144,47 @@ v/Ow5T0q5gIJAiEAyS4RaI9YG8EWx/2w0T67ZUVAw8eOMB6BIUg0Xcu+3okCIBOs
 		t.Skip("BoringCrypto mode returns the wrong error from SignPSS")
 	}
 	testEverything(t, k)
+}
+
+func TestLargeSizeDifference(t *testing.T) {
+	// This key has a 768-bit P and a 256-bit Q.
+	k1 := parseKey(testingKey(`-----BEGIN TESTING KEY-----
+MIICmAIBADANBgkqhkiG9w0BAQEFAASCAoIwggJ+AgEAAoGBAOB/V7qbbMLHZSHS
+rU3FLNQJe88wQr5asy813wqlWsCeYUn7Imxv23vDXthpkH/54+CplWDvVri24zhU
+4tHfONSEBWWKTRfQKCW+vrzf+d02rB95lVBrBDSKAUR6w1Xcx9/6ib+kQRDnMl2l
+WZzDgv8jrNPrLGipYBOLcI9/Oh3HAgMBAAECgYBr85AiAX8JIoy0+POxA/GMfIr2
+lERj+IVVXFhGbED5gjUBUn8kz/gOrClZAqgxJKVbdTcxn4KGOM64z427Y24H52zQ
+sCq7RFJ9KDd4s1hAPQImBRUYu2blqDoqxNBQBxLHVUN7vwFp2MGsHzTz7mcx7QNG
+teRbyLhCanUd3UOb4QJhAP5dyjIK1WzKBZ/jSAmjJL64bks4wEEl5eG6e2cTscCH
+RE/OSpHi57dyrxgnBkczt56hOksJFzwmgk4wEM8n/JDOXwIzvAH4w4JWhu169gCW
+8LgxCzJ71xv8+wUUouUTLwIhAOHwcdEAKyLo3K7X1nlYcUOX61yQ1GXRgIROGrsh
+NNjpAmEAuW1nu4k4QmEXLpJB7nyWic3q4T0SsatN5HrMAL1To/U3sDHDHIxbvNiG
+mcXBBuDFp4cC9rY+0OOFtDfH2SveKzW1/uX11T4iT/6Bx9cORCnEe5GNBxVOH6IQ
+34hGo1WTAiEAyCYALW1AyUQPerOpQwWeEIrb7Lw/65KTjqDB/VOFRUECYQCPcc07
+D19OB593kGklAtk1XwGt1W8OmfGIKhGMKzlYhb9MezjaX/3zpO19msSUmSNKszMX
+RpZX4LYz9Ity0nxQ3qZYN6XYNwvr7dCV0E5eS+mgbGWRrf3utdbUkZUNwYE=
+-----END TESTING KEY-----`))
+
+	// This key has a 256-bit P and a 768-bit Q.
+	k2 := parseKey(testingKey(`-----BEGIN TESTING KEY-----
+MIICVwIBADANBgkqhkiG9w0BAQEFAASCAkEwggI9AgEAAoGBAObSD1Q4cfUURAuY
+RCCTDxv3TxK/VPJH/ees4eVkJHBkgErTXJsVb7df3Pyz8J5yVU7Y68osp1uRgJu1
+E/v61L388oUQbpDlhpCzkpx2ZBfwx891JJBNgrRu/ZEDaWfXA4fx3iUDcA83NfY+
+WWBlwwjhZG2jTQAgB0kz6fIhxODRAgMBAAECgYAJcO3i1WC25C5w1Xhy5yT68TuN
+IiGWu+JbLa97NySE6tOHRvQk0QSTUGw8thsEoo3BAthlQtKHWLmvwPl1YNtEGE14
+9gMlzoveiB10tMAJqmIaPoUWgQ2Wmzz+akYgr3zEloN+2ptVRYmboOWXGOHK4LJd
+n5h7UvQNSqZyUvqogQIhAPOfMCgE3hvt4wA9cNUg3uQgUNnjr0ITiptNmgmoaaFB
+AmEA8oxdQm/Uo1B5J2ebPj/e6mCi/wv3Ewq0CNE4Q1SiLmK1EKwyYj1pNBfrT2Vs
+O5XsuFPC5V07iSjjfbaE8Q4zuKSmhVFe9aoAn8lwuuVBufGLFW7FD8PnhDZcqWsE
+ksuRAiEA7sRa5y32Hbtlmquc9VV0/nJpq1NKRmFunE1PJh4IAMECYH0Q1ZHJWkqv
+1xjzeoA5rPcLx2BdyhP+g+C8CRfmzw2+BgFH2V8ArXuYDdTNxmZfI0XUov1j+qv5
+8nvDHn+xxAekltzNnXptI49A7qjgR+jaXM47ZM+BQ6LP6S3OqfgLkQIhAKbHdb9l
+cHPGX1uUDRAU1xxtpVQ0OqXyEgqwz6y6hYRw
+-----END TESTING KEY-----`))
+
+	if boring.Enabled {
+		t.Skip("BoringCrypto mode returns the wrong error from SignPSS")
+	}
+	testEverything(t, k1)
+	testEverything(t, k2)
 }

@@ -187,11 +187,7 @@ func TypeOf(a any) *Type {
 
 // TypeFor returns the abi.Type for a type parameter.
 func TypeFor[T any]() *Type {
-	var v T
-	if t := TypeOf(v); t != nil {
-		return t // optimize for T being a non-interface kind
-	}
-	return TypeOf((*T)(nil)).Elem() // only for an interface kind
+	return (*PtrType)(unsafe.Pointer(TypeOf((*T)(nil)))).Elem
 }
 
 func (t *Type) Kind() Kind { return t.Kind_ & KindMask }
@@ -487,7 +483,7 @@ type SliceType struct {
 	Elem *Type // slice element type
 }
 
-// funcType represents a function type.
+// FuncType represents a function type.
 //
 // A *Type for each in and out parameter is stored in an array that
 // directly follows the funcType (and possibly its uncommonType). So

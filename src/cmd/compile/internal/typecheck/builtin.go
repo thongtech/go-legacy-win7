@@ -242,6 +242,7 @@ var runtimeDecls = [...]struct {
 	{"loong64HasLAMCAS", varTag, 6},
 	{"loong64HasLAM_BH", varTag, 6},
 	{"loong64HasLSX", varTag, 6},
+	{"riscv64HasZbb", varTag, 6},
 	{"asanregisterglobals", funcTag, 130},
 }
 
@@ -288,11 +289,11 @@ func runtimeTypes() []*types.Type {
 	typs[38] = types.NewSlice(typs[28])
 	typs[39] = newSig(params(typs[33], typs[38]), params(typs[28]))
 	typs[40] = types.NewSlice(typs[0])
-	typs[41] = newSig(params(typs[28], typs[28]), params(typs[40]))
-	typs[42] = newSig(params(typs[28], typs[28], typs[28]), params(typs[40]))
-	typs[43] = newSig(params(typs[28], typs[28], typs[28], typs[28]), params(typs[40]))
-	typs[44] = newSig(params(typs[28], typs[28], typs[28], typs[28], typs[28]), params(typs[40]))
-	typs[45] = newSig(params(typs[38]), params(typs[40]))
+	typs[41] = newSig(params(typs[33], typs[28], typs[28]), params(typs[40]))
+	typs[42] = newSig(params(typs[33], typs[28], typs[28], typs[28]), params(typs[40]))
+	typs[43] = newSig(params(typs[33], typs[28], typs[28], typs[28], typs[28]), params(typs[40]))
+	typs[44] = newSig(params(typs[33], typs[28], typs[28], typs[28], typs[28], typs[28]), params(typs[40]))
+	typs[45] = newSig(params(typs[33], typs[38]), params(typs[40]))
 	typs[46] = newSig(params(typs[28], typs[28]), params(typs[15]))
 	typs[47] = types.NewArray(typs[0], 4)
 	typs[48] = types.NewPtr(typs[47])

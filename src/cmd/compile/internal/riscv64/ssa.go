@@ -419,7 +419,8 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		ssa.OpRISCV64FMVSX, ssa.OpRISCV64FMVDX,
 		ssa.OpRISCV64FCVTSW, ssa.OpRISCV64FCVTSL, ssa.OpRISCV64FCVTWS, ssa.OpRISCV64FCVTLS,
 		ssa.OpRISCV64FCVTDW, ssa.OpRISCV64FCVTDL, ssa.OpRISCV64FCVTWD, ssa.OpRISCV64FCVTLD, ssa.OpRISCV64FCVTDS, ssa.OpRISCV64FCVTSD,
-		ssa.OpRISCV64NOT, ssa.OpRISCV64NEG, ssa.OpRISCV64NEGW:
+		ssa.OpRISCV64NOT, ssa.OpRISCV64NEG, ssa.OpRISCV64NEGW, ssa.OpRISCV64CLZ, ssa.OpRISCV64CLZW, ssa.OpRISCV64CTZ, ssa.OpRISCV64CTZW,
+		ssa.OpRISCV64REV8, ssa.OpRISCV64CPOP, ssa.OpRISCV64CPOPW:
 		p := s.Prog(v.Op.Asm())
 		p.From.Type = obj.TYPE_REG
 		p.From.Reg = v.Args[0].Reg()
@@ -802,22 +803,7 @@ func ssaGenBlock(s *ssagen.State, b, next *ssa.Block) {
 	s.SetPos(b.Pos)
 
 	switch b.Kind {
-	case ssa.BlockDefer:
-		// defer returns in A0:
-		// 0 if we should continue executing
-		// 1 if we should jump to deferreturn call
-		p := s.Prog(riscv.ABNE)
-		p.To.Type = obj.TYPE_BRANCH
-		p.From.Type = obj.TYPE_REG
-		p.From.Reg = riscv.REG_ZERO
-		p.Reg = riscv.REG_A0
-		s.Branches = append(s.Branches, ssagen.Branch{P: p, B: b.Succs[1].Block()})
-		if b.Succs[0].Block() != next {
-			p := s.Prog(obj.AJMP)
-			p.To.Type = obj.TYPE_BRANCH
-			s.Branches = append(s.Branches, ssagen.Branch{P: p, B: b.Succs[0].Block()})
-		}
-	case ssa.BlockPlain:
+	case ssa.BlockPlain, ssa.BlockDefer:
 		if b.Succs[0].Block() != next {
 			p := s.Prog(obj.AJMP)
 			p.To.Type = obj.TYPE_BRANCH

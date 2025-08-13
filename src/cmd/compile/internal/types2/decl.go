@@ -48,6 +48,17 @@ func pathString(path []Object) string {
 // objDecl type-checks the declaration of obj in its respective (file) environment.
 // For the meaning of def, see Checker.definedType, in typexpr.go.
 func (check *Checker) objDecl(obj Object, def *TypeName) {
+	if tracePos {
+		check.pushPos(obj.Pos())
+		defer func() {
+			// If we're panicking, keep stack of source positions.
+			if p := recover(); p != nil {
+				panic(p)
+			}
+			check.popPos()
+		}()
+	}
+
 	if check.conf.Trace && obj.Type() == nil {
 		if check.indent == 0 {
 			fmt.Println() // empty line between top-level objects for readability
@@ -844,7 +855,7 @@ func (check *Checker) declStmt(list []syntax.Decl) {
 
 			lhs0 := make([]*Var, len(s.NameList))
 			for i, name := range s.NameList {
-				lhs0[i] = NewVar(name.Pos(), pkg, name.Value, nil)
+				lhs0[i] = newVar(LocalVar, name.Pos(), pkg, name.Value, nil)
 			}
 
 			// initialize all variables

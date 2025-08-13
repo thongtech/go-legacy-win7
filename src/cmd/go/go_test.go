@@ -197,7 +197,7 @@ func TestMain(m *testing.M) {
 		defer removeAll(testTmpDir)
 	}
 
-	testGOCACHE, _ = cache.DefaultDir()
+	testGOCACHE, _, _ = cache.DefaultDir()
 	if testenv.HasGoBuild() {
 		testBin = filepath.Join(testTmpDir, "testbin")
 		if err := os.Mkdir(testBin, 0777); err != nil {
@@ -1164,10 +1164,10 @@ func TestGoListTest(t *testing.T) {
 	tg.grepStdoutNot(`^testing \[bytes.test\]$`, "unexpected test copy of testing")
 	tg.grepStdoutNot(`^testing$`, "unexpected real copy of testing")
 
-	tg.run("list", "-test", "cmd/buildid", "cmd/doc")
+	tg.run("list", "-test", "cmd/buildid", "cmd/gofmt")
 	tg.grepStdout(`^cmd/buildid$`, "missing cmd/buildid")
-	tg.grepStdout(`^cmd/doc$`, "missing cmd/doc")
-	tg.grepStdout(`^cmd/doc\.test$`, "missing cmd/doc test")
+	tg.grepStdout(`^cmd/gofmt$`, "missing cmd/gofmt")
+	tg.grepStdout(`^cmd/gofmt\.test$`, "missing cmd/gofmt test")
 	tg.grepStdoutNot(`^cmd/buildid\.test$`, "unexpected cmd/buildid test")
 	tg.grepStdoutNot(`^testing`, "unexpected testing")
 
@@ -1218,6 +1218,8 @@ func TestGoListCompiledCgo(t *testing.T) {
 }
 
 func TestGoListExport(t *testing.T) {
+	tooSlow(t, "runs build for -export")
+
 	skipIfGccgo(t, "gccgo does not have standard packages")
 	tg := testgo(t)
 	defer tg.cleanup()

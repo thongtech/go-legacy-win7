@@ -7,8 +7,10 @@ package clean
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -153,7 +155,10 @@ func runClean(ctx context.Context, cmd *base.Command, args []string) {
 	sh := work.NewShell("", &load.TextPrinter{Writer: os.Stdout})
 
 	if cleanCache {
-		dir, _ := cache.DefaultDir()
+		dir, _, err := cache.DefaultDir()
+		if err != nil {
+			base.Fatal(err)
+		}
 		if dir != "off" {
 			// Remove the cache subdirectories but not the top cache directory.
 			// The top cache directory may have been created with special permissions
@@ -180,7 +185,10 @@ func runClean(ctx context.Context, cmd *base.Command, args []string) {
 		// Instead of walking through the entire cache looking for test results,
 		// we write a file to the cache indicating that all test results from before
 		// right now are to be ignored.
-		dir, _ := cache.DefaultDir()
+		dir, _, err := cache.DefaultDir()
+		if err != nil {
+			base.Fatal(err)
+		}
 		if dir != "off" {
 			f, err := lockedfile.Edit(filepath.Join(dir, "testexpire.txt"))
 			if err == nil {
@@ -216,6 +224,15 @@ func runClean(ctx context.Context, cmd *base.Command, args []string) {
 		if !cfg.BuildN {
 			if err := modfetch.RemoveAll(cfg.GOMODCACHE); err != nil {
 				base.Error(err)
+
+				// Add extra logging for the purposes of debugging #68087.
+				// We're getting ENOTEMPTY errors on openbsd from RemoveAll.
+				// Check for os.ErrExist, which can match syscall.ENOTEMPTY
+				// and syscall.EEXIST, because syscall.ENOTEMPTY is not defined
+				// on all platforms.
+				if runtime.GOOS == "openbsd" && errors.Is(err, fs.ErrExist) {
+					logFilesInGOMODCACHE()
+				}
 			}
 		}
 	}
@@ -226,6 +243,29 @@ func runClean(ctx context.Context, cmd *base.Command, args []string) {
 			base.Error(err)
 		}
 	}
+}
+
+// logFilesInGOMODCACHE reports the file names and modes for the files in GOMODCACHE using base.Error.
+func logFilesInGOMODCACHE() {
+	var found []string
+	werr := filepath.WalkDir(cfg.GOMODCACHE, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		var mode string
+		info, err := d.Info()
+		if err == nil {
+			mode = info.Mode().String()
+		} else {
+			mode = fmt.Sprintf("<err: %s>", info.Mode())
+		}
+		found = append(found, fmt.Sprintf("%s (mode: %s)", path, mode))
+		return nil
+	})
+	if werr != nil {
+		base.Errorf("walking files in GOMODCACHE (for debugging go.dev/issue/68087): %v", werr)
+	}
+	base.Errorf("files in GOMODCACHE (for debugging go.dev/issue/68087):\n%s", strings.Join(found, "\n"))
 }
 
 var cleaned = map[*load.Package]bool{}

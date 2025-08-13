@@ -40,6 +40,7 @@ func (e *escape) call(ks []hole, call ir.Node) {
 		var fn *ir.Name
 		switch call.Op() {
 		case ir.OCALLFUNC:
+			// TODO(thepudds): use an ir.ReassignOracle here.
 			v := ir.StaticValue(call.Fun)
 			fn = ir.StaticCalleeName(v)
 		}
@@ -83,15 +84,19 @@ func (e *escape) call(ks []hole, call ir.Node) {
 			argument(e.tagHole(ks, fn, param), arg)
 		}
 
-		// hash/maphash.escapeForHash forces its argument to be on
-		// the heap, if it contains a non-string pointer. We cannot
+		// internal/abi.EscapeNonString forces its argument to be on
+		// the heap, if it contains a non-string pointer.
+		// This is used in hash/maphash.Comparable, where we cannot
 		// hash pointers to local variables, as the address of the
 		// local variable might change on stack growth.
 		// Strings are okay as the hash depends on only the content,
 		// not the pointer.
+		// This is also used in unique.clone, to model the data flow
+		// edge on the value with strings excluded, because strings
+		// are cloned (by content).
 		// The actual call we match is
-		//   hash/maphash.escapeForHash[go.shape.T](dict, go.shape.T)
-		if fn != nil && fn.Sym().Pkg.Path == "hash/maphash" && strings.HasPrefix(fn.Sym().Name, "escapeForHash[") {
+		//   internal/abi.EscapeNonString[go.shape.T](dict, go.shape.T)
+		if fn != nil && fn.Sym().Pkg.Path == "internal/abi" && strings.HasPrefix(fn.Sym().Name, "EscapeNonString[") {
 			ps := fntype.Params()
 			if len(ps) == 2 && ps[1].Type.IsShape() {
 				if !hasNonStringPointers(ps[1].Type) {
@@ -158,6 +163,14 @@ func (e *escape) call(ks []hole, call ir.Node) {
 			}
 		}
 		e.discard(call.RType)
+
+		// Model the new backing store that might be allocated by append.
+		// Its address flows to the result.
+		// Users of escape analysis can look at the escape information for OAPPEND
+		// and use that to decide where to allocate the backing store.
+		backingStore := e.spill(ks[0], call)
+		// As we have a boolean to prevent reuse, we can treat these allocations as outside any loops.
+		backingStore.dst.loopDepth = 0
 
 	case ir.OCOPY:
 		call := call.(*ir.BinaryExpr)

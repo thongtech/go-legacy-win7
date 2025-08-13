@@ -246,6 +246,19 @@ func isPtr(t *types.Type) bool {
 	return t.IsPtrShaped()
 }
 
+func copyCompatibleType(t1, t2 *types.Type) bool {
+	if t1.Size() != t2.Size() {
+		return false
+	}
+	if t1.IsInteger() {
+		return t2.IsInteger()
+	}
+	if isPtr(t1) {
+		return isPtr(t2)
+	}
+	return t1.Compare(t2) == types.CMPeq
+}
+
 // mergeSym merges two symbolic offsets. There is no real merging of
 // offsets, we just pick the non-nil one.
 func mergeSym(x, y Sym) Sym {
@@ -273,7 +286,18 @@ func canMergeLoadClobber(target, load, x *Value) bool {
 	// approximate x dying with:
 	//  1) target is x's only use.
 	//  2) target is not in a deeper loop than x.
-	if x.Uses != 1 {
+	switch {
+	case x.Uses == 2 && x.Op == OpPhi && len(x.Args) == 2 && (x.Args[0] == target || x.Args[1] == target) && target.Uses == 1:
+		// This is a simple detector to determine that x is probably
+		// not live after target. (It does not need to be perfect,
+		// regalloc will issue a reg-reg move to save it if we are wrong.)
+		// We have:
+		//   x = Phi(?, target)
+		//   target = Op(load, x)
+		// Because target has only one use as a Phi argument, we can schedule it
+		// very late. Hopefully, later than the other use of x. (The other use died
+		// between x and target, or exists on another branch entirely).
+	case x.Uses > 1:
 		return false
 	}
 	loopnest := x.Block.Func.loopnest()
@@ -419,9 +443,9 @@ func canMergeLoad(target, load *Value) bool {
 	return true
 }
 
-// isSameCall reports whether sym is the same as the given named symbol.
-func isSameCall(sym interface{}, name string) bool {
-	fn := sym.(*AuxCall).Fn
+// isSameCall reports whether aux is the same as the given named symbol.
+func isSameCall(aux Aux, name string) bool {
+	fn := aux.(*AuxCall).Fn
 	return fn != nil && fn.String() == name
 }
 
@@ -511,6 +535,11 @@ func isU8Bit(n int64) bool {
 	return n == int64(uint8(n))
 }
 
+// is12Bit reports whether n can be represented as a signed 12 bit integer.
+func is12Bit(n int64) bool {
+	return -(1<<11) <= n && n < (1<<11)
+}
+
 // isU12Bit reports whether n can be represented as an unsigned 12 bit integer.
 func isU12Bit(n int64) bool {
 	return 0 <= n && n < (1<<12)
@@ -545,6 +574,30 @@ func b2i32(b bool) int32 {
 		return 1
 	}
 	return 0
+}
+
+func canMulStrengthReduce(config *Config, x int64) bool {
+	_, ok := config.mulRecipes[x]
+	return ok
+}
+func canMulStrengthReduce32(config *Config, x int32) bool {
+	_, ok := config.mulRecipes[int64(x)]
+	return ok
+}
+
+// mulStrengthReduce returns v*x evaluated at the location
+// (block and source position) of m.
+// canMulStrengthReduce must have returned true.
+func mulStrengthReduce(m *Value, v *Value, x int64) *Value {
+	return v.Block.Func.Config.mulRecipes[x].build(m, v)
+}
+
+// mulStrengthReduce32 returns v*x evaluated at the location
+// (block and source position) of m.
+// canMulStrengthReduce32 must have returned true.
+// The upper 32 bits of m might be set to junk.
+func mulStrengthReduce32(m *Value, v *Value, x int32) *Value {
+	return v.Block.Func.Config.mulRecipes[int64(x)].build(m, v)
 }
 
 // shiftIsBounded reports whether (left/right) shift Value v is known to be bounded.
@@ -822,7 +875,18 @@ func isSamePtr(p1, p2 *Value) bool {
 		return true
 	}
 	if p1.Op != p2.Op {
-		return false
+		for p1.Op == OpOffPtr && p1.AuxInt == 0 {
+			p1 = p1.Args[0]
+		}
+		for p2.Op == OpOffPtr && p2.AuxInt == 0 {
+			p2 = p2.Args[0]
+		}
+		if p1 == p2 {
+			return true
+		}
+		if p1.Op != p2.Op {
+			return false
+		}
 	}
 	switch p1.Op {
 	case OpOffPtr:
@@ -863,6 +927,12 @@ func disjoint(p1 *Value, n1 int64, p2 *Value, n2 int64) bool {
 		}
 		return base, offset
 	}
+
+	// Run types-based analysis
+	if disjointTypes(p1.Type, p2.Type) {
+		return true
+	}
+
 	p1, off1 := baseAndOffset(p1)
 	p2, off2 := baseAndOffset(p2)
 	if isSamePtr(p1, p2) {
@@ -885,6 +955,39 @@ func disjoint(p1 *Value, n1 int64, p2 *Value, n2 int64) bool {
 	case OpSP:
 		return p2.Op == OpAddr || p2.Op == OpLocalAddr || p2.Op == OpArg || p2.Op == OpArgIntReg || p2.Op == OpSP
 	}
+	return false
+}
+
+// disjointTypes reports whether a memory region pointed to by a pointer of type
+// t1 does not overlap with a memory region pointed to by a pointer of type t2 --
+// based on type aliasing rules.
+func disjointTypes(t1 *types.Type, t2 *types.Type) bool {
+	// Unsafe pointer can alias with anything.
+	if t1.IsUnsafePtr() || t2.IsUnsafePtr() {
+		return false
+	}
+
+	if !t1.IsPtr() || !t2.IsPtr() {
+		panic("disjointTypes: one of arguments is not a pointer")
+	}
+
+	t1 = t1.Elem()
+	t2 = t2.Elem()
+
+	// Not-in-heap types are not supported -- they are rare and non-important; also,
+	// type.HasPointers check doesn't work for them correctly.
+	if t1.NotInHeap() || t2.NotInHeap() {
+		return false
+	}
+
+	isPtrShaped := func(t *types.Type) bool { return int(t.Size()) == types.PtrSize && t.HasPointers() }
+
+	// Pointers and non-pointers are disjoint (https://pkg.go.dev/unsafe#Pointer).
+	if (isPtrShaped(t1) && !t2.HasPointers()) ||
+		(isPtrShaped(t2) && !t1.HasPointers()) {
+		return true
+	}
+
 	return false
 }
 
@@ -961,6 +1064,14 @@ func clobber(vv ...*Value) bool {
 		v.reset(OpInvalid)
 		// Note: leave v.Block intact.  The Block field is used after clobber.
 	}
+	return true
+}
+
+// resetCopy resets v to be a copy of arg.
+// Always returns true.
+func resetCopy(v *Value, arg *Value) bool {
+	v.reset(OpCopy)
+	v.AddArg(arg)
 	return true
 }
 
@@ -1390,7 +1501,9 @@ func isInlinableMemmove(dst, src *Value, sz int64, c *Config) bool {
 	switch c.arch {
 	case "amd64":
 		return sz <= 16 || (sz < 1024 && disjoint(dst, sz, src, sz))
-	case "386", "arm64":
+	case "arm64":
+		return sz <= 64 || (sz <= 1024 && disjoint(dst, sz, src, sz))
+	case "386":
 		return sz <= 8
 	case "s390x", "ppc64", "ppc64le":
 		return sz <= 8 || disjoint(dst, sz, src, sz)
@@ -1928,7 +2041,7 @@ func needRaceCleanup(sym *AuxCall, v *Value) bool {
 }
 
 // symIsRO reports whether sym is a read-only global.
-func symIsRO(sym interface{}) bool {
+func symIsRO(sym Sym) bool {
 	lsym := sym.(*obj.LSym)
 	return lsym.Type == objabi.SRODATA && len(lsym.R) == 0
 }
@@ -2019,7 +2132,7 @@ func fixedSym(f *Func, sym Sym, off int64) Sym {
 }
 
 // read8 reads one byte from the read-only global sym at offset off.
-func read8(sym interface{}, off int64) uint8 {
+func read8(sym Sym, off int64) uint8 {
 	lsym := sym.(*obj.LSym)
 	if off >= int64(len(lsym.P)) || off < 0 {
 		// Invalid index into the global sym.
@@ -2032,7 +2145,7 @@ func read8(sym interface{}, off int64) uint8 {
 }
 
 // read16 reads two bytes from the read-only global sym at offset off.
-func read16(sym interface{}, off int64, byteorder binary.ByteOrder) uint16 {
+func read16(sym Sym, off int64, byteorder binary.ByteOrder) uint16 {
 	lsym := sym.(*obj.LSym)
 	// lsym.P is written lazily.
 	// Bytes requested after the end of lsym.P are 0.
@@ -2046,7 +2159,7 @@ func read16(sym interface{}, off int64, byteorder binary.ByteOrder) uint16 {
 }
 
 // read32 reads four bytes from the read-only global sym at offset off.
-func read32(sym interface{}, off int64, byteorder binary.ByteOrder) uint32 {
+func read32(sym Sym, off int64, byteorder binary.ByteOrder) uint32 {
 	lsym := sym.(*obj.LSym)
 	var src []byte
 	if 0 <= off && off < int64(len(lsym.P)) {
@@ -2058,7 +2171,7 @@ func read32(sym interface{}, off int64, byteorder binary.ByteOrder) uint32 {
 }
 
 // read64 reads eight bytes from the read-only global sym at offset off.
-func read64(sym interface{}, off int64, byteorder binary.ByteOrder) uint64 {
+func read64(sym Sym, off int64, byteorder binary.ByteOrder) uint64 {
 	lsym := sym.(*obj.LSym)
 	var src []byte
 	if 0 <= off && off < int64(len(lsym.P)) {
@@ -2438,4 +2551,123 @@ func rewriteStructStore(v *Value) *Value {
 	}
 
 	return mem
+}
+
+// isDirectType reports whether v represents a type
+// (a *runtime._type) whose value is stored directly in an
+// interface (i.e., is pointer or pointer-like).
+func isDirectType(v *Value) bool {
+	return isDirectType1(v)
+}
+
+// v is a type
+func isDirectType1(v *Value) bool {
+	switch v.Op {
+	case OpITab:
+		return isDirectType2(v.Args[0])
+	case OpAddr:
+		lsym := v.Aux.(*obj.LSym)
+		if lsym.Extra == nil {
+			return false
+		}
+		if ti, ok := (*lsym.Extra).(*obj.TypeInfo); ok {
+			return types.IsDirectIface(ti.Type.(*types.Type))
+		}
+	}
+	return false
+}
+
+// v is an empty interface
+func isDirectType2(v *Value) bool {
+	switch v.Op {
+	case OpIMake:
+		return isDirectType1(v.Args[0])
+	}
+	return false
+}
+
+// isDirectIface reports whether v represents an itab
+// (a *runtime._itab) for a type whose value is stored directly
+// in an interface (i.e., is pointer or pointer-like).
+func isDirectIface(v *Value) bool {
+	return isDirectIface1(v, 9)
+}
+
+// v is an itab
+func isDirectIface1(v *Value, depth int) bool {
+	if depth == 0 {
+		return false
+	}
+	switch v.Op {
+	case OpITab:
+		return isDirectIface2(v.Args[0], depth-1)
+	case OpAddr:
+		lsym := v.Aux.(*obj.LSym)
+		if lsym.Extra == nil {
+			return false
+		}
+		if ii, ok := (*lsym.Extra).(*obj.ItabInfo); ok {
+			return types.IsDirectIface(ii.Type.(*types.Type))
+		}
+	case OpConstNil:
+		// We can treat this as direct, because if the itab is
+		// nil, the data field must be nil also.
+		return true
+	}
+	return false
+}
+
+// v is an interface
+func isDirectIface2(v *Value, depth int) bool {
+	if depth == 0 {
+		return false
+	}
+	switch v.Op {
+	case OpIMake:
+		return isDirectIface1(v.Args[0], depth-1)
+	case OpPhi:
+		for _, a := range v.Args {
+			if !isDirectIface2(a, depth-1) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func bitsAdd64(x, y, carry int64) (r struct{ sum, carry int64 }) {
+	s, c := bits.Add64(uint64(x), uint64(y), uint64(carry))
+	r.sum, r.carry = int64(s), int64(c)
+	return
+}
+
+func bitsMulU64(x, y int64) (r struct{ hi, lo int64 }) {
+	hi, lo := bits.Mul64(uint64(x), uint64(y))
+	r.hi, r.lo = int64(hi), int64(lo)
+	return
+}
+func bitsMulU32(x, y int32) (r struct{ hi, lo int32 }) {
+	hi, lo := bits.Mul32(uint32(x), uint32(y))
+	r.hi, r.lo = int32(hi), int32(lo)
+	return
+}
+
+// flagify rewrites v which is (X ...) to (Select0 (Xflags ...)).
+func flagify(v *Value) bool {
+	var flagVersion Op
+	switch v.Op {
+	case OpAMD64ADDQconst:
+		flagVersion = OpAMD64ADDQconstflags
+	case OpAMD64ADDLconst:
+		flagVersion = OpAMD64ADDLconstflags
+	default:
+		base.Fatalf("can't flagify op %s", v.Op)
+	}
+	inner := v.copyInto(v.Block)
+	inner.Op = flagVersion
+	inner.Type = types.NewTuple(v.Type, types.TypeFlags)
+	v.reset(OpSelect0)
+	v.AddArg(inner)
+	return true
 }

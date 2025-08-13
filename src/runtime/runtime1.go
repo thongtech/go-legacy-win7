@@ -8,6 +8,7 @@ import (
 	"internal/bytealg"
 	"internal/goarch"
 	"internal/runtime/atomic"
+	"internal/runtime/strconv"
 	"unsafe"
 )
 
@@ -309,6 +310,8 @@ type dbgVar struct {
 var debug struct {
 	cgocheck                 int32
 	clobberfree              int32
+	containermaxprocs        int32
+	decoratemappings         int32
 	disablethp               int32
 	dontfreezetheworld       int32
 	efence                   int32
@@ -319,11 +322,11 @@ var debug struct {
 	gctrace                  int32
 	invalidptr               int32
 	madvdontneed             int32 // for Linux; issue 28466
-	runtimeContentionStacks  atomic.Int32
 	scavtrace                int32
 	scheddetail              int32
 	schedtrace               int32
 	tracebackancestors       int32
+	updatemaxprocs           int32
 	asyncpreemptoff          int32
 	harddecommit             int32
 	adaptivestackstart       int32
@@ -336,9 +339,10 @@ var debug struct {
 	// debug.malloc is used as a combined debug check
 	// in the malloc function and should be set
 	// if any of the below debug options is != 0.
-	malloc    bool
-	inittrace int32
-	sbrk      int32
+	malloc          bool
+	inittrace       int32
+	sbrk            int32
+	checkfinalizers int32
 	// traceallocfree controls whether execution traces contain
 	// detailed trace data about memory allocation. This value
 	// affects debug.malloc only if it is != 0 and the execution
@@ -368,9 +372,12 @@ var dbgvars = []*dbgVar{
 	{name: "asynctimerchan", atomic: &debug.asynctimerchan},
 	{name: "cgocheck", value: &debug.cgocheck},
 	{name: "clobberfree", value: &debug.clobberfree},
+	{name: "containermaxprocs", value: &debug.containermaxprocs, def: 1},
 	{name: "dataindependenttiming", value: &debug.dataindependenttiming},
+	{name: "decoratemappings", value: &debug.decoratemappings, def: 1},
 	{name: "disablethp", value: &debug.disablethp},
 	{name: "dontfreezetheworld", value: &debug.dontfreezetheworld},
+	{name: "checkfinalizers", value: &debug.checkfinalizers},
 	{name: "efence", value: &debug.efence},
 	{name: "gccheckmark", value: &debug.gccheckmark},
 	{name: "gcpacertrace", value: &debug.gcpacertrace},
@@ -383,7 +390,6 @@ var dbgvars = []*dbgVar{
 	{name: "madvdontneed", value: &debug.madvdontneed},
 	{name: "panicnil", atomic: &debug.panicnil},
 	{name: "profstackdepth", value: &debug.profstackdepth, def: 128},
-	{name: "runtimecontentionstacks", atomic: &debug.runtimeContentionStacks},
 	{name: "sbrk", value: &debug.sbrk},
 	{name: "scavtrace", value: &debug.scavtrace},
 	{name: "scheddetail", value: &debug.scheddetail},
@@ -393,6 +399,7 @@ var dbgvars = []*dbgVar{
 	{name: "tracecheckstackownership", value: &debug.traceCheckStackOwnership},
 	{name: "tracebackancestors", value: &debug.tracebackancestors},
 	{name: "tracefpunwindoff", value: &debug.tracefpunwindoff},
+	{name: "updatemaxprocs", value: &debug.updatemaxprocs, def: 1},
 }
 
 func parsedebugvars() {
@@ -437,8 +444,25 @@ func parsedebugvars() {
 	// apply environment settings
 	parsegodebug(godebug, nil)
 
-	debug.malloc = (debug.inittrace | debug.sbrk) != 0
+	debug.malloc = (debug.inittrace | debug.sbrk | debug.checkfinalizers) != 0
 	debug.profstackdepth = min(debug.profstackdepth, maxProfStackDepth)
+
+	// Disable async preemption in checkmark mode. The following situation is
+	// problematic with checkmark mode:
+	//
+	// - The GC doesn't mark object A because it is truly dead.
+	// - The GC stops the world, asynchronously preempting G1 which has a reference
+	//   to A in its top stack frame
+	// - During the stop the world, we run the second checkmark GC. It marks the roots
+	//   and discovers A through G1.
+	// - Checkmark mode reports a failure since there's a discrepancy in mark metadata.
+	//
+	// We could disable just conservative scanning during the checkmark scan, which is
+	// safe but makes checkmark slightly less powerful, but that's a lot more invasive
+	// than just disabling async preemption altogether.
+	if debug.gccheckmark > 0 {
+		debug.asyncpreemptoff = 1
+	}
 
 	setTraceback(gogetenv("GOTRACEBACK"))
 	traceback_env = traceback_cache
@@ -509,13 +533,13 @@ func parsegodebug(godebug string, seen map[string]bool) {
 		// is int, not int32, and should only be updated
 		// if specified in GODEBUG.
 		if seen == nil && key == "memprofilerate" {
-			if n, ok := atoi(value); ok {
+			if n, ok := strconv.Atoi(value); ok {
 				MemProfileRate = n
 			}
 		} else {
 			for _, v := range dbgvars {
 				if v.name == key {
-					if n, ok := atoi32(value); ok {
+					if n, ok := strconv.Atoi32(value); ok {
 						if seen == nil && v.value != nil {
 							*v.value = n
 						} else if v.atomic != nil {
@@ -555,7 +579,7 @@ func setTraceback(level string) {
 		fallthrough
 	default:
 		t = tracebackAll
-		if n, ok := atoi(level); ok && n == int(uint32(n)) {
+		if n, ok := strconv.Atoi(level); ok && n == int(uint32(n)) {
 			t |= uint32(n) << tracebackShift
 		}
 	}

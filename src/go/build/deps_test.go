@@ -58,6 +58,7 @@ var depsRules = `
 	  internal/platform,
 	  internal/profilerecord,
 	  internal/syslist,
+	  internal/trace/tracev2,
 	  internal/trace/traceviewer/format,
 	  log/internal,
 	  math/bits,
@@ -67,7 +68,7 @@ var depsRules = `
 	  unicode/utf16;
 
 	internal/goarch < internal/abi;
-	internal/byteorder, internal/goarch < internal/chacha8rand;
+	internal/byteorder, internal/cpu, internal/goarch < internal/chacha8rand;
 
 	# RUNTIME is the core runtime group of packages, all of them very light-weight.
 	internal/abi,
@@ -79,6 +80,7 @@ var depsRules = `
 	internal/goexperiment,
 	internal/goos,
 	internal/profilerecord,
+	internal/trace/tracev2,
 	math/bits,
 	structs
 	< internal/bytealg
@@ -92,12 +94,16 @@ var depsRules = `
 	< internal/runtime/syscall
 	< internal/runtime/atomic
 	< internal/runtime/exithook
+	< internal/runtime/gc
 	< internal/runtime/math
 	< internal/runtime/maps
+	< internal/runtime/strconv
+	< internal/runtime/cgroup
 	< runtime
 	< sync/atomic
 	< internal/sync
 	< weak
+	< internal/synctest
 	< sync
 	< internal/bisect
 	< internal/godebug
@@ -130,10 +136,6 @@ var depsRules = `
 	< path;
 
 	unicode !< path;
-
-	RUNTIME
-	< internal/synctest
-	< testing/synctest;
 
 	# SYSCALL is RUNTIME plus the packages necessary for basic system calls.
 	RUNTIME, unicode/utf8, unicode/utf16, internal/synctest
@@ -244,19 +246,39 @@ var depsRules = `
 	# encodings
 	# core ones do not use fmt.
 	io, strconv, slices
-	< encoding;
+	< encoding, encoding/base32, encoding/base64;
 
 	encoding, reflect
-	< encoding/binary
-	< encoding/base32, encoding/base64;
+	< encoding/binary;
 
 	FMT, encoding < flag;
 
 	fmt !< encoding/base32, encoding/base64;
 
-	FMT, encoding/base32, encoding/base64, internal/saferio
+	FMT, encoding, encoding/base32, encoding/base64, encoding/binary,
+	internal/saferio
 	< encoding/ascii85, encoding/csv, encoding/gob, encoding/hex,
-	  encoding/json, encoding/pem, encoding/xml, mime;
+	  encoding/pem, encoding/xml, mime;
+
+	STR, errors
+	< encoding/json/internal
+	< encoding/json/internal/jsonflags
+	< encoding/json/internal/jsonopts
+	< encoding/json/internal/jsonwire
+	< encoding/json/jsontext;
+
+	FMT,
+	encoding/hex,
+	encoding/base32,
+	encoding/base64,
+	encoding/binary,
+	encoding/json/jsontext,
+	encoding/json/internal,
+	encoding/json/internal/jsonflags,
+	encoding/json/internal/jsonopts,
+	encoding/json/internal/jsonwire
+	< encoding/json/v2
+	< encoding/json;
 
 	# hashes
 	io
@@ -388,11 +410,13 @@ var depsRules = `
 
 	os
 	< golang.org/x/net/dns/dnsmessage,
-	  golang.org/x/net/lif,
-	  golang.org/x/net/route;
+	  golang.org/x/net/lif;
 
 	internal/bytealg, internal/itoa, math/bits, slices, strconv, unique
 	< net/netip;
+
+	os, net/netip
+	< internal/routebsd;
 
 	# net is unavoidable when doing any networking,
 	# so large dependencies must be kept out.
@@ -401,10 +425,10 @@ var depsRules = `
 	CGO,
 	golang.org/x/net/dns/dnsmessage,
 	golang.org/x/net/lif,
-	golang.org/x/net/route,
 	internal/godebug,
 	internal/nettrace,
 	internal/poll,
+	internal/routebsd,
 	internal/singleflight,
 	net/netip,
 	os,
@@ -446,6 +470,7 @@ var depsRules = `
 
 	# FIPS is the FIPS 140 module.
 	# It must not depend on external crypto packages.
+	# Package hash is ok as it's only the interface.
 	# See also fips140deps.AllowedInternalPackages.
 
 	io, math/rand/v2 < crypto/internal/randutil;
@@ -459,7 +484,8 @@ var depsRules = `
 	internal/cpu, internal/goarch < crypto/internal/fips140deps/cpu;
 	internal/godebug < crypto/internal/fips140deps/godebug;
 
-	STR, crypto/internal/impl,
+	STR, hash,
+	crypto/internal/impl,
 	crypto/internal/entropy,
 	crypto/internal/randutil,
 	crypto/internal/fips140deps/byteorder,
@@ -491,11 +517,9 @@ var depsRules = `
 	< crypto/internal/fips140/edwards25519
 	< crypto/internal/fips140/ed25519
 	< crypto/internal/fips140/rsa
-	< FIPS;
+	< FIPS < crypto/fips140;
 
-	FIPS, internal/godebug < crypto/fips140;
-
-	crypto, hash !< FIPS;
+	crypto !< FIPS;
 
 	# CRYPTO is core crypto algorithms - no cgo, fmt, net.
 	# Mostly wrappers around the FIPS module.
@@ -503,7 +527,7 @@ var depsRules = `
 	NONE < crypto/internal/boring/sig, crypto/internal/boring/syso;
 	sync/atomic < crypto/internal/boring/bcache;
 
-	FIPS, internal/godebug, hash, embed,
+	FIPS, internal/godebug, embed,
 	crypto/internal/boring/sig,
 	crypto/internal/boring/syso,
 	crypto/internal/boring/bcache
@@ -535,6 +559,7 @@ var depsRules = `
 
 	CRYPTO, FMT, math/big
 	< crypto/internal/boring/bbig
+	< crypto/internal/fips140cache
 	< crypto/rand
 	< crypto/ed25519 # depends on crypto/rand.Reader
 	< encoding/asn1
@@ -548,7 +573,7 @@ var depsRules = `
 
 	# TLS, Prince of Dependencies.
 
-	FIPS, sync/atomic < crypto/tls/internal/fips140tls;
+	crypto/fips140, sync/atomic < crypto/tls/internal/fips140tls;
 
 	crypto/internal/boring/sig, crypto/tls/internal/fips140tls < crypto/tls/fipsonly;
 
@@ -610,6 +635,7 @@ var depsRules = `
 	net/http/httptrace,
 	mime/multipart,
 	log
+	< net/http/internal/httpcommon
 	< net/http;
 
 	# HTTP-aware packages
@@ -660,7 +686,8 @@ var depsRules = `
 	log/slog, testing
 	< testing/slogtest;
 
-	FMT, crypto/sha256, encoding/json, go/ast, go/parser, go/token,
+	FMT, crypto/sha256, encoding/binary, encoding/json,
+	go/ast, go/parser, go/token,
 	internal/godebug, math/rand, encoding/hex
 	< internal/fuzz;
 
@@ -685,7 +712,13 @@ var depsRules = `
 	FMT
 	< internal/txtar;
 
-	CRYPTO-MATH, testing, internal/testenv, encoding/json
+	internal/synctest, testing
+	< testing/synctest;
+
+	testing
+	< internal/testhash;
+
+	CRYPTO-MATH, testing, internal/testenv, internal/testhash, encoding/json
 	< crypto/internal/cryptotest;
 
 	CGO, FMT
@@ -695,29 +728,23 @@ var depsRules = `
 	< crypto/internal/fips140/check/checktest;
 
 	# v2 execution trace parser.
-	FMT
-	< internal/trace/event;
-
-	internal/trace/event
-	< internal/trace/event/go122;
-
-	FMT, io, internal/trace/event/go122
+	FMT, io, internal/trace/tracev2
 	< internal/trace/version;
 
 	FMT, encoding/binary, internal/trace/version
 	< internal/trace/raw;
 
-	FMT, internal/trace/event, internal/trace/version, io, sort, encoding/binary
-	< internal/trace/internal/oldtrace;
+	FMT, internal/trace/version, io, sort, encoding/binary
+	< internal/trace/internal/tracev1;
 
-	FMT, encoding/binary, internal/trace/version, internal/trace/internal/oldtrace, container/heap, math/rand
+	FMT, encoding/binary, internal/trace/version, internal/trace/internal/tracev1, container/heap, math/rand
 	< internal/trace;
 
 	regexp, internal/trace, internal/trace/raw, internal/txtar
 	< internal/trace/testtrace;
 
 	regexp, internal/txtar, internal/trace, internal/trace/raw
-	< internal/trace/internal/testgen/go122;
+	< internal/trace/internal/testgen;
 
 	# cmd/trace dependencies.
 	FMT,
@@ -763,9 +790,11 @@ var depsRules = `
 	< testing/internal/testdeps;
 
 	# Test-only packages can have anything they want
+	FMT, compress/gzip, embed, encoding/binary < encoding/json/internal/jsontest;
 	CGO, internal/syscall/unix < net/internal/cgotest;
+	FMT < math/big/internal/asmgen;
 
-
+	FMT, testing < internal/cgrouptest;
 `
 
 // listStdPkgs returns the same list of packages as "go list std".

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"go/constant"
 	. "internal/types/errors"
+	"os"
 	"sync/atomic"
 )
 
@@ -19,6 +20,9 @@ var nopos syntax.Pos
 
 // debugging/development support
 const debug = false // leave on during development
+
+// position tracing for panics during type checking
+const tracePos = false // TODO(markfreeman): check performance implications
 
 // _aliasAny changes the behavior of [Scope.Lookup] for "any" in the
 // [Universe] scope.
@@ -178,7 +182,8 @@ type Checker struct {
 	environment
 
 	// debugging
-	indent int // indentation for tracing
+	posStack []syntax.Pos // stack of source positions seen; used for panic tracing
+	indent   int          // indentation for tracing
 }
 
 // addDeclDep adds the dependency edge (check.decl -> to) if check.decl exists
@@ -396,6 +401,16 @@ func versionMax(a, b goVersion) goVersion {
 	return b
 }
 
+// pushPos pushes pos onto the pos stack.
+func (check *Checker) pushPos(pos syntax.Pos) {
+	check.posStack = append(check.posStack, pos)
+}
+
+// popPos pops from the pos stack.
+func (check *Checker) popPos() {
+	check.posStack = check.posStack[:len(check.posStack)-1]
+}
+
 // A bailout panic is used for early termination.
 type bailout struct{}
 
@@ -405,6 +420,24 @@ func (check *Checker) handleBailout(err *error) {
 		// normal return or early exit
 		*err = check.firstErr
 	default:
+		if len(check.posStack) > 0 {
+			doPrint := func(ps []syntax.Pos) {
+				for i := len(ps) - 1; i >= 0; i-- {
+					fmt.Fprintf(os.Stderr, "\t%v\n", ps[i])
+				}
+			}
+
+			fmt.Fprintln(os.Stderr, "The following panic happened checking types near:")
+			if len(check.posStack) <= 10 {
+				doPrint(check.posStack)
+			} else {
+				// if it's long, truncate the middle; it's least likely to help
+				doPrint(check.posStack[len(check.posStack)-5:])
+				fmt.Fprintln(os.Stderr, "\t...")
+				doPrint(check.posStack[:5])
+			}
+		}
+
 		// re-panic
 		panic(p)
 	}
@@ -584,8 +617,8 @@ func (check *Checker) recordCommaOkTypesInSyntax(x syntax.Expr, t0, t1 Type) {
 			assert(tv.Type != nil) // should have been recorded already
 			pos := x.Pos()
 			tv.Type = NewTuple(
-				NewVar(pos, check.pkg, "", t0),
-				NewVar(pos, check.pkg, "", t1),
+				NewParam(pos, check.pkg, "", t0),
+				NewParam(pos, check.pkg, "", t1),
 			)
 			x.SetTypeInfo(tv)
 			p, _ := x.(*syntax.ParenExpr)

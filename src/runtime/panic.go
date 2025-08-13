@@ -59,7 +59,7 @@ func panicCheck1(pc uintptr, msg string) {
 		throw(msg)
 	}
 	// TODO: is this redundant? How could we be in malloc
-	// but not in the runtime? runtime/internal/*, maybe?
+	// but not in the runtime? internal/runtime/*, maybe?
 	gp := getg()
 	if gp != nil && gp.m != nil && gp.m.mallocing != 0 {
 		throw(msg)
@@ -285,16 +285,6 @@ func deferproc(fn func()) {
 	// storing it to d.sp because GetCallerSP's result is a
 	// uintptr stack pointer.
 	d.sp = sys.GetCallerSP()
-
-	// deferproc returns 0 normally.
-	// a deferred func that stops a panic
-	// makes the deferproc return 1.
-	// the code the compiler generates always
-	// checks the return value and jumps to the
-	// end of the function if deferproc returns != 0.
-	return0()
-	// No code can go here - the C return register has
-	// been set and must not be clobbered.
 }
 
 var rangeDoneError = error(errorString("range function continued iteration after function for loop body returned false"))
@@ -391,15 +381,10 @@ func deferrangefunc() any {
 		throw("defer on system stack")
 	}
 
-	fn := findfunc(sys.GetCallerPC())
-	if fn.deferreturn == 0 {
-		throw("no deferreturn")
-	}
-
 	d := newdefer()
 	d.link = gp._defer
 	gp._defer = d
-	d.pc = fn.entry() + uintptr(fn.deferreturn)
+	d.pc = sys.GetCallerPC()
 	// We must not be preempted between calling GetCallerSP and
 	// storing it to d.sp because GetCallerSP's result is a
 	// uintptr stack pointer.
@@ -434,9 +419,6 @@ func deferprocat(fn func(), frame any) {
 			break
 		}
 	}
-
-	// Must be last - see deferproc above.
-	return0()
 }
 
 // deferconvert converts the rangefunc defer list of d0 into an ordinary list
@@ -484,6 +466,7 @@ func deferprocStack(d *_defer) {
 		// go code on the system stack can't defer
 		throw("defer on system stack")
 	}
+
 	// fn is already set.
 	// The other fields are junk on entry to deferprocStack and
 	// are initialized here.
@@ -506,10 +489,6 @@ func deferprocStack(d *_defer) {
 	*(*uintptr)(unsafe.Pointer(&d.link)) = uintptr(unsafe.Pointer(gp._defer))
 	*(*uintptr)(unsafe.Pointer(&d.head)) = 0
 	*(*uintptr)(unsafe.Pointer(&gp._defer)) = uintptr(unsafe.Pointer(d))
-
-	return0()
-	// No code can go here - the C return register has
-	// been set and must not be clobbered.
 }
 
 // Each P holds a pool for defers.
@@ -654,6 +633,13 @@ func preprintpanics(p *_panic) {
 		}
 	}()
 	for p != nil {
+		if p.link != nil && *efaceOf(&p.link.arg) == *efaceOf(&p.arg) {
+			// This panic contains the same value as the next one in the chain.
+			// Mark it as repanicked. We will skip printing it twice in a row.
+			p.link.repanicked = true
+			p = p.link
+			continue
+		}
 		switch v := p.arg.(type) {
 		case error:
 			p.arg = v.Error()
@@ -669,6 +655,9 @@ func preprintpanics(p *_panic) {
 func printpanics(p *_panic) {
 	if p.link != nil {
 		printpanics(p.link)
+		if p.link.repanicked {
+			return
+		}
 		if !p.link.goexit {
 			print("\t")
 		}
@@ -678,7 +667,9 @@ func printpanics(p *_panic) {
 	}
 	print("panic: ")
 	printpanicval(p.arg)
-	if p.recovered {
+	if p.repanicked {
+		print(" [recovered, repanicked]")
+	} else if p.recovered {
 		print(" [recovered]")
 	}
 	print("\n")
@@ -915,9 +906,6 @@ func (p *_panic) nextDefer() (func(), bool) {
 
 			fn := d.fn
 
-			// TODO(mdempsky): Instead of having each deferproc call have
-			// its own "deferreturn(); return" sequence, we should just make
-			// them reuse the one we emit for open-coded defers.
 			p.retpc = d.pc
 
 			// Unlink and free.
@@ -1068,6 +1056,11 @@ func internal_sync_fatal(s string) {
 	fatal(s)
 }
 
+//go:linkname cgroup_throw internal/runtime/cgroup.throw
+func cgroup_throw(s string) {
+	throw(s)
+}
+
 // throw triggers a fatal error that dumps a stack trace and exits.
 //
 // throw should be used for runtime-internal fatal errors where Go itself,
@@ -1147,6 +1140,15 @@ func recovery(gp *g) {
 	pc, sp, fp := p.retpc, uintptr(p.sp), uintptr(p.fp)
 	p0, saveOpenDeferState := p, p.deferBitsPtr != nil && *p.deferBitsPtr != 0
 
+	// The linker records the f-relative address of a call to deferreturn in f's funcInfo.
+	// Assuming a "normal" call to recover() inside one of f's deferred functions
+	// invoked for a panic, that is the desired PC for exiting f.
+	f := findfunc(pc)
+	if f.deferreturn == 0 {
+		throw("no deferreturn")
+	}
+	gotoPc := f.entry() + uintptr(f.deferreturn)
+
 	// Unwind the panic stack.
 	for ; p != nil && uintptr(p.startSP) < sp; p = p.link {
 		// Don't allow jumping past a pending Goexit.
@@ -1169,7 +1171,7 @@ func recovery(gp *g) {
 		// With how subtle defer handling is, this might not actually be
 		// worthwhile though.
 		if p.goexit {
-			pc, sp = p.startPC, uintptr(p.startSP)
+			gotoPc, sp = p.startPC, uintptr(p.startSP)
 			saveOpenDeferState = false // goexit is unwinding the stack anyway
 			break
 		}
@@ -1230,11 +1232,9 @@ func recovery(gp *g) {
 		throw("bad recovery")
 	}
 
-	// Make the deferproc for this d return again,
-	// this time returning 1. The calling function will
-	// jump to the standard return epilogue.
+	// branch directly to the deferreturn
 	gp.sched.sp = sp
-	gp.sched.pc = pc
+	gp.sched.pc = gotoPc
 	gp.sched.lr = 0
 	// Restore the bp on platforms that support frame pointers.
 	// N.B. It's fine to not set anything for platforms that don't
@@ -1251,9 +1251,6 @@ func recovery(gp *g) {
 		// only gets us to the caller's fp.
 		gp.sched.bp = sp - goarch.PtrSize
 	}
-	// The value in ret is delivered IN A REGISTER, even if there is a
-	// stack ABI.
-	gp.sched.ret = 1
 	gogo(&gp.sched)
 }
 
@@ -1280,7 +1277,7 @@ func fatalthrow(t throwType) {
 
 		startpanic_m()
 
-		if dopanic_m(gp, pc, sp) {
+		if dopanic_m(gp, pc, sp, nil) {
 			// crash uses a decent amount of nosplit stack and we're already
 			// low on stack in throw, so crash on the system stack (unlike
 			// fatalpanic).
@@ -1318,7 +1315,14 @@ func fatalpanic(msgs *_panic) {
 			printpanics(msgs)
 		}
 
-		docrash = dopanic_m(gp, pc, sp)
+		// If this panic is the result of a synctest bubble deadlock,
+		// print stacks for the goroutines in the bubble.
+		var bubble *synctestBubble
+		if de, ok := msgs.arg.(synctestDeadlockError); ok {
+			bubble = de.bubble
+		}
+
+		docrash = dopanic_m(gp, pc, sp, bubble)
 	})
 
 	if docrash {
@@ -1400,7 +1404,8 @@ var deadlock mutex
 
 // gp is the crashing g running on this M, but may be a user G, while getg() is
 // always g0.
-func dopanic_m(gp *g, pc, sp uintptr) bool {
+// If bubble is non-nil, print the stacks for goroutines in this group as well.
+func dopanic_m(gp *g, pc, sp uintptr, bubble *synctestBubble) bool {
 	if gp.sig != 0 {
 		signame := signame(gp.sig)
 		if signame != "" {
@@ -1424,10 +1429,19 @@ func dopanic_m(gp *g, pc, sp uintptr) bool {
 			print("\nruntime stack:\n")
 			traceback(pc, sp, 0, gp)
 		}
-		if !didothers && all {
-			didothers = true
-			tracebackothers(gp)
+		if !didothers {
+			if all {
+				didothers = true
+				tracebackothers(gp)
+			} else if bubble != nil {
+				// This panic is caused by a synctest bubble deadlock.
+				// Print stacks for goroutines in the deadlocked bubble.
+				tracebacksomeothers(gp, func(other *g) bool {
+					return bubble == other.bubble
+				})
+			}
 		}
+
 	}
 	unlock(&paniclk)
 

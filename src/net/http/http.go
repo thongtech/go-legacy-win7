@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:generate bundle -o=h2_bundle.go -prefix=http2 -tags=!nethttpomithttp2 golang.org/x/net/http2
+//go:generate bundle -o=h2_bundle.go -prefix=http2 -tags=!nethttpomithttp2 -import=golang.org/x/net/internal/httpcommon=net/http/internal/httpcommon golang.org/x/net/http2
 
 package http
 
@@ -121,6 +121,12 @@ func removeEmptyPort(host string) string {
 
 func isNotToken(r rune) bool {
 	return !httpguts.IsTokenRune(r)
+}
+
+// isToken reports whether v is a valid token (https://www.rfc-editor.org/rfc/rfc2616#section-2.2).
+func isToken(v string) bool {
+	// For historical reasons, this function is called ValidHeaderFieldName (see issue #67031).
+	return httpguts.ValidHeaderFieldName(v)
 }
 
 // stringContainsCTLByte reports whether s contains any ASCII control character.

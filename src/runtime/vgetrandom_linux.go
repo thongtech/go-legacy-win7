@@ -40,13 +40,13 @@ func vgetrandomInit() {
 	vgetrandomAlloc.mmapProt = int32(params.MmapProt)
 	vgetrandomAlloc.mmapFlags = int32(params.MmapFlags)
 
-	lockInit(&vgetrandomAlloc.statesLock, lockRankLeafRank)
+	lockInit(&vgetrandomAlloc.statesLock, lockRankVgetrandom)
 }
 
 func vgetrandomGetState() uintptr {
 	lock(&vgetrandomAlloc.statesLock)
 	if len(vgetrandomAlloc.states) == 0 {
-		num := uintptr(ncpu) // Just a reasonable size hint to start.
+		num := uintptr(numCPUStartup) // Just a reasonable size hint to start.
 		stateSizeCacheAligned := (vgetrandomAlloc.stateSize + cpu.CacheLineSize - 1) &^ (cpu.CacheLineSize - 1)
 		allocSize := (num*stateSizeCacheAligned + physPageSize - 1) &^ (physPageSize - 1)
 		num = (physPageSize / stateSizeCacheAligned) * (allocSize / physPageSize)
@@ -55,6 +55,7 @@ func vgetrandomGetState() uintptr {
 			unlock(&vgetrandomAlloc.statesLock)
 			return 0
 		}
+		setVMAName(p, allocSize, "getrandom states")
 		newBlock := uintptr(p)
 		if vgetrandomAlloc.states == nil {
 			vgetrandomAlloc.states = make([]uintptr, 0, num)

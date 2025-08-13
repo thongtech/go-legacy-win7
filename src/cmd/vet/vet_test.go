@@ -57,6 +57,7 @@ func TestVet(t *testing.T) {
 		"copylock",
 		"deadcode",
 		"directive",
+		"hostport",
 		"httpresponse",
 		"lostcancel",
 		"method",
@@ -70,8 +71,8 @@ func TestVet(t *testing.T) {
 		"unmarshal",
 		"unsafeptr",
 		"unused",
+		"waitgroup",
 	} {
-		pkg := pkg
 		t.Run(pkg, func(t *testing.T) {
 			t.Parallel()
 

@@ -8,6 +8,8 @@ import (
 	"internal/cpu"
 	"internal/goexperiment"
 	"internal/runtime/atomic"
+	"internal/runtime/math"
+	"internal/runtime/strconv"
 	_ "unsafe" // for go:linkname
 )
 
@@ -687,21 +689,42 @@ func (c *gcControllerState) endCycle(now int64, procs int, userForced bool) {
 // another P if there are spare worker slots. It is used by putfull
 // when more work is made available.
 //
+// If goexperiment.GreenTeaGC, the caller must not hold a G's scan bit,
+// otherwise this could cause a deadlock. This is already enforced by
+// the static lock ranking.
+//
 //go:nowritebarrier
 func (c *gcControllerState) enlistWorker() {
-	// If there are idle Ps, wake one so it will run an idle worker.
-	// NOTE: This is suspected of causing deadlocks. See golang.org/issue/19112.
-	//
-	//	if sched.npidle.Load() != 0 && sched.nmspinning.Load() == 0 {
-	//		wakep()
-	//		return
-	//	}
+	needDedicated := c.dedicatedMarkWorkersNeeded.Load() > 0
 
-	// There are no idle Ps. If we need more dedicated workers,
-	// try to preempt a running P so it will switch to a worker.
-	if c.dedicatedMarkWorkersNeeded.Load() <= 0 {
+	// Create new workers from idle Ps with goexperiment.GreenTeaGC.
+	//
+	// Note: with Green Tea, this places a requirement on enlistWorker
+	// that it must not be called while a G's scan bit is held.
+	if goexperiment.GreenTeaGC {
+		needIdle := c.needIdleMarkWorker()
+
+		// If we're all full on dedicated and idle workers, nothing
+		// to do.
+		if !needDedicated && !needIdle {
+			return
+		}
+
+		// If there are idle Ps, wake one so it will run a worker
+		// (the scheduler will already prefer to spin up a new
+		// dedicated worker over an idle one).
+		if sched.npidle.Load() != 0 && sched.nmspinning.Load() == 0 {
+			wakep()
+			return
+		}
+	}
+
+	// If we still need more dedicated workers, try to preempt a running P
+	// so it will switch to a worker.
+	if !needDedicated {
 		return
 	}
+
 	// Pick a random other P to preempt.
 	if gomaxprocs <= 1 {
 		return
@@ -1290,7 +1313,7 @@ func readGOGC() int32 {
 	if p == "off" {
 		return -1
 	}
-	if n, ok := atoi32(p); ok {
+	if n, ok := strconv.Atoi32(p); ok {
 		return n
 	}
 	return 100
@@ -1334,7 +1357,7 @@ func setMemoryLimit(in int64) (out int64) {
 func readGOMEMLIMIT() int64 {
 	p := gogetenv("GOMEMLIMIT")
 	if p == "" || p == "off" {
-		return maxInt64
+		return math.MaxInt64
 	}
 	n, ok := parseByteCount(p)
 	if !ok {

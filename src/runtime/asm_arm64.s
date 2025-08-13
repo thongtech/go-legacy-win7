@@ -8,6 +8,28 @@
 #include "funcdata.h"
 #include "textflag.h"
 
+#ifdef GOARM64_LSE
+DATA no_lse_msg<>+0x00(SB)/64, $"This program can only run on ARM64 processors with LSE support.\n"
+GLOBL no_lse_msg<>(SB), RODATA, $64
+#endif
+
+// We know for sure that Linux and FreeBSD allow to read instruction set
+// attribute registers (while some others OSes, like OpenBSD and Darwin,
+// are not). Let's be conservative and allow code reading such registers
+// only when we sure this won't lead to sigill.
+#ifdef GOOS_linux
+#define ISA_REGS_READABLE
+#endif
+#ifdef GOOS_freebsd
+#define ISA_REGS_READABLE
+#endif
+
+#ifdef GOARM64_LSE
+#ifdef ISA_REGS_READABLE
+#define CHECK_GOARM64_LSE
+#endif
+#endif
+
 TEXT runtime·rt0_go(SB),NOSPLIT|TOPFRAME,$0
 	// SP = stack; R0 = argc; R1 = argv
 
@@ -77,6 +99,19 @@ nocgo:
 	BL	runtime·wintls(SB)
 #endif
 
+	// Check that CPU we use for execution supports instructions targeted during compile-time.
+#ifdef CHECK_GOARM64_LSE
+	// Read the ID_AA64ISAR0_EL1 register
+	MRS	ID_AA64ISAR0_EL1, R0
+
+	// Extract the LSE field (bits [23:20])
+	LSR	$20, R0, R0
+	AND	$0xf, R0, R0
+
+	// LSE support is indicated by a non-zero value
+	CBZ	R0, no_lse
+#endif
+
 	MOVW	8(RSP), R0	// copy argc
 	MOVW	R0, -8(RSP)
 	MOVD	16(RSP), R0		// copy argv
@@ -95,6 +130,21 @@ nocgo:
 
 	// start this M
 	BL	runtime·mstart(SB)
+	UNDEF
+
+#ifdef CHECK_GOARM64_LSE
+no_lse:
+	MOVD	$1, R0 // stderr
+	MOVD	R0, 8(RSP)
+	MOVD	$no_lse_msg<>(SB), R1 // message address
+	MOVD	R1, 16(RSP)
+	MOVD	$64, R2 // message length
+	MOVD	R2, 24(RSP)
+	CALL	runtime·write(SB)
+	CALL	runtime·exit(SB)
+	CALL	runtime·abort(SB)
+	RET
+#endif
 
 	// Prevent dead-code elimination of debugCallV2 and debugPinnerV1, which are
 	// intended to be called by debuggers.
@@ -149,11 +199,9 @@ TEXT gogo<>(SB), NOSPLIT|NOFRAME, $0
 	MOVD	R0, RSP
 	MOVD	gobuf_bp(R5), R29
 	MOVD	gobuf_lr(R5), LR
-	MOVD	gobuf_ret(R5), R0
 	MOVD	gobuf_ctxt(R5), R26
 	MOVD	$0, gobuf_sp(R5)
 	MOVD	$0, gobuf_bp(R5)
-	MOVD	$0, gobuf_ret(R5)
 	MOVD	$0, gobuf_lr(R5)
 	MOVD	$0, gobuf_ctxt(R5)
 	CMP	ZR, ZR // set condition codes for == test, needed by stack split
@@ -185,7 +233,7 @@ TEXT runtime·mcall<ABIInternal>(SB), NOSPLIT|NOFRAME, $0-8
 
 	MOVD	(g_sched+gobuf_sp)(g), R0
 	MOVD	R0, RSP	// sp = m->g0->sched.sp
-	MOVD	(g_sched+gobuf_bp)(g), R29
+	MOVD	$0, R29				// clear frame pointer, as caller may execute on another M
 	MOVD	R3, R0				// arg = g
 	MOVD	$0, -16(RSP)			// dummy LR
 	SUB	$16, RSP
@@ -228,7 +276,10 @@ TEXT runtime·systemstack(SB), NOSPLIT, $0-8
 	B	runtime·abort(SB)
 
 switch:
-	// save our state in g->sched. Pretend to
+	// Switch stacks.
+	// The original frame pointer is stored in R29,
+	// which is useful for stack unwinding.
+	// Save our state in g->sched. Pretend to
 	// be systemstack_switch if the G stack is scanned.
 	BL	gosave_systemstack_switch<>(SB)
 
@@ -237,7 +288,6 @@ switch:
 	BL	runtime·save_g(SB)
 	MOVD	(g_sched+gobuf_sp)(g), R3
 	MOVD	R3, RSP
-	MOVD	(g_sched+gobuf_bp)(g), R29
 
 	// call target function
 	MOVD	0(R26), R3	// code pointer
@@ -337,7 +387,7 @@ TEXT runtime·morestack(SB),NOSPLIT|NOFRAME,$0-0
 	BL	runtime·save_g(SB)
 	MOVD	(g_sched+gobuf_sp)(g), R0
 	MOVD	R0, RSP
-	MOVD	(g_sched+gobuf_bp)(g), R29
+	MOVD	$0, R29		// clear frame pointer, as caller may execute on another M
 	MOVD.W	$0, -16(RSP)	// create a call frame on g0 (saved LR; keep 16-aligned)
 	BL	runtime·newstack(SB)
 
@@ -935,7 +985,6 @@ TEXT gosave_systemstack_switch<>(SB),NOSPLIT|NOFRAME,$0
 	MOVD	R0, (g_sched+gobuf_sp)(g)
 	MOVD	R29, (g_sched+gobuf_bp)(g)
 	MOVD	$0, (g_sched+gobuf_lr)(g)
-	MOVD	$0, (g_sched+gobuf_ret)(g)
 	// Assert ctxt is zero. See func save.
 	MOVD	(g_sched+gobuf_ctxt)(g), R0
 	CBZ	R0, 2(PC)
@@ -1212,10 +1261,6 @@ TEXT runtime·abort(SB),NOSPLIT|NOFRAME,$0-0
 	MOVD	ZR, R0
 	MOVD	(R0), R0
 	UNDEF
-
-TEXT runtime·return0(SB), NOSPLIT, $0
-	MOVW	$0, R0
-	RET
 
 // The top-most function running on a goroutine
 // returns to goexit+PCQuantum.

@@ -88,8 +88,14 @@ func rewriteValueS390X(v *Value) bool {
 		return rewriteValueS390X_OpAtomicStoreRel32(v)
 	case OpAvg64u:
 		return rewriteValueS390X_OpAvg64u(v)
+	case OpBitLen16:
+		return rewriteValueS390X_OpBitLen16(v)
+	case OpBitLen32:
+		return rewriteValueS390X_OpBitLen32(v)
 	case OpBitLen64:
 		return rewriteValueS390X_OpBitLen64(v)
+	case OpBitLen8:
+		return rewriteValueS390X_OpBitLen8(v)
 	case OpBswap16:
 		return rewriteValueS390X_OpBswap16(v)
 	case OpBswap32:
@@ -133,14 +139,24 @@ func rewriteValueS390X(v *Value) bool {
 		return rewriteValueS390X_OpConstBool(v)
 	case OpConstNil:
 		return rewriteValueS390X_OpConstNil(v)
+	case OpCtz16:
+		return rewriteValueS390X_OpCtz16(v)
+	case OpCtz16NonZero:
+		v.Op = OpCtz64
+		return true
 	case OpCtz32:
 		return rewriteValueS390X_OpCtz32(v)
 	case OpCtz32NonZero:
-		v.Op = OpCtz32
+		v.Op = OpCtz64
 		return true
 	case OpCtz64:
 		return rewriteValueS390X_OpCtz64(v)
 	case OpCtz64NonZero:
+		v.Op = OpCtz64
+		return true
+	case OpCtz8:
+		return rewriteValueS390X_OpCtz8(v)
+	case OpCtz8NonZero:
 		v.Op = OpCtz64
 		return true
 	case OpCvt32Fto32:
@@ -1261,6 +1277,36 @@ func rewriteValueS390X_OpAvg64u(v *Value) bool {
 		return true
 	}
 }
+func rewriteValueS390X_OpBitLen16(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (BitLen16 x)
+	// result: (BitLen64 (ZeroExt16to64 x))
+	for {
+		x := v_0
+		v.reset(OpBitLen64)
+		v0 := b.NewValue0(v.Pos, OpZeroExt16to64, typ.UInt64)
+		v0.AddArg(x)
+		v.AddArg(v0)
+		return true
+	}
+}
+func rewriteValueS390X_OpBitLen32(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (BitLen32 x)
+	// result: (BitLen64 (ZeroExt32to64 x))
+	for {
+		x := v_0
+		v.reset(OpBitLen64)
+		v0 := b.NewValue0(v.Pos, OpZeroExt32to64, typ.UInt64)
+		v0.AddArg(x)
+		v.AddArg(v0)
+		return true
+	}
+}
 func rewriteValueS390X_OpBitLen64(v *Value) bool {
 	v_0 := v.Args[0]
 	b := v.Block
@@ -1275,6 +1321,21 @@ func rewriteValueS390X_OpBitLen64(v *Value) bool {
 		v1 := b.NewValue0(v.Pos, OpS390XFLOGR, typ.UInt64)
 		v1.AddArg(x)
 		v.AddArg2(v0, v1)
+		return true
+	}
+}
+func rewriteValueS390X_OpBitLen8(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (BitLen8 x)
+	// result: (BitLen64 (ZeroExt8to64 x))
+	for {
+		x := v_0
+		v.reset(OpBitLen64)
+		v0 := b.NewValue0(v.Pos, OpZeroExt8to64, typ.UInt64)
+		v0.AddArg(x)
+		v.AddArg(v0)
 		return true
 	}
 }
@@ -1398,6 +1459,23 @@ func rewriteValueS390X_OpConstNil(v *Value) bool {
 		return true
 	}
 }
+func rewriteValueS390X_OpCtz16(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (Ctz16 x)
+	// result: (Ctz64 (Or64 <typ.UInt64> x (MOVDconst [1<<16])))
+	for {
+		x := v_0
+		v.reset(OpCtz64)
+		v0 := b.NewValue0(v.Pos, OpOr64, typ.UInt64)
+		v1 := b.NewValue0(v.Pos, OpS390XMOVDconst, typ.UInt64)
+		v1.AuxInt = int64ToAuxInt(1 << 16)
+		v0.AddArg2(x, v1)
+		v.AddArg(v0)
+		return true
+	}
+}
 func rewriteValueS390X_OpCtz32(v *Value) bool {
 	v_0 := v.Args[0]
 	b := v.Block
@@ -1447,6 +1525,23 @@ func rewriteValueS390X_OpCtz64(v *Value) bool {
 		v2.AddArg2(v3, v4)
 		v1.AddArg(v2)
 		v.AddArg2(v0, v1)
+		return true
+	}
+}
+func rewriteValueS390X_OpCtz8(v *Value) bool {
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (Ctz8 x)
+	// result: (Ctz64 (Or64 <typ.UInt64> x (MOVDconst [1<<8])))
+	for {
+		x := v_0
+		v.reset(OpCtz64)
+		v0 := b.NewValue0(v.Pos, OpOr64, typ.UInt64)
+		v1 := b.NewValue0(v.Pos, OpS390XMOVDconst, typ.UInt64)
+		v1.AuxInt = int64ToAuxInt(1 << 8)
+		v0.AddArg2(x, v1)
+		v.AddArg(v0)
 		return true
 	}
 }
@@ -11197,6 +11292,16 @@ func rewriteValueS390X_OpS390XNEG(v *Value) bool {
 		v.AuxInt = int64ToAuxInt(-c)
 		return true
 	}
+	// match: (NEG (NEG x))
+	// result: x
+	for {
+		if v_0.Op != OpS390XNEG {
+			break
+		}
+		x := v_0.Args[0]
+		v.copyOf(x)
+		return true
+	}
 	// match: (NEG (ADDconst [c] (NEG x)))
 	// cond: c != -(1<<31)
 	// result: (ADDconst [-c] x)
@@ -13231,6 +13336,18 @@ func rewriteValueS390X_OpS390XSUB(v *Value) bool {
 		v.AddArg(v0)
 		return true
 	}
+	// match: (SUB x (NEG y))
+	// result: (ADD x y)
+	for {
+		x := v_0
+		if v_1.Op != OpS390XNEG {
+			break
+		}
+		y := v_1.Args[0]
+		v.reset(OpS390XADD)
+		v.AddArg2(x, y)
+		return true
+	}
 	// match: (SUB x x)
 	// result: (MOVDconst [0])
 	for {
@@ -13370,6 +13487,18 @@ func rewriteValueS390X_OpS390XSUBW(v *Value) bool {
 		v0.AuxInt = int32ToAuxInt(int32(c))
 		v0.AddArg(x)
 		v.AddArg(v0)
+		return true
+	}
+	// match: (SUBW x (NEGW y))
+	// result: (ADDW x y)
+	for {
+		x := v_0
+		if v_1.Op != OpS390XNEGW {
+			break
+		}
+		y := v_1.Args[0]
+		v.reset(OpS390XADDW)
+		v.AddArg2(x, y)
 		return true
 	}
 	// match: (SUBW x x)

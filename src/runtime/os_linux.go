@@ -8,6 +8,7 @@ import (
 	"internal/abi"
 	"internal/goarch"
 	"internal/runtime/atomic"
+	"internal/runtime/strconv"
 	"internal/runtime/syscall"
 	"unsafe"
 )
@@ -100,7 +101,7 @@ func futexwakeup(addr *uint32, cnt uint32) {
 	*(*int32)(unsafe.Pointer(uintptr(0x1006))) = 0x1006
 }
 
-func getproccount() int32 {
+func getCPUCount() int32 {
 	// This buffer is huge (8 kB) but we are on the system stack
 	// and there should be plenty of space (64 kB).
 	// Also this is a leaf, so we're not holding up the memory for long.
@@ -206,7 +207,7 @@ func newosproc(mp *m) {
 //
 //go:nosplit
 func newosproc0(stacksize uintptr, fn unsafe.Pointer) {
-	stack := sysAlloc(stacksize, &memstats.stacks_sys)
+	stack := sysAlloc(stacksize, &memstats.stacks_sys, "OS thread stack")
 	if stack == nil {
 		writeErrStr(failallocatestack)
 		exit(1)
@@ -341,7 +342,7 @@ func getHugePageSize() uintptr {
 		return 0
 	}
 	n-- // remove trailing newline
-	v, ok := atoi(slicebytetostringtmp((*byte)(ptr), int(n)))
+	v, ok := strconv.Atoi(slicebytetostringtmp((*byte)(ptr), int(n)))
 	if !ok || v < 0 {
 		v = 0
 	}
@@ -353,7 +354,7 @@ func getHugePageSize() uintptr {
 }
 
 func osinit() {
-	ncpu = getproccount()
+	numCPUStartup = getCPUCount()
 	physHugePageSize = getHugePageSize()
 	osArchInit()
 	vgetrandomInit()
@@ -416,6 +417,7 @@ func unminit() {
 // resources in minit, semacreate, or elsewhere. Do not take locks after calling this.
 //
 // This always runs without a P, so //go:nowritebarrierrec is required.
+//
 //go:nowritebarrierrec
 func mdestroy(mp *m) {
 }

@@ -7,8 +7,12 @@ package runtime_test
 import (
 	"flag"
 	"fmt"
+	"internal/asan"
 	"internal/cpu"
+	"internal/msan"
+	"internal/race"
 	"internal/runtime/atomic"
+	"internal/testenv"
 	"io"
 	"math/bits"
 	. "runtime"
@@ -307,7 +311,7 @@ func TestTrailingZero(t *testing.T) {
 	}
 }
 
-func TestAppendGrowth(t *testing.T) {
+func TestAppendGrowthHeap(t *testing.T) {
 	var x []int64
 	check := func(want int) {
 		if cap(x) != want {
@@ -322,6 +326,32 @@ func TestAppendGrowth(t *testing.T) {
 		check(want)
 		if i&(i-1) == 0 {
 			want = 2 * i
+		}
+	}
+	Escape(&x[0]) // suppress stack-allocated backing store
+}
+
+func TestAppendGrowthStack(t *testing.T) {
+	if race.Enabled || asan.Enabled || msan.Enabled {
+		t.Skip("instrumentation breaks this optimization")
+	}
+	var x []int64
+	check := func(want int) {
+		if cap(x) != want {
+			t.Errorf("len=%d, cap=%d, want cap=%d", len(x), cap(x), want)
+		}
+	}
+
+	check(0)
+	want := 32 / 8 // 32 is the default for cmd/compile/internal/base.DebugFlags.VariableMakeThreshold
+	if testenv.OptimizationOff() {
+		want = 1
+	}
+	for i := 1; i <= 100; i++ {
+		x = append(x, 1)
+		check(want)
+		if i&(i-1) == 0 {
+			want = max(want, 2*i)
 		}
 	}
 }

@@ -47,7 +47,7 @@ var regNamesARM64 = []string{
 	"R15",
 	"R16",
 	"R17",
-	"R18", // platform register, not used
+	// R18 = platform register, not used
 	"R19",
 	"R20",
 	"R21",
@@ -57,10 +57,23 @@ var regNamesARM64 = []string{
 	"R25",
 	"R26",
 	// R27 = REGTMP not used in regalloc
-	"g",   // aka R28
-	"R29", // frame pointer, not used
-	"R30", // aka REGLINK
-	"SP",  // aka R31
+	"g",    // aka R28
+	"R29",  // frame pointer, not used
+	"R30",  // aka REGLINK
+	"ZERO", // zero register (aka R31)
+	"SP",   // stack pointer (aka R31)
+
+	// Note: both ZERO and SP are register number 31!
+	// What r31 means in a particular instruction depends on
+	// the instruction.  Generally, for arguments of instructions
+	// which are addresses to load or store from, r31 means SP.
+	// In other instructions, r31 means ZERO. But there are
+	// exceptions.
+	// See https://stackoverflow.com/questions/61532867
+	// This does not have much of an effect here, as the
+	// cmd/internal/obj/arm64 interface treats them as two
+	// different registers and picks the right instruction
+	// that encodes what r31 means. But see issue 71651.
 
 	"F0",
 	"F1",
@@ -135,6 +148,7 @@ func init() {
 		r1         = buildReg("R1")
 		r2         = buildReg("R2")
 		r3         = buildReg("R3")
+		rz         = buildReg("ZERO")
 	)
 	// Common regInfo
 	var (
@@ -155,11 +169,10 @@ func init() {
 		gp31           = regInfo{inputs: []regMask{gpg, gpg, gpg}, outputs: []regMask{gp}}
 		gpload         = regInfo{inputs: []regMask{gpspsbg}, outputs: []regMask{gp}}
 		gpload2        = regInfo{inputs: []regMask{gpspsbg}, outputs: []regMask{gpg, gpg}}
-		gpstore        = regInfo{inputs: []regMask{gpspsbg, gpg}}
-		gpstore0       = regInfo{inputs: []regMask{gpspsbg}}
-		gpstore2       = regInfo{inputs: []regMask{gpspsbg, gpg, gpg}}
-		gpxchg         = regInfo{inputs: []regMask{gpspsbg, gpg}, outputs: []regMask{gp}}
-		gpcas          = regInfo{inputs: []regMask{gpspsbg, gpg, gpg}, outputs: []regMask{gp}}
+		gpstore        = regInfo{inputs: []regMask{gpspsbg, gpg | rz}}
+		gpstore2       = regInfo{inputs: []regMask{gpspsbg, gpg | rz, gpg | rz}}
+		gpxchg         = regInfo{inputs: []regMask{gpspsbg, gpg | rz}, outputs: []regMask{gp}}
+		gpcas          = regInfo{inputs: []regMask{gpspsbg, gpg | rz, gpg | rz}, outputs: []regMask{gp}}
 		fp01           = regInfo{inputs: nil, outputs: []regMask{fp}}
 		fp11           = regInfo{inputs: []regMask{fp}, outputs: []regMask{fp}}
 		fpgp           = regInfo{inputs: []regMask{fp}, outputs: []regMask{gp}}
@@ -169,9 +182,11 @@ func init() {
 		fp2flags       = regInfo{inputs: []regMask{fp, fp}}
 		fp1flags       = regInfo{inputs: []regMask{fp}}
 		fpload         = regInfo{inputs: []regMask{gpspsbg}, outputs: []regMask{fp}}
+		fpload2        = regInfo{inputs: []regMask{gpspsbg}, outputs: []regMask{fp, fp}}
 		fp2load        = regInfo{inputs: []regMask{gpspsbg, gpg}, outputs: []regMask{fp}}
 		fpstore        = regInfo{inputs: []regMask{gpspsbg, fp}}
-		fpstore2       = regInfo{inputs: []regMask{gpspsbg, gpg, fp}}
+		fpstoreidx     = regInfo{inputs: []regMask{gpspsbg, gpg, fp}}
+		fpstore2       = regInfo{inputs: []regMask{gpspsbg, fp, fp}}
 		readflags      = regInfo{inputs: nil, outputs: []regMask{gp}}
 		prefreg        = regInfo{inputs: []regMask{gpspsbg}}
 	)
@@ -369,16 +384,27 @@ func init() {
 
 		{name: "MOVDaddr", argLength: 1, reg: regInfo{inputs: []regMask{buildReg("SP") | buildReg("SB")}, outputs: []regMask{gp}}, aux: "SymOff", asm: "MOVD", rematerializeable: true, symEffect: "Addr"}, // arg0 + auxInt + aux.(*gc.Sym), arg0=SP/SB
 
-		{name: "MOVBload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVB", typ: "Int8", faultOnNilArg0: true, symEffect: "Read"},       // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVBUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVBU", typ: "UInt8", faultOnNilArg0: true, symEffect: "Read"},    // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVHload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVH", typ: "Int16", faultOnNilArg0: true, symEffect: "Read"},      // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVHUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVHU", typ: "UInt16", faultOnNilArg0: true, symEffect: "Read"},   // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVWload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVW", typ: "Int32", faultOnNilArg0: true, symEffect: "Read"},      // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVWUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVWU", typ: "UInt32", faultOnNilArg0: true, symEffect: "Read"},   // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVDload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVD", typ: "UInt64", faultOnNilArg0: true, symEffect: "Read"},     // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "LDP", argLength: 2, reg: gpload2, aux: "SymOff", asm: "LDP", typ: "(UInt64,UInt64)", faultOnNilArg0: true, symEffect: "Read"}, // load from ptr = arg0 + auxInt + aux, returns the tuple <*(*uint64)ptr, *(*uint64)(ptr+8)>. arg1=mem.
-		{name: "FMOVSload", argLength: 2, reg: fpload, aux: "SymOff", asm: "FMOVS", typ: "Float32", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "FMOVDload", argLength: 2, reg: fpload, aux: "SymOff", asm: "FMOVD", typ: "Float64", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVBload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVB", typ: "Int8", faultOnNilArg0: true, symEffect: "Read"},      // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVBUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVBU", typ: "UInt8", faultOnNilArg0: true, symEffect: "Read"},   // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVHload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVH", typ: "Int16", faultOnNilArg0: true, symEffect: "Read"},     // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVHUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVHU", typ: "UInt16", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVWload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVW", typ: "Int32", faultOnNilArg0: true, symEffect: "Read"},     // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVWUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVWU", typ: "UInt32", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVDload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVD", typ: "UInt64", faultOnNilArg0: true, symEffect: "Read"},    // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "FMOVSload", argLength: 2, reg: fpload, aux: "SymOff", asm: "FMOVS", typ: "Float32", faultOnNilArg0: true, symEffect: "Read"}, // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "FMOVDload", argLength: 2, reg: fpload, aux: "SymOff", asm: "FMOVD", typ: "Float64", faultOnNilArg0: true, symEffect: "Read"}, // load from arg0 + auxInt + aux.  arg1=mem.
+
+		// LDP instructions load the contents of two adjacent locations in memory into registers.
+		// Address to start loading is addr = arg0 + auxInt + aux.
+		// x := *(*T)(addr)
+		// y := *(*T)(addr+sizeof(T))
+		// arg1=mem
+		// Returns the tuple <x,y>.
+		{name: "LDP", argLength: 2, reg: gpload2, aux: "SymOff", asm: "LDP", typ: "(UInt64,UInt64)", faultOnNilArg0: true, symEffect: "Read"},       // T=int64 (gp reg destination)
+		{name: "LDPW", argLength: 2, reg: gpload2, aux: "SymOff", asm: "LDPW", typ: "(UInt32,UInt32)", faultOnNilArg0: true, symEffect: "Read"},     // T=int32 (gp reg destination) unsigned extension
+		{name: "LDPSW", argLength: 2, reg: gpload2, aux: "SymOff", asm: "LDPSW", typ: "(Int32,Int32)", faultOnNilArg0: true, symEffect: "Read"},     // T=int32 (gp reg destination) signed extension
+		{name: "FLDPD", argLength: 2, reg: fpload2, aux: "SymOff", asm: "FLDPD", typ: "(Float64,Float64)", faultOnNilArg0: true, symEffect: "Read"}, // T=float64 (fp reg destination)
+		{name: "FLDPS", argLength: 2, reg: fpload2, aux: "SymOff", asm: "FLDPS", typ: "(Float32,Float32)", faultOnNilArg0: true, symEffect: "Read"}, // T=float32 (fp reg destination)
 
 		// register indexed load
 		{name: "MOVDloadidx", argLength: 3, reg: gp2load, asm: "MOVD", typ: "UInt64"},    // load 64-bit dword from arg0 + arg1, arg2 = mem.
@@ -404,41 +430,33 @@ func init() {
 		{name: "MOVHstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVH", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},   // store 2 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
 		{name: "MOVWstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVW", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},   // store 4 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
 		{name: "MOVDstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVD", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},   // store 8 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
-		{name: "STP", argLength: 4, reg: gpstore2, aux: "SymOff", asm: "STP", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},         // store 16 bytes of arg1 and arg2 to arg0 + auxInt + aux.  arg3=mem.
 		{name: "FMOVSstore", argLength: 3, reg: fpstore, aux: "SymOff", asm: "FMOVS", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 4 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
 		{name: "FMOVDstore", argLength: 3, reg: fpstore, aux: "SymOff", asm: "FMOVD", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 8 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
 
+		// STP instructions store the contents of two registers to adjacent locations in memory.
+		// Address to start storing is addr = arg0 + auxInt + aux.
+		// *(*T)(addr) = arg1
+		// *(*T)(addr+sizeof(T)) = arg2
+		// arg3=mem. Returns mem.
+		{name: "STP", argLength: 4, reg: gpstore2, aux: "SymOff", asm: "STP", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},     // T=int64 (gp reg source)
+		{name: "STPW", argLength: 4, reg: gpstore2, aux: "SymOff", asm: "STPW", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},   // T=int32 (gp reg source)
+		{name: "FSTPD", argLength: 4, reg: fpstore2, aux: "SymOff", asm: "FSTPD", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // T=float64 (fp reg source)
+		{name: "FSTPS", argLength: 4, reg: fpstore2, aux: "SymOff", asm: "FSTPS", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // T=float32 (fp reg source)
+
 		// register indexed store
-		{name: "MOVBstoreidx", argLength: 4, reg: gpstore2, asm: "MOVB", typ: "Mem"},   // store 1 byte of arg2 to arg0 + arg1, arg3 = mem.
-		{name: "MOVHstoreidx", argLength: 4, reg: gpstore2, asm: "MOVH", typ: "Mem"},   // store 2 bytes of arg2 to arg0 + arg1, arg3 = mem.
-		{name: "MOVWstoreidx", argLength: 4, reg: gpstore2, asm: "MOVW", typ: "Mem"},   // store 4 bytes of arg2 to arg0 + arg1, arg3 = mem.
-		{name: "MOVDstoreidx", argLength: 4, reg: gpstore2, asm: "MOVD", typ: "Mem"},   // store 8 bytes of arg2 to arg0 + arg1, arg3 = mem.
-		{name: "FMOVSstoreidx", argLength: 4, reg: fpstore2, asm: "FMOVS", typ: "Mem"}, // store 32-bit float of arg2 to arg0 + arg1, arg3=mem.
-		{name: "FMOVDstoreidx", argLength: 4, reg: fpstore2, asm: "FMOVD", typ: "Mem"}, // store 64-bit float of arg2 to arg0 + arg1, arg3=mem.
+		{name: "MOVBstoreidx", argLength: 4, reg: gpstore2, asm: "MOVB", typ: "Mem"},     // store 1 byte of arg2 to arg0 + arg1, arg3 = mem.
+		{name: "MOVHstoreidx", argLength: 4, reg: gpstore2, asm: "MOVH", typ: "Mem"},     // store 2 bytes of arg2 to arg0 + arg1, arg3 = mem.
+		{name: "MOVWstoreidx", argLength: 4, reg: gpstore2, asm: "MOVW", typ: "Mem"},     // store 4 bytes of arg2 to arg0 + arg1, arg3 = mem.
+		{name: "MOVDstoreidx", argLength: 4, reg: gpstore2, asm: "MOVD", typ: "Mem"},     // store 8 bytes of arg2 to arg0 + arg1, arg3 = mem.
+		{name: "FMOVSstoreidx", argLength: 4, reg: fpstoreidx, asm: "FMOVS", typ: "Mem"}, // store 32-bit float of arg2 to arg0 + arg1, arg3=mem.
+		{name: "FMOVDstoreidx", argLength: 4, reg: fpstoreidx, asm: "FMOVD", typ: "Mem"}, // store 64-bit float of arg2 to arg0 + arg1, arg3=mem.
 
 		// shifted register indexed store
-		{name: "MOVHstoreidx2", argLength: 4, reg: gpstore2, asm: "MOVH", typ: "Mem"},   // store 2 bytes of arg2 to arg0 + arg1*2, arg3 = mem.
-		{name: "MOVWstoreidx4", argLength: 4, reg: gpstore2, asm: "MOVW", typ: "Mem"},   // store 4 bytes of arg2 to arg0 + arg1*4, arg3 = mem.
-		{name: "MOVDstoreidx8", argLength: 4, reg: gpstore2, asm: "MOVD", typ: "Mem"},   // store 8 bytes of arg2 to arg0 + arg1*8, arg3 = mem.
-		{name: "FMOVSstoreidx4", argLength: 4, reg: fpstore2, asm: "FMOVS", typ: "Mem"}, // store 32-bit float of arg2 to arg0 + arg1*4, arg3=mem.
-		{name: "FMOVDstoreidx8", argLength: 4, reg: fpstore2, asm: "FMOVD", typ: "Mem"}, // store 64-bit float of arg2 to arg0 + arg1*8, arg3=mem.
-
-		{name: "MOVBstorezero", argLength: 2, reg: gpstore0, aux: "SymOff", asm: "MOVB", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 1 byte of zero to arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVHstorezero", argLength: 2, reg: gpstore0, aux: "SymOff", asm: "MOVH", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 2 bytes of zero to arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVWstorezero", argLength: 2, reg: gpstore0, aux: "SymOff", asm: "MOVW", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 4 bytes of zero to arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVDstorezero", argLength: 2, reg: gpstore0, aux: "SymOff", asm: "MOVD", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 8 bytes of zero to arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVQstorezero", argLength: 2, reg: gpstore0, aux: "SymOff", asm: "STP", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"},  // store 16 bytes of zero to arg0 + auxInt + aux.  arg1=mem.
-
-		// register indexed store zero
-		{name: "MOVBstorezeroidx", argLength: 3, reg: gpstore, asm: "MOVB", typ: "Mem"}, // store 1 byte of zero to arg0 + arg1, arg2 = mem.
-		{name: "MOVHstorezeroidx", argLength: 3, reg: gpstore, asm: "MOVH", typ: "Mem"}, // store 2 bytes of zero to arg0 + arg1, arg2 = mem.
-		{name: "MOVWstorezeroidx", argLength: 3, reg: gpstore, asm: "MOVW", typ: "Mem"}, // store 4 bytes of zero to arg0 + arg1, arg2 = mem.
-		{name: "MOVDstorezeroidx", argLength: 3, reg: gpstore, asm: "MOVD", typ: "Mem"}, // store 8 bytes of zero to arg0 + arg1, arg2 = mem.
-
-		// shifted register indexed store zero
-		{name: "MOVHstorezeroidx2", argLength: 3, reg: gpstore, asm: "MOVH", typ: "Mem"}, // store 2 bytes of zero to arg0 + arg1*2, arg2 = mem.
-		{name: "MOVWstorezeroidx4", argLength: 3, reg: gpstore, asm: "MOVW", typ: "Mem"}, // store 4 bytes of zero to arg0 + arg1*4, arg2 = mem.
-		{name: "MOVDstorezeroidx8", argLength: 3, reg: gpstore, asm: "MOVD", typ: "Mem"}, // store 8 bytes of zero to arg0 + arg1*8, arg2 = mem.
+		{name: "MOVHstoreidx2", argLength: 4, reg: gpstore2, asm: "MOVH", typ: "Mem"},     // store 2 bytes of arg2 to arg0 + arg1*2, arg3 = mem.
+		{name: "MOVWstoreidx4", argLength: 4, reg: gpstore2, asm: "MOVW", typ: "Mem"},     // store 4 bytes of arg2 to arg0 + arg1*4, arg3 = mem.
+		{name: "MOVDstoreidx8", argLength: 4, reg: gpstore2, asm: "MOVD", typ: "Mem"},     // store 8 bytes of arg2 to arg0 + arg1*8, arg3 = mem.
+		{name: "FMOVSstoreidx4", argLength: 4, reg: fpstoreidx, asm: "FMOVS", typ: "Mem"}, // store 32-bit float of arg2 to arg0 + arg1*4, arg3=mem.
+		{name: "FMOVDstoreidx8", argLength: 4, reg: fpstoreidx, asm: "FMOVD", typ: "Mem"}, // store 64-bit float of arg2 to arg0 + arg1*8, arg3=mem.
 
 		{name: "FMOVDgpfp", argLength: 1, reg: gpfp, asm: "FMOVD"}, // move int64 to float64 (no conversion)
 		{name: "FMOVDfpgp", argLength: 1, reg: fpgp, asm: "FMOVD"}, // move float64 to int64 (no conversion)
@@ -755,6 +773,7 @@ func init() {
 
 		// Publication barrier
 		{name: "DMB", argLength: 1, aux: "Int64", asm: "DMB", hasSideEffects: true}, // Do data barrier. arg0=memory, aux=option.
+		{name: "ZERO", zeroWidth: true, fixedReg: true},                             // reads-as-zero register
 	}
 
 	blocks := []blockData{

@@ -165,8 +165,13 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		ssa.OpLOONG64OR,
 		ssa.OpLOONG64XOR,
 		ssa.OpLOONG64NOR,
+		ssa.OpLOONG64ANDN,
+		ssa.OpLOONG64ORN,
+		ssa.OpLOONG64SLL,
 		ssa.OpLOONG64SLLV,
+		ssa.OpLOONG64SRL,
 		ssa.OpLOONG64SRLV,
+		ssa.OpLOONG64SRA,
 		ssa.OpLOONG64SRAV,
 		ssa.OpLOONG64ROTR,
 		ssa.OpLOONG64ROTRV,
@@ -273,9 +278,11 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		ssa.OpLOONG64ANDconst,
 		ssa.OpLOONG64ORconst,
 		ssa.OpLOONG64XORconst,
-		ssa.OpLOONG64NORconst,
+		ssa.OpLOONG64SLLconst,
 		ssa.OpLOONG64SLLVconst,
+		ssa.OpLOONG64SRLconst,
 		ssa.OpLOONG64SRLVconst,
+		ssa.OpLOONG64SRAconst,
 		ssa.OpLOONG64SRAVconst,
 		ssa.OpLOONG64ROTRconst,
 		ssa.OpLOONG64ROTRVconst,
@@ -287,6 +294,23 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		p.Reg = v.Args[0].Reg()
 		p.To.Type = obj.TYPE_REG
 		p.To.Reg = v.Reg()
+
+	case ssa.OpLOONG64NORconst:
+		// MOVV $const, Rtmp
+		// NOR  Rtmp, Rarg0, Rout
+		p := s.Prog(loong64.AMOVV)
+		p.From.Type = obj.TYPE_CONST
+		p.From.Offset = v.AuxInt
+		p.To.Type = obj.TYPE_REG
+		p.To.Reg = loong64.REGTMP
+
+		p2 := s.Prog(v.Op.Asm())
+		p2.From.Type = obj.TYPE_REG
+		p2.From.Reg = loong64.REGTMP
+		p2.Reg = v.Args[0].Reg()
+		p2.To.Type = obj.TYPE_REG
+		p2.To.Reg = v.Reg()
+
 	case ssa.OpLOONG64MOVVconst:
 		r := v.Reg()
 		p := s.Prog(v.Op.Asm())
@@ -942,6 +966,24 @@ func ssaGenValue(s *ssagen.State, v *ssa.Value) {
 		p.Reg = v.Args[0].Reg()
 		p.To.Type = obj.TYPE_REG
 		p.To.Reg = v.Reg()
+
+	case ssa.OpLOONG64PRELD:
+		// PRELD (Rarg0), hint
+		p := s.Prog(v.Op.Asm())
+		p.From.Type = obj.TYPE_MEM
+		p.From.Reg = v.Args[0].Reg()
+		p.AddRestSourceConst(v.AuxInt & 0x1f)
+
+	case ssa.OpLOONG64PRELDX:
+		// PRELDX (Rarg0), $n, $hint
+		p := s.Prog(v.Op.Asm())
+		p.From.Type = obj.TYPE_MEM
+		p.From.Reg = v.Args[0].Reg()
+		p.AddRestSourceArgs([]obj.Addr{
+			{Type: obj.TYPE_CONST, Offset: int64((v.AuxInt >> 5) & 0x1fffffffff)},
+			{Type: obj.TYPE_CONST, Offset: int64((v.AuxInt >> 0) & 0x1f)},
+		})
+
 	case ssa.OpClobber, ssa.OpClobberReg:
 		// TODO: implement for clobberdead experiment. Nop is ok for now.
 	default:
@@ -970,22 +1012,7 @@ var blockJump = map[ssa.BlockKind]struct {
 
 func ssaGenBlock(s *ssagen.State, b, next *ssa.Block) {
 	switch b.Kind {
-	case ssa.BlockPlain:
-		if b.Succs[0].Block() != next {
-			p := s.Prog(obj.AJMP)
-			p.To.Type = obj.TYPE_BRANCH
-			s.Branches = append(s.Branches, ssagen.Branch{P: p, B: b.Succs[0].Block()})
-		}
-	case ssa.BlockDefer:
-		// defer returns in R19:
-		// 0 if we should continue executing
-		// 1 if we should jump to deferreturn call
-		p := s.Prog(loong64.ABNE)
-		p.From.Type = obj.TYPE_REG
-		p.From.Reg = loong64.REGZERO
-		p.Reg = loong64.REG_R19
-		p.To.Type = obj.TYPE_BRANCH
-		s.Branches = append(s.Branches, ssagen.Branch{P: p, B: b.Succs[1].Block()})
+	case ssa.BlockPlain, ssa.BlockDefer:
 		if b.Succs[0].Block() != next {
 			p := s.Prog(obj.AJMP)
 			p.To.Type = obj.TYPE_BRANCH

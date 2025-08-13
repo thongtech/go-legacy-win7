@@ -388,7 +388,7 @@ func (check *Checker) collectObjects() {
 				// declare all variables
 				values := syntax.UnpackListExpr(s.Values)
 				for i, name := range s.NameList {
-					obj := NewVar(name.Pos(), pkg, name.Value, nil)
+					obj := newVar(PackageVar, name.Pos(), pkg, name.Value, nil)
 					lhs[i] = obj
 
 					d := d1
@@ -436,10 +436,8 @@ func (check *Checker) collectObjects() {
 					if name == "init" {
 						obj.parent = pkg.scope
 						check.recordDef(s.Name, obj)
-						// init functions must have a body
 						if s.Body == nil {
-							// TODO(gri) make this error message consistent with the others above
-							check.softErrorf(obj.pos, MissingInitBody, "missing function body")
+							check.softErrorf(obj.pos, MissingInitBody, "func init must have a body")
 						}
 					} else {
 						check.declare(pkg.scope, s.Name, obj, nopos)

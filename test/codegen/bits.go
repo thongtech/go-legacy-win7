@@ -120,6 +120,16 @@ func bitoff64(a, b uint64) (n uint64) {
 	return n
 }
 
+func clearLastBit(x int64, y int32) (int64, int32) {
+	// amd64:"ANDQ\t[$]-2"
+	a := (x >> 1) << 1
+
+	// amd64:"ANDL\t[$]-2"
+	b := (y >> 1) << 1
+
+	return a, b
+}
+
 func bitcompl64(a, b uint64) (n uint64) {
 	// amd64:"BTCQ"
 	n += b ^ (1 << (a & 63))
@@ -322,7 +332,22 @@ func op_eon(x, y, z uint32, a []uint32, n, m uint64) uint64 {
 
 func op_orn(x, y uint32) uint32 {
 	// arm64:`ORN\t`,-`ORR`
+	// loong64:"ORN"\t,-"OR\t"
 	return x | ^y
+}
+
+func op_nor(x int64, a []int64) {
+	// loong64: "MOVV\t[$]0","NOR\tR"
+	a[0] = ^(0x1234 | x)
+	// loong64:"NOR",-"XOR"
+	a[1] = (-1) ^ x
+	// loong64: "MOVV\t[$]-55",-"OR",-"NOR"
+	a[2] = ^(0x12 | 0x34)
+}
+
+func op_andn(x, y uint32) uint32 {
+	// loong64:"ANDN\t",-"AND\t"
+	return x &^ y
 }
 
 // check bitsets

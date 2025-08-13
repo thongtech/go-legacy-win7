@@ -1757,14 +1757,6 @@ func (l *Loader) GetVarDwarfAuxSym(i Sym) Sym {
 // expected to have the actual content/payload) and then a set of
 // interior loader.Sym's that point into a portion of the container.
 func (l *Loader) AddInteriorSym(container Sym, interior Sym) {
-	// Container symbols are expected to have content/data.
-	// NB: this restriction may turn out to be too strict (it's possible
-	// to imagine a zero-sized container with an interior symbol pointing
-	// into it); it's ok to relax or remove it if we counter an
-	// oddball host object that triggers this.
-	if l.SymSize(container) == 0 && len(l.Data(container)) == 0 {
-		panic("unexpected empty container symbol")
-	}
 	// The interior symbols for a container are not expected to have
 	// content/data or relocations.
 	if len(l.Data(interior)) != 0 {
@@ -2306,16 +2298,16 @@ func (l *Loader) LoadSyms(arch *sys.Arch) {
 		st.preloadSyms(r, hashedDef)
 		st.preloadSyms(r, nonPkgDef)
 	}
-	for _, sf := range l.sizeFixups {
-		pp := l.cloneToExternal(sf.sym)
-		pp.size = int64(sf.size)
-	}
 	for _, vr := range st.linknameVarRefs {
 		l.checkLinkname(vr.pkg, vr.name, vr.sym)
 	}
 	l.nhashedsyms = len(st.hashed64Syms) + len(st.hashedSyms)
 	for _, r := range l.objs[goObjStart:] {
 		loadObjRefs(l, r, arch)
+	}
+	for _, sf := range l.sizeFixups {
+		pp := l.cloneToExternal(sf.sym)
+		pp.size = int64(sf.size)
 	}
 	l.values = make([]int64, l.NSym(), l.NSym()+1000) // +1000 make some room for external symbols
 	l.outer = make([]Sym, l.NSym(), l.NSym()+1000)
@@ -2402,7 +2394,6 @@ var blockedLinknames = map[string][]string{
 	"crypto/rand.fatal":                     {"crypto/rand"},
 	"internal/runtime/maps.errNilAssign":    {"internal/runtime/maps"},
 	"internal/runtime/maps.fatal":           {"internal/runtime/maps"},
-	"internal/runtime/maps.mapKeyError":     {"internal/runtime/maps"},
 	"internal/runtime/maps.newarray":        {"internal/runtime/maps"},
 	"internal/runtime/maps.newobject":       {"internal/runtime/maps"},
 	"internal/runtime/maps.typedmemclr":     {"internal/runtime/maps"},
@@ -2432,6 +2423,23 @@ var blockedLinknames = map[string][]string{
 	"runtime.mapdelete_fast32":   {"runtime"},
 	"runtime.mapdelete_fast64":   {"runtime"},
 	"runtime.mapdelete_faststr":  {"runtime"},
+	// New internal linknames in Go 1.25
+	// Pushed from runtime
+	"internal/cpu.riscvHWProbe":                      {"internal/cpu"},
+	"internal/runtime/cgroup.throw":                  {"internal/runtime/cgroup"},
+	"internal/runtime/maps.typeString":               {"internal/runtime/maps"},
+	"internal/synctest.IsInBubble":                   {"internal/synctest"},
+	"internal/synctest.associate":                    {"internal/synctest"},
+	"internal/synctest.disassociate":                 {"internal/synctest"},
+	"internal/synctest.isAssociated":                 {"internal/synctest"},
+	"runtime/trace.runtime_readTrace":                {"runtime/trace"},
+	"runtime/trace.runtime_traceClockUnitsPerSecond": {"runtime/trace"},
+	"sync_test.runtime_blockUntilEmptyCleanupQueue":  {"sync_test"},
+	"time.runtimeIsBubbled":                          {"time"},
+	"unique.runtime_blockUntilEmptyCleanupQueue":     {"unique"},
+	// Others
+	"net.newWindowsFile":                   {"net"},              // pushed from os
+	"testing/synctest.testingSynctestTest": {"testing/synctest"}, // pushed from testing
 }
 
 // check if a linkname reference to symbol s from pkg is allowed
@@ -2789,7 +2797,7 @@ func (reporter *ErrorReporter) Errorf(s Sym, format string, args ...interface{})
 	if s != 0 && reporter.ldr.SymName(s) != "" {
 		// Note: Replace is needed here because symbol names might have % in them,
 		// due to the use of LinkString for names of instantiating types.
-		format = strings.Replace(reporter.ldr.SymName(s), "%", "%%", -1) + ": " + format
+		format = strings.ReplaceAll(reporter.ldr.SymName(s), "%", "%%") + ": " + format
 	} else {
 		format = fmt.Sprintf("sym %d: %s", s, format)
 	}

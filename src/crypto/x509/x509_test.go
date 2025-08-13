@@ -22,6 +22,7 @@ import (
 	"encoding/gob"
 	"encoding/hex"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"internal/testenv"
 	"io"
@@ -4194,5 +4195,71 @@ func TestRejectCriticalSKI(t *testing.T) {
 	_, err = ParseCertificate(certDER)
 	if err == nil || err.Error() != expectedErr {
 		t.Fatalf("ParseCertificate() unexpected error: %v, want: %s", err, expectedErr)
+	}
+}
+
+type messageSigner struct{}
+
+func (ms *messageSigner) Public() crypto.PublicKey { return rsaPrivateKey.Public() }
+
+func (ms *messageSigner) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	return nil, errors.New("unimplemented")
+}
+
+func (ms *messageSigner) SignMessage(rand io.Reader, msg []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+	if _, ok := opts.(*rsa.PSSOptions); ok {
+		return nil, errors.New("PSSOptions passed instead of hash")
+	}
+	h := opts.HashFunc().New()
+	h.Write(msg)
+	tbs := h.Sum(nil)
+	return rsa.SignPKCS1v15(rand, rsaPrivateKey, opts.HashFunc(), tbs)
+}
+
+func TestMessageSigner(t *testing.T) {
+	template := Certificate{
+		SignatureAlgorithm:    SHA256WithRSA,
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "Cert"},
+		NotBefore:             time.Unix(1000, 0),
+		NotAfter:              time.Unix(100000, 0),
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	certDER, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), &messageSigner{})
+	if err != nil {
+		t.Fatalf("CreateCertificate failed: %s", err)
+	}
+	cert, err := ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("ParseCertificate failed: %s", err)
+	}
+	if err := cert.CheckSignatureFrom(cert); err != nil {
+		t.Fatalf("CheckSignatureFrom failed: %s", err)
+	}
+}
+
+func TestCreateCertificateNegativeMaxPathLength(t *testing.T) {
+	template := Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "TEST"},
+		NotBefore:             time.Unix(1000, 0),
+		NotAfter:              time.Unix(100000, 0),
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+
+		// CreateCertificate treats -1 in the same way as: MaxPathLen == 0 && MaxPathLenZero == false.
+		MaxPathLen: -1,
+	}
+
+	_, err := CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("CreateCertificate() unexpected error: %v", err)
+	}
+
+	template.MaxPathLen = -2
+	_, err = CreateCertificate(rand.Reader, &template, &template, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err == nil || err.Error() != "x509: invalid MaxPathLen, must be greater or equal to -1" {
+		t.Fatalf(`CreateCertificate() = %v; want = "x509: invalid MaxPathLen, must be greater or equal to -1"`, err)
 	}
 }

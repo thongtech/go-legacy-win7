@@ -106,8 +106,12 @@ func sync_runtime_SemacquireRWMutex(addr *uint32, lifo bool, skipframes int) {
 }
 
 //go:linkname sync_runtime_SemacquireWaitGroup sync.runtime_SemacquireWaitGroup
-func sync_runtime_SemacquireWaitGroup(addr *uint32) {
-	semacquire1(addr, false, semaBlockProfile, 0, waitReasonSyncWaitGroupWait)
+func sync_runtime_SemacquireWaitGroup(addr *uint32, synctestDurable bool) {
+	reason := waitReasonSyncWaitGroupWait
+	if synctestDurable {
+		reason = waitReasonSynctestWaitGroupWait
+	}
+	semacquire1(addr, false, semaBlockProfile, 0, reason)
 }
 
 //go:linkname poll_runtime_Semrelease internal/poll.runtime_Semrelease
@@ -257,11 +261,13 @@ func semrelease1(addr *uint32, handoff bool, skipframes int) {
 			s.ticket = 1
 		}
 		readyWithTime(s, 5+skipframes)
-		if s.ticket == 1 && getg().m.locks == 0 {
+		if s.ticket == 1 && getg().m.locks == 0 && getg() != getg().m.g0 {
 			// Direct G handoff
+			//
 			// readyWithTime has added the waiter G as runnext in the
 			// current P; we now call the scheduler so that we start running
 			// the waiter G immediately.
+			//
 			// Note that waiter inherits our time slice: this is desirable
 			// to avoid having a highly contended semaphore hog the P
 			// indefinitely. goyield is like Gosched, but it emits a
@@ -271,9 +277,12 @@ func semrelease1(addr *uint32, handoff bool, skipframes int) {
 			// the non-starving case it is possible for a different waiter
 			// to acquire the semaphore while we are yielding/scheduling,
 			// and this would be wasteful. We wait instead to enter starving
-			// regime, and then we start to do direct handoffs of ticket and
-			// P.
+			// regime, and then we start to do direct handoffs of ticket and P.
+			//
 			// See issue 33747 for discussion.
+			//
+			// We don't handoff directly if we're holding locks or on the
+			// system stack, since it's not safe to enter the scheduler.
 			goyield()
 		}
 	}
@@ -629,9 +638,9 @@ func notifyListNotifyAll(l *notifyList) {
 	for s != nil {
 		next := s.next
 		s.next = nil
-		if s.g.syncGroup != nil && getg().syncGroup != s.g.syncGroup {
+		if s.g.bubble != nil && getg().bubble != s.g.bubble {
 			println("semaphore wake of synctest goroutine", s.g.goid, "from outside bubble")
-			panic("semaphore wake of synctest goroutine from outside bubble")
+			fatal("semaphore wake of synctest goroutine from outside bubble")
 		}
 		readyWithTime(s, 4)
 		s = next
@@ -686,9 +695,9 @@ func notifyListNotifyOne(l *notifyList) {
 			}
 			unlock(&l.lock)
 			s.next = nil
-			if s.g.syncGroup != nil && getg().syncGroup != s.g.syncGroup {
+			if s.g.bubble != nil && getg().bubble != s.g.bubble {
 				println("semaphore wake of synctest goroutine", s.g.goid, "from outside bubble")
-				panic("semaphore wake of synctest goroutine from outside bubble")
+				fatal("semaphore wake of synctest goroutine from outside bubble")
 			}
 			readyWithTime(s, 4)
 			return

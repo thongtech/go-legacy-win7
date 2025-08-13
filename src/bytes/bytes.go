@@ -451,7 +451,9 @@ var asciiSpace = [256]uint8{'\t': 1, '\n': 1, '\v': 1, '\f': 1, '\r': 1, ' ': 1}
 // Fields interprets s as a sequence of UTF-8-encoded code points.
 // It splits the slice s around each instance of one or more consecutive white space
 // characters, as defined by [unicode.IsSpace], returning a slice of subslices of s or an
-// empty slice if s contains only white space.
+// empty slice if s contains only white space. Every element of the returned slice is
+// non-empty. Unlike [Split], leading and trailing runs of white space characters
+// are discarded.
 func Fields(s []byte) [][]byte {
 	// First count the fields.
 	// This is an exact count if s is ASCII, otherwise it is an approximation.
@@ -505,7 +507,9 @@ func Fields(s []byte) [][]byte {
 // FieldsFunc interprets s as a sequence of UTF-8-encoded code points.
 // It splits the slice s at each run of code points c satisfying f(c) and
 // returns a slice of subslices of s. If all code points in s satisfy f(c), or
-// len(s) == 0, an empty slice is returned.
+// len(s) == 0, an empty slice is returned. Every element of the returned slice is
+// non-empty. Unlike [SplitFunc], leading and trailing runs of code points
+// satisfying f(c) are discarded.
 //
 // FieldsFunc makes no guarantees about the order in which it calls f(c)
 // and assumes that f always returns the same value for a given c.
@@ -1188,19 +1192,22 @@ func Replace(s, old, new []byte, n int) []byte {
 	t := make([]byte, len(s)+n*(len(new)-len(old)))
 	w := 0
 	start := 0
-	for i := 0; i < n; i++ {
-		j := start
-		if len(old) == 0 {
-			if i > 0 {
-				_, wid := utf8.DecodeRune(s[start:])
-				j += wid
-			}
-		} else {
-			j += Index(s[start:], old)
+	if len(old) > 0 {
+		for range n {
+			j := start + Index(s[start:], old)
+			w += copy(t[w:], s[start:j])
+			w += copy(t[w:], new)
+			start = j + len(old)
 		}
-		w += copy(t[w:], s[start:j])
+	} else { // len(old) == 0
 		w += copy(t[w:], new)
-		start = j + len(old)
+		for range n - 1 {
+			_, wid := utf8.DecodeRune(s[start:])
+			j := start + wid
+			w += copy(t[w:], s[start:j])
+			w += copy(t[w:], new)
+			start = j
+		}
 	}
 	w += copy(t[w:], s[start:])
 	return t[0:w]
@@ -1221,7 +1228,7 @@ func ReplaceAll(s, old, new []byte) []byte {
 func EqualFold(s, t []byte) bool {
 	// ASCII fast path
 	i := 0
-	for ; i < len(s) && i < len(t); i++ {
+	for n := min(len(s), len(t)); i < n; i++ {
 		sr := s[i]
 		tr := t[i]
 		if sr|tr >= utf8.RuneSelf {

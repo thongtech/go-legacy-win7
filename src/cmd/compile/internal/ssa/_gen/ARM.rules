@@ -80,6 +80,7 @@
 
 // bit length
 (BitLen32 <t> x) => (RSBconst [32] (CLZ <t> x))
+(BitLen(16|8) x) => (BitLen32 (ZeroExt(16|8)to32 x))
 
 // byte swap for ARMv5
 // let (a, b, c, d) be the bytes of x from high to low
@@ -296,12 +297,12 @@
 // 4 and 128 are magic constants, see runtime/mkduff.go
 (Zero [s] {t} ptr mem)
 	&& s%4 == 0 && s > 4 && s <= 512
-	&& t.Alignment()%4 == 0 && !config.noDuffDevice =>
+	&& t.Alignment()%4 == 0 =>
 	(DUFFZERO [4 * (128 - s/4)] ptr (MOVWconst [0]) mem)
 
 // Large zeroing uses a loop
 (Zero [s] {t} ptr mem)
-	&& (s > 512 || config.noDuffDevice) || t.Alignment()%4 != 0 =>
+	&& s > 512 || t.Alignment()%4 != 0 =>
 	(LoweredZero [t.Alignment()]
 		ptr
 		(ADDconst <ptr.Type> ptr [int32(s-moveSize(t.Alignment(), config))])
@@ -336,12 +337,12 @@
 // 8 and 128 are magic constants, see runtime/mkduff.go
 (Move [s] {t} dst src mem)
 	&& s%4 == 0 && s > 4 && s <= 512
-	&& t.Alignment()%4 == 0 && !config.noDuffDevice && logLargeCopy(v, s) =>
+	&& t.Alignment()%4 == 0 && logLargeCopy(v, s) =>
 	(DUFFCOPY [8 * (128 - s/4)] dst src mem)
 
 // Large move uses a loop
 (Move [s] {t} dst src mem)
-	&& ((s > 512 || config.noDuffDevice) || t.Alignment()%4 != 0) && logLargeCopy(v, s) =>
+	&& (s > 512 || t.Alignment()%4 != 0) && logLargeCopy(v, s) =>
 	(LoweredMove [t.Alignment()]
 		dst
 		src
@@ -1473,3 +1474,5 @@
 (MOVBUload [off] {sym} (SB) _) && symIsRO(sym) => (MOVWconst [int32(read8(sym, int64(off)))])
 (MOVHUload [off] {sym} (SB) _) && symIsRO(sym) => (MOVWconst [int32(read16(sym, int64(off), config.ctxt.Arch.ByteOrder))])
 (MOVWload [off] {sym} (SB) _) && symIsRO(sym) => (MOVWconst [int32(read32(sym, int64(off), config.ctxt.Arch.ByteOrder))])
+(MOVBload [off] {sym} (SB) _) && symIsRO(sym) => (MOVWconst [int32(int8(read8(sym, int64(off))))])
+(MOVHload [off] {sym} (SB) _) && symIsRO(sym) => (MOVWconst [int32(int16(read16(sym, int64(off), config.ctxt.Arch.ByteOrder)))])

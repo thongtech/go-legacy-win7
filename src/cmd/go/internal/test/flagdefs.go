@@ -55,6 +55,7 @@ var passAnalyzersToVet = map[string]bool{
 	"directive":        true,
 	"errorsas":         true,
 	"framepointer":     true,
+	"hostport":         true,
 	"httpresponse":     true,
 	"ifaceassert":      true,
 	"loopclosure":      true,
@@ -77,4 +78,5 @@ var passAnalyzersToVet = map[string]bool{
 	"unreachable":      true,
 	"unsafeptr":        true,
 	"unusedresult":     true,
+	"waitgroup":        true,
 }

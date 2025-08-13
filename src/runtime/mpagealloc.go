@@ -49,6 +49,7 @@ package runtime
 
 import (
 	"internal/runtime/atomic"
+	"internal/runtime/gc"
 	"unsafe"
 )
 
@@ -58,7 +59,7 @@ const (
 	pallocChunkPages    = 1 << logPallocChunkPages
 	pallocChunkBytes    = pallocChunkPages * pageSize
 	logPallocChunkPages = 9
-	logPallocChunkBytes = logPallocChunkPages + pageShift
+	logPallocChunkBytes = logPallocChunkPages + gc.PageShift
 
 	// The number of radix bits for each level.
 	//
@@ -81,6 +82,8 @@ const (
 	// there should this change.
 	pallocChunksL2Bits  = heapAddrBits - logPallocChunkBytes - pallocChunksL1Bits
 	pallocChunksL1Shift = pallocChunksL2Bits
+
+	vmaNamePageAllocIndex = "page alloc index"
 )
 
 // maxSearchAddr returns the maximum searchAddr value, which indicates
@@ -401,7 +404,7 @@ func (p *pageAlloc) grow(base, size uintptr) {
 		if p.chunks[c.l1()] == nil {
 			// Create the necessary l2 entry.
 			const l2Size = unsafe.Sizeof(*p.chunks[0])
-			r := sysAlloc(l2Size, p.sysStat)
+			r := sysAlloc(l2Size, p.sysStat, vmaNamePageAllocIndex)
 			if r == nil {
 				throw("pageAlloc: out of memory")
 			}

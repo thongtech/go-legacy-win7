@@ -37,6 +37,7 @@ TEXT runtime·rt0_go(SB),NOSPLIT|TOPFRAME,$0
 	JAL	(R25)
 
 nocgo:
+	JAL	runtime·save_g(SB)
 	// update stackguard after _cgo_init
 	MOVV	(g_stack+stack_lo)(g), R19
 	ADDV	$const_stackGuard, R19
@@ -113,10 +114,8 @@ TEXT gogo<>(SB), NOSPLIT|NOFRAME, $0
 
 	MOVV	gobuf_sp(R4), R3
 	MOVV	gobuf_lr(R4), R1
-	MOVV	gobuf_ret(R4), R19
 	MOVV	gobuf_ctxt(R4), REGCTXT
 	MOVV	R0, gobuf_sp(R4)
-	MOVV	R0, gobuf_ret(R4)
 	MOVV	R0, gobuf_lr(R4)
 	MOVV	R0, gobuf_ctxt(R4)
 	MOVV	gobuf_pc(R4), R6
@@ -468,7 +467,6 @@ TEXT gosave_systemstack_switch<>(SB),NOSPLIT|NOFRAME,$0
 	MOVV	R19, (g_sched+gobuf_pc)(g)
 	MOVV	R3, (g_sched+gobuf_sp)(g)
 	MOVV	R0, (g_sched+gobuf_lr)(g)
-	MOVV	R0, (g_sched+gobuf_ret)(g)
 	// Assert ctxt is zero. See func save.
 	MOVV	(g_sched+gobuf_ctxt)(g), R19
 	BEQ	R19, 2(PC)
@@ -659,9 +657,9 @@ TEXT runtime·setg(SB), NOSPLIT, $0-8
 	JAL	runtime·save_g(SB)
 	RET
 
-// void setg_gcc(G*); set g called from gcc with g in R19
+// void setg_gcc(G*); set g called from gcc with g in R4
 TEXT setg_gcc<>(SB),NOSPLIT,$0-0
-	MOVV	R19, g
+	MOVV	R4, g
 	JAL	runtime·save_g(SB)
 	RET
 
@@ -678,10 +676,6 @@ TEXT runtime·memhash32<ABIInternal>(SB),NOSPLIT|NOFRAME,$0-24
 	JMP	runtime·memhash32Fallback<ABIInternal>(SB)
 TEXT runtime·memhash64<ABIInternal>(SB),NOSPLIT|NOFRAME,$0-24
 	JMP	runtime·memhash64Fallback<ABIInternal>(SB)
-
-TEXT runtime·return0(SB), NOSPLIT, $0
-	MOVW	$0, R19
-	RET
 
 // Called from cgo wrappers, this function returns g->m->curg.stack.hi.
 // Must obey the gcc calling convention.

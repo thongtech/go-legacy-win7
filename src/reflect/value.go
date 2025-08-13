@@ -121,8 +121,8 @@ func (v Value) pointer() unsafe.Pointer {
 // packEface converts v to the empty interface.
 func packEface(v Value) any {
 	t := v.typ()
-	var i any
-	e := (*abi.EmptyInterface)(unsafe.Pointer(&i))
+	// Declare e as a struct (and not pointer to struct) to help escape analysis.
+	e := abi.EmptyInterface{}
 	// First, fill in the data portion of the interface.
 	switch {
 	case t.IfaceIndir():
@@ -145,12 +145,9 @@ func packEface(v Value) any {
 		// Value is direct, and so is the interface.
 		e.Data = v.ptr
 	}
-	// Now, fill in the type portion. We're very careful here not
-	// to have any operation between the e.word and e.typ assignments
-	// that would let the garbage collector observe the partially-built
-	// interface value.
+	// Now, fill in the type portion.
 	e.Type = t
-	return i
+	return *(*any)(unsafe.Pointer(&e))
 }
 
 // unpackEface converts the empty interface i to a Value.
@@ -1219,15 +1216,7 @@ func (v Value) Elem() Value {
 	k := v.kind()
 	switch k {
 	case Interface:
-		var eface any
-		if v.typ().NumMethod() == 0 {
-			eface = *(*any)(v.ptr)
-		} else {
-			eface = (any)(*(*interface {
-				M()
-			})(v.ptr))
-		}
-		x := unpackEface(eface)
+		x := unpackEface(packIfaceValueIntoEmptyIface(v))
 		if x.flag != 0 {
 			x.flag |= v.flag.ro()
 		}
@@ -1500,17 +1489,89 @@ func valueInterface(v Value, safe bool) any {
 
 	if v.kind() == Interface {
 		// Special case: return the element inside the interface.
-		// Empty interface has one layout, all interfaces with
-		// methods have a second layout.
-		if v.NumMethod() == 0 {
-			return *(*any)(v.ptr)
-		}
-		return *(*interface {
-			M()
-		})(v.ptr)
+		return packIfaceValueIntoEmptyIface(v)
 	}
 
 	return packEface(v)
+}
+
+// TypeAssert is semantically equivalent to:
+//
+//	v2, ok := v.Interface().(T)
+func TypeAssert[T any](v Value) (T, bool) {
+	if v.flag == 0 {
+		panic(&ValueError{"reflect.TypeAssert", Invalid})
+	}
+	if v.flag&flagRO != 0 {
+		// Do not allow access to unexported values via TypeAssert,
+		// because they might be pointers that should not be
+		// writable or methods or function that should not be callable.
+		panic("reflect.TypeAssert: cannot return value obtained from unexported field or method")
+	}
+
+	if v.flag&flagMethod != 0 {
+		v = makeMethodValue("TypeAssert", v)
+	}
+
+	typ := abi.TypeFor[T]()
+
+	// If v is an interface, return the element inside the interface.
+	//
+	// T is a concrete type and v is an interface. For example:
+	//
+	//	var v any = int(1)
+	//	val := ValueOf(&v).Elem()
+	//	TypeAssert[int](val) == val.Interface().(int)
+	//
+	// T is a interface and v is a non-nil interface value. For example:
+	//
+	//	var v any = &someError{}
+	//	val := ValueOf(&v).Elem()
+	//	TypeAssert[error](val) == val.Interface().(error)
+	//
+	// T is a interface and v is a nil interface value. For example:
+	//
+	//	var v error = nil
+	//	val := ValueOf(&v).Elem()
+	//	TypeAssert[error](val) == val.Interface().(error)
+	if v.kind() == Interface {
+		v, ok := packIfaceValueIntoEmptyIface(v).(T)
+		return v, ok
+	}
+
+	// If T is an interface and v is a concrete type. For example:
+	//
+	//	TypeAssert[any](ValueOf(1)) == ValueOf(1).Interface().(any)
+	//	TypeAssert[error](ValueOf(&someError{})) == ValueOf(&someError{}).Interface().(error)
+	if typ.Kind() == abi.Interface {
+		v, ok := packEface(v).(T)
+		return v, ok
+	}
+
+	// Both v and T must be concrete types.
+	// The only way for an type-assertion to match is if the types are equal.
+	if typ != v.typ() {
+		var zero T
+		return zero, false
+	}
+	if v.flag&flagIndir == 0 {
+		return *(*T)(unsafe.Pointer(&v.ptr)), true
+	}
+	return *(*T)(v.ptr), true
+}
+
+// packIfaceValueIntoEmptyIface converts an interface Value into an empty interface.
+//
+// Precondition: v.kind() == Interface
+func packIfaceValueIntoEmptyIface(v Value) any {
+	// Empty interface has one layout, all interfaces with
+	// methods have a second layout.
+	if v.NumMethod() == 0 {
+		return *(*any)(v.ptr)
+	}
+	return *(*interface {
+		M()
+	})(v.ptr)
 }
 
 // InterfaceData returns a pair of unspecified uintptr values.
@@ -1588,6 +1649,9 @@ func (v Value) IsZero() bool {
 		if v.flag&flagIndir == 0 {
 			return v.ptr == nil
 		}
+		if v.ptr == unsafe.Pointer(&zeroVal[0]) {
+			return true
+		}
 		typ := (*abi.ArrayType)(unsafe.Pointer(v.typ()))
 		// If the type is comparable, then compare directly with zero.
 		if typ.Equal != nil && typ.Size() <= abi.ZeroValSize {
@@ -1615,6 +1679,9 @@ func (v Value) IsZero() bool {
 	case Struct:
 		if v.flag&flagIndir == 0 {
 			return v.ptr == nil
+		}
+		if v.ptr == unsafe.Pointer(&zeroVal[0]) {
+			return true
 		}
 		typ := (*abi.StructType)(unsafe.Pointer(v.typ()))
 		// If the type is comparable, then compare directly with zero.
@@ -1799,6 +1866,9 @@ func copyVal(typ *abi.Type, fl flag, ptr unsafe.Pointer) Value {
 // The arguments to a Call on the returned function should not include
 // a receiver; the returned function will always use v as the receiver.
 // Method panics if i is out of range or if v is a nil interface value.
+//
+// Calling this method will force the linker to retain all exported methods in all packages.
+// This may make the executable binary larger but will not affect execution time.
 func (v Value) Method(i int) Value {
 	if v.typ() == nil {
 		panic(&ValueError{"reflect.Value.Method", Invalid})
@@ -1835,6 +1905,10 @@ func (v Value) NumMethod() int {
 // The arguments to a Call on the returned function should not include
 // a receiver; the returned function will always use v as the receiver.
 // It returns the zero Value if no method was found.
+//
+// Calling this method will cause the linker to retain all methods with this name in all packages.
+// If the linker can't determine the name, it will retain all exported methods.
+// This may make the executable binary larger but will not affect execution time.
 func (v Value) MethodByName(name string) Value {
 	if v.typ() == nil {
 		panic(&ValueError{"reflect.Value.MethodByName", Invalid})

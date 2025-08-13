@@ -24,6 +24,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/directive"
 	"golang.org/x/tools/go/analysis/passes/errorsas"
 	"golang.org/x/tools/go/analysis/passes/framepointer"
+	"golang.org/x/tools/go/analysis/passes/hostport"
 	"golang.org/x/tools/go/analysis/passes/httpresponse"
 	"golang.org/x/tools/go/analysis/passes/ifaceassert"
 	"golang.org/x/tools/go/analysis/passes/loopclosure"
@@ -44,6 +45,7 @@ import (
 	"golang.org/x/tools/go/analysis/passes/unreachable"
 	"golang.org/x/tools/go/analysis/passes/unsafeptr"
 	"golang.org/x/tools/go/analysis/passes/unusedresult"
+	"golang.org/x/tools/go/analysis/passes/waitgroup"
 )
 
 func main() {
@@ -66,6 +68,7 @@ func main() {
 		errorsas.Analyzer,
 		framepointer.Analyzer,
 		httpresponse.Analyzer,
+		hostport.Analyzer,
 		ifaceassert.Analyzer,
 		loopclosure.Analyzer,
 		lostcancel.Analyzer,
@@ -85,6 +88,7 @@ func main() {
 		unreachable.Analyzer,
 		unsafeptr.Analyzer,
 		unusedresult.Analyzer,
+		waitgroup.Analyzer,
 	)
 
 	// It's possible that unitchecker will exit early. In

@@ -8,7 +8,6 @@ import (
 	"internal/abi"
 	"internal/chacha8rand"
 	"internal/goarch"
-	"internal/goexperiment"
 	"internal/runtime/atomic"
 	"internal/runtime/sys"
 	"unsafe"
@@ -312,7 +311,6 @@ type gobuf struct {
 	pc   uintptr
 	g    guintptr
 	ctxt unsafe.Pointer
-	ret  uintptr
 	lr   uintptr
 	bp   uintptr // for framepointer-enabled architectures
 }
@@ -460,37 +458,39 @@ type g struct {
 	inMarkAssist bool
 	coroexit     bool // argument to coroswitch_m
 
-	raceignore    int8  // ignore race detection events
-	nocgocallback bool  // whether disable callback from C
-	tracking      bool  // whether we're tracking this G for sched latency statistics
-	trackingSeq   uint8 // used to decide whether to track this G
-	trackingStamp int64 // timestamp of when the G last started being tracked
-	runnableTime  int64 // the amount of time spent runnable, cleared when running, only used when tracking
-	lockedm       muintptr
-	fipsIndicator uint8
-	sig           uint32
-	writebuf      []byte
-	sigcode0      uintptr
-	sigcode1      uintptr
-	sigpc         uintptr
-	parentGoid    uint64          // goid of goroutine that created this goroutine
-	gopc          uintptr         // pc of go statement that created this goroutine
-	ancestors     *[]ancestorInfo // ancestor information goroutine(s) that created this goroutine (only used if debug.tracebackancestors)
-	startpc       uintptr         // pc of goroutine function
-	racectx       uintptr
-	waiting       *sudog         // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
-	cgoCtxt       []uintptr      // cgo traceback context
-	labels        unsafe.Pointer // profiler labels
-	timer         *timer         // cached timer for time.Sleep
-	sleepWhen     int64          // when to sleep until
-	selectDone    atomic.Uint32  // are we participating in a select and did someone win the race?
+	raceignore      int8  // ignore race detection events
+	nocgocallback   bool  // whether disable callback from C
+	tracking        bool  // whether we're tracking this G for sched latency statistics
+	trackingSeq     uint8 // used to decide whether to track this G
+	trackingStamp   int64 // timestamp of when the G last started being tracked
+	runnableTime    int64 // the amount of time spent runnable, cleared when running, only used when tracking
+	lockedm         muintptr
+	fipsIndicator   uint8
+	syncSafePoint   bool // set if g is stopped at a synchronous safe point.
+	runningCleanups atomic.Bool
+	sig             uint32
+	writebuf        []byte
+	sigcode0        uintptr
+	sigcode1        uintptr
+	sigpc           uintptr
+	parentGoid      uint64          // goid of goroutine that created this goroutine
+	gopc            uintptr         // pc of go statement that created this goroutine
+	ancestors       *[]ancestorInfo // ancestor information goroutine(s) that created this goroutine (only used if debug.tracebackancestors)
+	startpc         uintptr         // pc of goroutine function
+	racectx         uintptr
+	waiting         *sudog         // sudog structures this g is waiting on (that have a valid elem ptr); in lock order
+	cgoCtxt         []uintptr      // cgo traceback context
+	labels          unsafe.Pointer // profiler labels
+	timer           *timer         // cached timer for time.Sleep
+	sleepWhen       int64          // when to sleep until
+	selectDone      atomic.Uint32  // are we participating in a select and did someone win the race?
 
 	// goroutineProfiled indicates the status of this goroutine's stack for the
 	// current in-progress goroutine profile
 	goroutineProfiled goroutineProfileStateHolder
 
-	coroarg   *coro // argument during coroutine transfers
-	syncGroup *synctestGroup
+	coroarg *coro // argument during coroutine transfers
+	bubble  *synctestBubble
 
 	// Per-G tracer state.
 	trace gTraceState
@@ -505,6 +505,10 @@ type g struct {
 	// and check for debt in the malloc hot path. The assist ratio
 	// determines how this corresponds to scan work debt.
 	gcAssistBytes int64
+
+	// valgrindStackID is used to track what memory is used for stacks when a program is
+	// built with the "valgrind" build tag, otherwise it is unused.
+	valgrindStackID uintptr
 }
 
 // gTrackingPeriod is the number of transitions out of _Grunning between
@@ -528,8 +532,7 @@ const (
 type m struct {
 	g0      *g     // goroutine with scheduling stack
 	morebuf gobuf  // gobuf arg to morestack
-	divmod  uint32 // div/mod denominator for arm - known to liblink
-	_       uint32 // align next field to 8 bytes
+	divmod  uint32 // div/mod denominator for arm - known to liblink (cmd/internal/obj/arm/obj5.go)
 
 	// Fields not known to debuggers.
 	procid          uint64            // for debuggers, but offset not hard-coded
@@ -622,12 +625,18 @@ type m struct {
 	// Up to 10 locks held by this m, maintained by the lock ranking code.
 	locksHeldLen int
 	locksHeld    [10]heldLockInfo
+}
+
+const mRedZoneSize = (16 << 3) * asanenabledBit // redZoneSize(2048)
+
+type mPadded struct {
+	m
 
 	// Size the runtime.m structure so it fits in the 2048-byte size class, and
 	// not in the next-smallest (1792-byte) size class. That leaves the 11 low
-	// bits of muintptr values available for flags, as required for
-	// GOEXPERIMENT=spinbitmutex.
-	_ [goexperiment.SpinbitMutexInt * 700 * (2 - goarch.PtrSize/4)]byte
+	// bits of muintptr values available for flags, as required by
+	// lock_spinbit.go.
+	_ [(1 - goarch.IsWasm) * (2048 - mallocHeaderSize - mRedZoneSize - unsafe.Sizeof(m{}))]byte
 }
 
 type p struct {
@@ -668,10 +677,7 @@ type p struct {
 	runnext guintptr
 
 	// Available G's (status == Gdead)
-	gFree struct {
-		gList
-		n int32
-	}
+	gFree gList
 
 	sudogcache []*sudog
 	sudogbuf   [128]*sudog
@@ -731,6 +737,10 @@ type p struct {
 	// Timer heap.
 	timers timers
 
+	// Cleanups.
+	cleanups       *cleanupBlock
+	cleanupsQueued uint64 // monotonic count of cleanups queued by this P
+
 	// maxStackScanDelta accumulates the amount of stack space held by
 	// live goroutines (i.e. those eligible for stack scanning).
 	// Flushed to gcController.maxStackScan once maxStackScanSlack
@@ -757,9 +767,10 @@ type p struct {
 }
 
 type schedt struct {
-	goidgen   atomic.Uint64
-	lastpoll  atomic.Int64 // time of last network poll, 0 if currently polling
-	pollUntil atomic.Int64 // time to which current poll is sleeping
+	goidgen    atomic.Uint64
+	lastpoll   atomic.Int64 // time of last network poll, 0 if currently polling
+	pollUntil  atomic.Int64 // time to which current poll is sleeping
+	pollingNet atomic.Int32 // 1 if some P doing non-blocking network poll
 
 	lock mutex
 
@@ -782,8 +793,7 @@ type schedt struct {
 	needspinning atomic.Uint32 // See "Delicate dance" comment in proc.go. Boolean. Must hold sched.lock to set to 1.
 
 	// Global runnable queue.
-	runq     gQueue
-	runqsize int32
+	runq gQueue
 
 	// disable controls selective disabling of the scheduler.
 	//
@@ -794,7 +804,6 @@ type schedt struct {
 		// user disables scheduling of user goroutines.
 		user     bool
 		runnable gQueue // pending runnable Gs
-		n        int32  // length of runnable
 	}
 
 	// Global cache of dead G's.
@@ -802,7 +811,6 @@ type schedt struct {
 		lock    mutex
 		stack   gList // Gs with stacks
 		noStack gList // Gs without stacks
-		n       int32
 	}
 
 	// Central cache of sudog structs.
@@ -833,6 +841,8 @@ type schedt struct {
 
 	procresizetime int64 // nanotime() of last change to gomaxprocs
 	totaltime      int64 // ∫gomaxprocs dt up to procresizetime
+
+	customGOMAXPROCS bool // GOMAXPROCS was manually set from the environment or runtime.GOMAXPROCS
 
 	// sysmonlock protects sysmon's actions on the runtime.
 	//
@@ -1017,6 +1027,7 @@ type _panic struct {
 	slotsPtr     unsafe.Pointer
 
 	recovered   bool // whether this panic has been recovered
+	repanicked  bool // whether this panic repanicked
 	goexit      bool
 	deferreturn bool
 }
@@ -1060,6 +1071,7 @@ const (
 	waitReasonChanSend                                // "chan send"
 	waitReasonFinalizerWait                           // "finalizer wait"
 	waitReasonForceGCIdle                             // "force gc (idle)"
+	waitReasonUpdateGOMAXPROCSIdle                    // "GOMAXPROCS updater (idle)"
 	waitReasonSemacquire                              // "semacquire"
 	waitReasonSleep                                   // "sleep"
 	waitReasonSyncCondWait                            // "sync.Cond.Wait"
@@ -1083,9 +1095,11 @@ const (
 	waitReasonGCWeakToStrongWait                      // "GC weak to strong wait"
 	waitReasonSynctestRun                             // "synctest.Run"
 	waitReasonSynctestWait                            // "synctest.Wait"
-	waitReasonSynctestChanReceive                     // "chan receive (synctest)"
-	waitReasonSynctestChanSend                        // "chan send (synctest)"
-	waitReasonSynctestSelect                          // "select (synctest)"
+	waitReasonSynctestChanReceive                     // "chan receive (durable)"
+	waitReasonSynctestChanSend                        // "chan send (durable)"
+	waitReasonSynctestSelect                          // "select (durable)"
+	waitReasonSynctestWaitGroupWait                   // "sync.WaitGroup.Wait (durable)"
+	waitReasonCleanupWait                             // "cleanup wait"
 )
 
 var waitReasonStrings = [...]string{
@@ -1107,6 +1121,7 @@ var waitReasonStrings = [...]string{
 	waitReasonChanSend:              "chan send",
 	waitReasonFinalizerWait:         "finalizer wait",
 	waitReasonForceGCIdle:           "force gc (idle)",
+	waitReasonUpdateGOMAXPROCSIdle:  "GOMAXPROCS updater (idle)",
 	waitReasonSemacquire:            "semacquire",
 	waitReasonSleep:                 "sleep",
 	waitReasonSyncCondWait:          "sync.Cond.Wait",
@@ -1130,9 +1145,11 @@ var waitReasonStrings = [...]string{
 	waitReasonGCWeakToStrongWait:    "GC weak to strong wait",
 	waitReasonSynctestRun:           "synctest.Run",
 	waitReasonSynctestWait:          "synctest.Wait",
-	waitReasonSynctestChanReceive:   "chan receive (synctest)",
-	waitReasonSynctestChanSend:      "chan send (synctest)",
-	waitReasonSynctestSelect:        "select (synctest)",
+	waitReasonSynctestChanReceive:   "chan receive (durable)",
+	waitReasonSynctestChanSend:      "chan send (durable)",
+	waitReasonSynctestSelect:        "select (durable)",
+	waitReasonSynctestWaitGroupWait: "sync.WaitGroup.Wait (durable)",
+	waitReasonCleanupWait:           "cleanup wait",
 }
 
 func (w waitReason) String() string {
@@ -1177,27 +1194,27 @@ func (w waitReason) isIdleInSynctest() bool {
 
 // isIdleInSynctest indicates that a goroutine is considered idle by synctest.Wait.
 var isIdleInSynctest = [len(waitReasonStrings)]bool{
-	waitReasonChanReceiveNilChan:  true,
-	waitReasonChanSendNilChan:     true,
-	waitReasonSelectNoCases:       true,
-	waitReasonSleep:               true,
-	waitReasonSyncCondWait:        true,
-	waitReasonSyncWaitGroupWait:   true,
-	waitReasonCoroutine:           true,
-	waitReasonSynctestRun:         true,
-	waitReasonSynctestWait:        true,
-	waitReasonSynctestChanReceive: true,
-	waitReasonSynctestChanSend:    true,
-	waitReasonSynctestSelect:      true,
+	waitReasonChanReceiveNilChan:    true,
+	waitReasonChanSendNilChan:       true,
+	waitReasonSelectNoCases:         true,
+	waitReasonSleep:                 true,
+	waitReasonSyncCondWait:          true,
+	waitReasonSynctestWaitGroupWait: true,
+	waitReasonCoroutine:             true,
+	waitReasonSynctestRun:           true,
+	waitReasonSynctestWait:          true,
+	waitReasonSynctestChanReceive:   true,
+	waitReasonSynctestChanSend:      true,
+	waitReasonSynctestSelect:        true,
 }
 
 var (
-	allm       *m
-	gomaxprocs int32
-	ncpu       int32
-	forcegc    forcegcstate
-	sched      schedt
-	newprocs   int32
+	allm          *m
+	gomaxprocs    int32
+	numCPUStartup int32
+	forcegc       forcegcstate
+	sched         schedt
+	newprocs      int32
 )
 
 var (

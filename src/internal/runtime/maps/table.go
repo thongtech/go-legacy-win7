@@ -103,7 +103,7 @@ func (t *table) reset(typ *abi.SwissMapType, capacity uint16) {
 	groupCount := uint64(capacity) / abi.SwissMapGroupSlots
 	t.groups = newGroups(typ, groupCount)
 	t.capacity = capacity
-	t.resetGrowthLeft()
+	t.growthLeft = t.maxGrowthLeft()
 
 	for i := uint64(0); i <= t.groups.lengthMask; i++ {
 		g := t.groups.group(typ, i)
@@ -111,9 +111,9 @@ func (t *table) reset(typ *abi.SwissMapType, capacity uint16) {
 	}
 }
 
-// Preconditions: table must be empty.
-func (t *table) resetGrowthLeft() {
-	var growthLeft uint16
+// maxGrowthLeft is the number of inserts we can do before
+// resizing, starting from an empty table.
+func (t *table) maxGrowthLeft() uint16 {
 	if t.capacity == 0 {
 		// No real reason to support zero capacity table, since an
 		// empty Map simply won't have a table.
@@ -125,15 +125,15 @@ func (t *table) resetGrowthLeft() {
 		//
 		// TODO(go.dev/issue/54766): With a special case in probing for
 		// single-group tables, we could fill all slots.
-		growthLeft = t.capacity - 1
+		return t.capacity - 1
 	} else {
 		if t.capacity*maxAvgGroupLoad < t.capacity {
 			// TODO(prattmic): Do something cleaner.
 			panic("overflow")
 		}
-		growthLeft = (t.capacity * maxAvgGroupLoad) / abi.SwissMapGroupSlots
+		return (t.capacity * maxAvgGroupLoad) / abi.SwissMapGroupSlots
 	}
-	t.growthLeft = growthLeft
+
 }
 
 func (t *table) Used() uint64 {
@@ -326,6 +326,11 @@ func (t *table) PutSlot(typ *abi.SwissMapType, m *Map, hash uintptr, key unsafe.
 			t.growthLeft++ // will be decremented below to become a no-op.
 		}
 
+		// If we have no space left, first try to remove some tombstones.
+		if t.growthLeft == 0 {
+			t.pruneTombstones(typ, m)
+		}
+
 		// If there is room left to grow, just insert the new entry.
 		if t.growthLeft > 0 {
 			slotKey := g.key(typ, i)
@@ -412,7 +417,8 @@ func (t *table) uncheckedPutSlot(typ *abi.SwissMapType, hash uintptr, key, elem 
 	}
 }
 
-func (t *table) Delete(typ *abi.SwissMapType, m *Map, hash uintptr, key unsafe.Pointer) {
+// Delete returns true if it put a tombstone in t.
+func (t *table) Delete(typ *abi.SwissMapType, m *Map, hash uintptr, key unsafe.Pointer) bool {
 	seq := makeProbeSeq(h1(hash), t.groups.lengthMask)
 	for ; ; seq = seq.next() {
 		g := t.groups.group(typ, seq.offset)
@@ -461,15 +467,17 @@ func (t *table) Delete(typ *abi.SwissMapType, m *Map, hash uintptr, key unsafe.P
 				// full now, we can simply remove the element.
 				// Otherwise, we create a tombstone to mark the
 				// slot as deleted.
+				var tombstone bool
 				if g.ctrls().matchEmpty() != 0 {
 					g.ctrls().set(i, ctrlEmpty)
 					t.growthLeft++
 				} else {
 					g.ctrls().set(i, ctrlDeleted)
+					tombstone = true
 				}
 
 				t.checkInvariants(typ, m)
-				return
+				return tombstone
 			}
 			match = match.removeFirst()
 		}
@@ -478,8 +486,104 @@ func (t *table) Delete(typ *abi.SwissMapType, m *Map, hash uintptr, key unsafe.P
 		if match != 0 {
 			// Finding an empty slot means we've reached the end of
 			// the probe sequence.
-			return
+			return false
 		}
+	}
+}
+
+// pruneTombstones goes through the table and tries to remove
+// tombstones that are no longer needed. Best effort.
+// Note that it only removes tombstones, it does not move elements.
+// Moving elements would do a better job but is infeasbile due to
+// iterator semantics.
+//
+// Pruning should only succeed if it can remove O(n) tombstones.
+// It would be bad if we did O(n) work to find 1 tombstone to remove.
+// Then the next insert would spend another O(n) work to find 1 more
+// tombstone to remove, etc.
+//
+// We really need to remove O(n) tombstones so we can pay for the cost
+// of finding them. If we can't, then we need to grow (which is also O(n),
+// but guarantees O(n) subsequent inserts can happen in constant time).
+func (t *table) pruneTombstones(typ *abi.SwissMapType, m *Map) {
+	if t.tombstones()*10 < t.capacity { // 10% of capacity
+		// Not enough tombstones to be worth the effort.
+		return
+	}
+
+	// Bit set marking all the groups whose tombstones are needed.
+	var needed [(maxTableCapacity/abi.SwissMapGroupSlots + 31) / 32]uint32
+
+	// Trace the probe sequence of every full entry.
+	for i := uint64(0); i <= t.groups.lengthMask; i++ {
+		g := t.groups.group(typ, i)
+		match := g.ctrls().matchFull()
+		for match != 0 {
+			j := match.first()
+			match = match.removeFirst()
+			key := g.key(typ, j)
+			if typ.IndirectKey() {
+				key = *((*unsafe.Pointer)(key))
+			}
+			if !typ.Key.Equal(key, key) {
+				// Key not equal to itself. We never have to find these
+				// keys on lookup (only on iteration), so we can break
+				// their probe sequences at will.
+				continue
+			}
+			// Walk probe sequence for this key.
+			// Each tombstone group we need to walk past is marked required.
+			hash := typ.Hasher(key, m.seed)
+			for seq := makeProbeSeq(h1(hash), t.groups.lengthMask); ; seq = seq.next() {
+				if seq.offset == i {
+					break // reached group of element in probe sequence
+				}
+				g := t.groups.group(typ, seq.offset)
+				m := g.ctrls().matchEmptyOrDeleted()
+				if m != 0 { // must be deleted, not empty, as we haven't found our key yet
+					// Mark this group's tombstone as required.
+					needed[seq.offset/32] |= 1 << (seq.offset % 32)
+				}
+			}
+		}
+		if g.ctrls().matchEmpty() != 0 {
+			// Also mark non-tombstone-containing groups, so we don't try
+			// to remove tombstones from them below.
+			needed[i/32] |= 1 << (i % 32)
+		}
+	}
+
+	// First, see if we can remove enough tombstones to restore capacity.
+	// This function is O(n), so only remove tombstones if we can remove
+	// enough of them to justify the O(n) cost.
+	cnt := 0
+	for i := uint64(0); i <= t.groups.lengthMask; i++ {
+		if needed[i/32]>>(i%32)&1 != 0 {
+			continue
+		}
+		g := t.groups.group(typ, i)
+		m := g.ctrls().matchEmptyOrDeleted() // must be deleted
+		cnt += m.count()
+	}
+	if cnt*10 < int(t.capacity) { // Can we restore 10% of capacity?
+		return // don't bother removing tombstones. Caller will grow instead.
+	}
+
+	// Prune unneeded tombstones.
+	for i := uint64(0); i <= t.groups.lengthMask; i++ {
+		if needed[i/32]>>(i%32)&1 != 0 {
+			continue
+		}
+		g := t.groups.group(typ, i)
+		m := g.ctrls().matchEmptyOrDeleted() // must be deleted
+		for m != 0 {
+			k := m.first()
+			m = m.removeFirst()
+			g.ctrls().set(k, ctrlEmpty)
+			t.growthLeft++
+		}
+		// TODO: maybe we could convert all slots at once
+		// using some bitvector trickery.
 	}
 }
 
@@ -492,14 +596,19 @@ func (t *table) tombstones() uint16 {
 
 // Clear deletes all entries from the map resulting in an empty map.
 func (t *table) Clear(typ *abi.SwissMapType) {
+	mgl := t.maxGrowthLeft()
+	if t.used == 0 && t.growthLeft == mgl { // no current entries and no tombstones
+		return
+	}
 	for i := uint64(0); i <= t.groups.lengthMask; i++ {
 		g := t.groups.group(typ, i)
-		typedmemclr(typ.Group, g.data)
+		if g.ctrls().matchFull() != 0 {
+			typedmemclr(typ.Group, g.data)
+		}
 		g.ctrls().setEmpty()
 	}
-
 	t.used = 0
-	t.resetGrowthLeft()
+	t.growthLeft = mgl
 }
 
 type Iter struct {
@@ -1151,4 +1260,23 @@ func (s probeSeq) next() probeSeq {
 	s.index++
 	s.offset = (s.offset + s.index) & s.mask
 	return s
+}
+
+func (t *table) clone(typ *abi.SwissMapType) *table {
+	// Shallow copy the table structure.
+	t2 := new(table)
+	*t2 = *t
+	t = t2
+
+	// We need to just deep copy the groups.data field.
+	oldGroups := t.groups
+	newGroups := newGroups(typ, oldGroups.lengthMask+1)
+	for i := uint64(0); i <= oldGroups.lengthMask; i++ {
+		oldGroup := oldGroups.group(typ, i)
+		newGroup := newGroups.group(typ, i)
+		cloneGroup(typ, newGroup, oldGroup)
+	}
+	t.groups = newGroups
+
+	return t
 }

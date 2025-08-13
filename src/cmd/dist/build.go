@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -104,16 +105,6 @@ var okgoos = []string{
 	"aix",
 }
 
-// find reports the first index of p in l[0:n], or else -1.
-func find(p string, l []string) int {
-	for i, s := range l {
-		if p == s {
-			return i
-		}
-	}
-	return -1
-}
-
 // xinit handles initialization of the various global state, like goroot and goarch.
 func xinit() {
 	b := os.Getenv("GOROOT")
@@ -134,7 +125,7 @@ func xinit() {
 		b = gohostos
 	}
 	goos = b
-	if find(goos, okgoos) < 0 {
+	if slices.Index(okgoos, goos) < 0 {
 		fatalf("unknown $GOOS %s", goos)
 	}
 
@@ -202,7 +193,7 @@ func xinit() {
 	if b != "" {
 		gohostarch = b
 	}
-	if find(gohostarch, okgoarch) < 0 {
+	if slices.Index(okgoarch, gohostarch) < 0 {
 		fatalf("unknown $GOHOSTARCH %s", gohostarch)
 	}
 
@@ -211,7 +202,7 @@ func xinit() {
 		b = gohostarch
 	}
 	goarch = b
-	if find(goarch, okgoarch) < 0 {
+	if slices.Index(okgoarch, goarch) < 0 {
 		fatalf("unknown $GOARCH %s", goarch)
 	}
 
@@ -283,7 +274,8 @@ func xinit() {
 	tooldir = pathf("%s/pkg/tool/%s_%s", goroot, gohostos, gohostarch)
 
 	goversion := findgoversion()
-	isRelease = strings.HasPrefix(goversion, "release.") || strings.HasPrefix(goversion, "go")
+	isRelease = (strings.HasPrefix(goversion, "release.") || strings.HasPrefix(goversion, "go")) &&
+		!strings.Contains(goversion, "devel")
 }
 
 // compilerEnv returns a map from "goos/goarch" to the
@@ -434,6 +426,10 @@ func findgoversion() string {
 	// Otherwise, use Git.
 	//
 	// Include 1.x base version, hash, and date in the version.
+	// Make sure it includes the substring "devel", but otherwise
+	// use a format compatible with https://go.dev/doc/toolchain#name
+	// so that it's possible to use go/version.Lang, Compare and so on.
+	// See go.dev/issue/73372.
 	//
 	// Note that we lightly parse internal/goversion/goversion.go to
 	// obtain the base version. We can't just import the package,
@@ -445,7 +441,7 @@ func findgoversion() string {
 	if m == nil {
 		fatalf("internal/goversion/goversion.go does not contain 'const Version = ...'")
 	}
-	version := fmt.Sprintf("devel go1.%s-", m[1])
+	version := fmt.Sprintf("go1.%s-devel_", m[1])
 	version += chomp(run(goroot, CheckExit, "git", "log", "-n", "1", "--format=format:%h %cd", "HEAD"))
 
 	// Cache version.
@@ -624,7 +620,7 @@ func setup() {
 func mustLinkExternal(goos, goarch string, cgoEnabled bool) bool {
 	if cgoEnabled {
 		switch goarch {
-		case "loong64", "mips", "mipsle", "mips64", "mips64le":
+		case "mips", "mipsle", "mips64", "mips64le":
 			// Internally linking cgo is incomplete on some architectures.
 			// https://golang.org/issue/14449
 			return true
@@ -677,7 +673,6 @@ var gentab = []struct {
 	file string
 	gen  func(dir, file string)
 }{
-	{"go/build", "zcgo.go", mkzcgo},
 	{"cmd/go/internal/cfg", "zdefaultcc.go", mkzdefaultcc},
 	{"internal/runtime/sys", "zversion.go", mkzversion},
 	{"time/tzdata", "zzipdata.go", mktzdata},
@@ -1395,7 +1390,21 @@ func toolenv() []string {
 	return env
 }
 
-var toolchain = []string{"cmd/asm", "cmd/cgo", "cmd/compile", "cmd/link", "cmd/preprofile"}
+var (
+	toolchain = []string{"cmd/asm", "cmd/cgo", "cmd/compile", "cmd/link", "cmd/preprofile"}
+
+	// Keep in sync with binExes in cmd/distpack/pack.go.
+	binExesIncludedInDistpack = []string{"cmd/go", "cmd/gofmt"}
+
+	// Keep in sync with the filter in cmd/distpack/pack.go.
+	toolsIncludedInDistpack = []string{"cmd/asm", "cmd/cgo", "cmd/compile", "cmd/cover", "cmd/link", "cmd/preprofile", "cmd/vet"}
+
+	// We could install all tools in "cmd", but is unnecessary because we will
+	// remove them in distpack, so instead install the tools that will actually
+	// be included in distpack, which is a superset of toolchain. Not installing
+	// the tools will help us test what happens when the tools aren't present.
+	toolsToInstall = slices.Concat(binExesIncludedInDistpack, toolsIncludedInDistpack)
+)
 
 // The bootstrap command runs a build from scratch,
 // stopping at having installed the go_bootstrap command.
@@ -1461,11 +1470,6 @@ func cmdbootstrap() {
 	// GOEXPERIMENT.
 	os.Setenv("GOEXPERIMENT", "none")
 
-	if debug {
-		// cmd/buildid is used in debug mode.
-		toolchain = append(toolchain, "cmd/buildid")
-	}
-
 	if isdir(pathf("%s/src/pkg", goroot)) {
 		fatalf("\n\n"+
 			"The Go package sources have moved to $GOROOT/src.\n"+
@@ -1521,7 +1525,7 @@ func cmdbootstrap() {
 	}
 
 	// To recap, so far we have built the new toolchain
-	// (cmd/asm, cmd/cgo, cmd/compile, cmd/link)
+	// (cmd/asm, cmd/cgo, cmd/compile, cmd/link, cmd/preprofile)
 	// using the Go bootstrap toolchain and go command.
 	// Then we built the new go command (as go_bootstrap)
 	// using the new toolchain and our own build logic (above).
@@ -1610,9 +1614,9 @@ func cmdbootstrap() {
 			xprintf("\n")
 		}
 		xprintf("Building commands for host, %s/%s.\n", goos, goarch)
-		goInstall(toolenv(), goBootstrap, "cmd")
-		checkNotStale(toolenv(), goBootstrap, "cmd")
-		checkNotStale(toolenv(), gorootBinGo, "cmd")
+		goInstall(toolenv(), goBootstrap, toolsToInstall...)
+		checkNotStale(toolenv(), goBootstrap, toolsToInstall...)
+		checkNotStale(toolenv(), gorootBinGo, toolsToInstall...)
 
 		timelog("build", "target toolchain")
 		if vflag > 0 {
@@ -1626,12 +1630,12 @@ func cmdbootstrap() {
 		xprintf("Building packages and commands for target, %s/%s.\n", goos, goarch)
 	}
 	goInstall(nil, goBootstrap, "std")
-	goInstall(toolenv(), goBootstrap, "cmd")
+	goInstall(toolenv(), goBootstrap, toolsToInstall...)
 	checkNotStale(toolenv(), goBootstrap, toolchain...)
 	checkNotStale(nil, goBootstrap, "std")
-	checkNotStale(toolenv(), goBootstrap, "cmd")
+	checkNotStale(toolenv(), goBootstrap, toolsToInstall...)
 	checkNotStale(nil, gorootBinGo, "std")
-	checkNotStale(toolenv(), gorootBinGo, "cmd")
+	checkNotStale(toolenv(), gorootBinGo, toolsToInstall...)
 	if debug {
 		run("", ShowOutput|CheckExit, pathf("%s/compile", tooldir), "-V=full")
 		checkNotStale(toolenv(), goBootstrap, toolchain...)
@@ -1682,7 +1686,7 @@ func cmdbootstrap() {
 
 	if distpack {
 		xprintf("Packaging archives for %s/%s.\n", goos, goarch)
-		run("", ShowOutput|CheckExit, pathf("%s/distpack", tooldir))
+		run("", ShowOutput|CheckExit, gorootBinGo, "tool", "distpack")
 	}
 
 	// Print trailing banner unless instructed otherwise.
@@ -1932,7 +1936,7 @@ func banner() {
 
 	if gohostos == "plan9" {
 		// Check that GOROOT/bin is bound before /bin.
-		pid := strings.Replace(readfile("#c/pid"), " ", "", -1)
+		pid := strings.ReplaceAll(readfile("#c/pid"), " ", "")
 		ns := fmt.Sprintf("/proc/%s/ns", pid)
 		if !strings.Contains(readfile(ns), fmt.Sprintf("bind -b %s /bin", gorootBin)) {
 			xprintf("*** You need to bind %s before /bin.\n", gorootBin)

@@ -106,12 +106,18 @@ func bitsetShiftOutLowest(b bitset) bitset {
 	return b >> 8
 }
 
+// count returns the number of bits set in b.
+func (b bitset) count() int {
+	// Note: works for both bitset representations (AMD64 and generic)
+	return sys.OnesCount64(uint64(b))
+}
+
 // Each slot in the hash table has a control byte which can have one of three
 // states: empty, deleted, and full. They have the following bit patterns:
 //
 //	  empty: 1 0 0 0 0 0 0 0
 //	deleted: 1 1 1 1 1 1 1 0
-//	   full: 0 h h h h h h h  // h represents the H1 hash bits
+//	   full: 0 h h h h h h h  // h represents the H2 hash bits
 //
 // TODO(prattmic): Consider inverting the top bit so that the zero value is empty.
 type ctrl uint8
@@ -151,7 +157,7 @@ func (g ctrlGroup) matchH2(h uintptr) bitset {
 // Portable implementation of matchH2.
 //
 // Note: On AMD64, this is an intrinsic implemented with SIMD instructions. See
-// note on bitset about the packed instrinsified return value.
+// note on bitset about the packed intrinsified return value.
 func ctrlGroupMatchH2(g ctrlGroup, h uintptr) bitset {
 	// NB: This generic matching routine produces false positive matches when
 	// h is 2^N and the control bytes have a seq of 2^N followed by 2^N+1. For
@@ -173,7 +179,7 @@ func (g ctrlGroup) matchEmpty() bitset {
 // Portable implementation of matchEmpty.
 //
 // Note: On AMD64, this is an intrinsic implemented with SIMD instructions. See
-// note on bitset about the packed instrinsified return value.
+// note on bitset about the packed intrinsified return value.
 func ctrlGroupMatchEmpty(g ctrlGroup) bitset {
 	// An empty slot is   1000 0000
 	// A deleted slot is  1111 1110
@@ -194,7 +200,7 @@ func (g ctrlGroup) matchEmptyOrDeleted() bitset {
 // Portable implementation of matchEmptyOrDeleted.
 //
 // Note: On AMD64, this is an intrinsic implemented with SIMD instructions. See
-// note on bitset about the packed instrinsified return value.
+// note on bitset about the packed intrinsified return value.
 func ctrlGroupMatchEmptyOrDeleted(g ctrlGroup) bitset {
 	// An empty slot is  1000 0000
 	// A deleted slot is 1111 1110
@@ -213,7 +219,7 @@ func (g ctrlGroup) matchFull() bitset {
 // Portable implementation of matchFull.
 //
 // Note: On AMD64, this is an intrinsic implemented with SIMD instructions. See
-// note on bitset about the packed instrinsified return value.
+// note on bitset about the packed intrinsified return value.
 func ctrlGroupMatchFull(g ctrlGroup) bitset {
 	// An empty slot is  1000 0000
 	// A deleted slot is 1111 1110
@@ -321,4 +327,33 @@ func (g *groupsReference) group(typ *abi.SwissMapType, i uint64) groupReference 
 	return groupReference{
 		data: unsafe.Pointer(uintptr(g.data) + offset),
 	}
+}
+
+func cloneGroup(typ *abi.SwissMapType, newGroup, oldGroup groupReference) {
+	typedmemmove(typ.Group, newGroup.data, oldGroup.data)
+	if typ.IndirectKey() {
+		// Deep copy keys if indirect.
+		for i := uintptr(0); i < abi.SwissMapGroupSlots; i++ {
+			oldKey := *(*unsafe.Pointer)(oldGroup.key(typ, i))
+			if oldKey == nil {
+				continue
+			}
+			newKey := newobject(typ.Key)
+			typedmemmove(typ.Key, newKey, oldKey)
+			*(*unsafe.Pointer)(newGroup.key(typ, i)) = newKey
+		}
+	}
+	if typ.IndirectElem() {
+		// Deep copy elems if indirect.
+		for i := uintptr(0); i < abi.SwissMapGroupSlots; i++ {
+			oldElem := *(*unsafe.Pointer)(oldGroup.elem(typ, i))
+			if oldElem == nil {
+				continue
+			}
+			newElem := newobject(typ.Elem)
+			typedmemmove(typ.Elem, newElem, oldElem)
+			*(*unsafe.Pointer)(newGroup.elem(typ, i)) = newElem
+		}
+	}
+
 }

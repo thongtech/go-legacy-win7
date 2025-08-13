@@ -229,10 +229,17 @@ func init() {
 		{name: "AND", argLength: 2, reg: gp21, asm: "AND", commutative: true},   // arg0 & arg1
 		{name: "ANDN", argLength: 2, reg: gp21, asm: "ANDN"},                    // ^arg0 & arg1
 		{name: "ANDI", argLength: 1, reg: gp11, asm: "ANDI", aux: "Int64"},      // arg0 & auxint
+		{name: "CLZ", argLength: 1, reg: gp11, asm: "CLZ"},                      // count leading zeros
+		{name: "CLZW", argLength: 1, reg: gp11, asm: "CLZW"},                    // count leading zeros of least significant word
+		{name: "CPOP", argLength: 1, reg: gp11, asm: "CPOP"},                    // count set bits
+		{name: "CPOPW", argLength: 1, reg: gp11, asm: "CPOPW"},                  // count set bits in least significant word
+		{name: "CTZ", argLength: 1, reg: gp11, asm: "CTZ"},                      // count trailing zeros
+		{name: "CTZW", argLength: 1, reg: gp11, asm: "CTZW"},                    // count trailing zeros of least significant word
 		{name: "NOT", argLength: 1, reg: gp11, asm: "NOT"},                      // ^arg0
 		{name: "OR", argLength: 2, reg: gp21, asm: "OR", commutative: true},     // arg0 | arg1
 		{name: "ORN", argLength: 2, reg: gp21, asm: "ORN"},                      // ^arg0 | arg1
 		{name: "ORI", argLength: 1, reg: gp11, asm: "ORI", aux: "Int64"},        // arg0 | auxint
+		{name: "REV8", argLength: 1, reg: gp11, asm: "REV8"},                    // reverse bytes
 		{name: "ROL", argLength: 2, reg: gp21, asm: "ROL"},                      // rotate left arg0 by (arg1 & 63)
 		{name: "ROLW", argLength: 2, reg: gp21, asm: "ROLW"},                    // rotate left least significant word of arg0 by (arg1 & 31), sign extended
 		{name: "ROR", argLength: 2, reg: gp21, asm: "ROR"},                      // rotate right arg0 by (arg1 & 63)

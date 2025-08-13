@@ -354,6 +354,7 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 	r.performLocalQueries(ctx)
 	r.performPathQueries(ctx)
 	r.performToolQueries(ctx)
+	r.performWorkQueries(ctx)
 
 	for {
 		r.performWildcardQueries(ctx)
@@ -416,6 +417,9 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 			pkgPatterns = append(pkgPatterns, q.pattern)
 		}
 	}
+
+	// If a workspace applies, checkPackageProblems will switch to the workspace
+	// using modload.EnterWorkspace when doing the final load, and then switch back.
 	r.checkPackageProblems(ctx, pkgPatterns)
 
 	if *getTool {
@@ -527,6 +531,7 @@ type resolver struct {
 	pathQueries       []*query // package path literal queries in original order
 	wildcardQueries   []*query // path wildcard queries in original order
 	patternAllQueries []*query // queries with the pattern "all"
+	workQueries       []*query // queries with the pattern "work"
 	toolQueries       []*query // queries with the pattern "tool"
 
 	// Indexed "none" queries. These are also included in the slices above;
@@ -549,6 +554,10 @@ type resolver struct {
 	work *par.Queue
 
 	matchInModuleCache par.ErrCache[matchInModuleKey, []string]
+
+	// workspace is used to check whether, in workspace mode, any of the workspace
+	// modules would contain a package.
+	workspace *workspace
 }
 
 type versionReason struct {
@@ -582,11 +591,14 @@ func newResolver(ctx context.Context, queries []*query) *resolver {
 		buildListVersion: initialVersion,
 		initialVersion:   initialVersion,
 		nonesByPath:      map[string]*query{},
+		workspace:        loadWorkspace(modload.FindGoWork(base.Cwd())),
 	}
 
 	for _, q := range queries {
 		if q.pattern == "all" {
 			r.patternAllQueries = append(r.patternAllQueries, q)
+		} else if q.pattern == "work" {
+			r.workQueries = append(r.workQueries, q)
 		} else if q.pattern == "tool" {
 			r.toolQueries = append(r.toolQueries, q)
 		} else if q.patternIsLocal {
@@ -1079,6 +1091,37 @@ func (r *resolver) performToolQueries(ctx context.Context) {
 	}
 }
 
+// performWorkQueries populates the candidates for each query whose pattern is "work".
+// The candidate module to resolve the work pattern is exactly the single main module.
+func (r *resolver) performWorkQueries(ctx context.Context) {
+	for _, q := range r.workQueries {
+		q.pathOnce(q.pattern, func() pathSet {
+			// TODO(matloob): Maybe export MainModules.mustGetSingleMainModule and call that.
+			// There are a few other places outside the modload package where we expect
+			// a single main module.
+			if len(modload.MainModules.Versions()) != 1 {
+				panic("internal error: number of main modules is not exactly one in resolution phase of go get")
+			}
+			mainModule := modload.MainModules.Versions()[0]
+
+			// We know what the result is going to be, assuming the main module is not
+			// empty, (it's the main module itself) but first check to see that there
+			// are packages in the main module, so that if there aren't any, we can
+			// return the expected warning that the pattern matched no packages.
+			match := modload.MatchInModule(ctx, q.pattern, mainModule, imports.AnyTags())
+			if len(match.Errs) > 0 {
+				return pathSet{err: match.Errs[0]}
+			}
+			if len(match.Pkgs) == 0 {
+				search.WarnUnmatched([]*search.Match{match})
+				return pathSet{} // There are no packages in the main module, so the main module isn't needed to resolve them.
+			}
+
+			return pathSet{pkgMods: []module.Version{mainModule}}
+		})
+	}
+}
+
 // performPatternAllQueries populates the candidates for each query whose
 // pattern is "all".
 //
@@ -1250,17 +1293,21 @@ func (r *resolver) loadPackages(ctx context.Context, patterns []string, findPack
 	}
 
 	_, pkgs := modload.LoadPackages(ctx, opts, patterns...)
-	for _, path := range pkgs {
+	for _, pkgPath := range pkgs {
 		const (
 			parentPath  = ""
 			parentIsStd = false
 		)
-		_, _, err := modload.Lookup(parentPath, parentIsStd, path)
+		_, _, err := modload.Lookup(parentPath, parentIsStd, pkgPath)
 		if err == nil {
 			continue
 		}
 		if errors.Is(err, errVersionChange) {
 			// We already added candidates during loading.
+			continue
+		}
+		if r.workspace != nil && r.workspace.hasPackage(pkgPath) {
+			// Don't try to resolve imports that are in the resolver's associated workspace. (#73654)
 			continue
 		}
 
@@ -1275,7 +1322,7 @@ func (r *resolver) loadPackages(ctx context.Context, patterns []string, findPack
 			continue
 		}
 
-		path := path
+		path := pkgPath
 		r.work.Add(func() {
 			findPackage(ctx, path, module.Version{})
 		})
@@ -1574,6 +1621,27 @@ func (r *resolver) chooseArbitrarily(cs pathSet) (isPackage bool, m module.Versi
 func (r *resolver) checkPackageProblems(ctx context.Context, pkgPatterns []string) {
 	defer base.ExitIfErrors()
 
+	// Enter workspace mode, if the current main module would belong to it, when
+	// doing the workspace load. We want to check that the workspace loads properly
+	// and doesn't have missing or ambiguous imports (rather than checking the module
+	// by itself) because the module may have unreleased dependencies in the workspace.
+	// We'll also report issues for retracted and deprecated modules using the workspace
+	// info, but switch back to single module mode when fetching sums so that we update
+	// the single module's go.sum file.
+	var exitWorkspace func()
+	if r.workspace != nil && r.workspace.hasModule(modload.MainModules.Versions()[0].Path) {
+		var err error
+		exitWorkspace, err = modload.EnterWorkspace(ctx)
+		if err != nil {
+			// A TooNewError can happen for
+			// go get go@newversion when all the required modules
+			// are old enough but the go command itself is not new
+			// enough. See the related comment on the SwitchOrFatal
+			// in runGet when WriteGoMod returns an error.
+			toolchain.SwitchOrFatal(ctx, err)
+		}
+	}
+
 	// Gather information about modules we might want to load retractions and
 	// deprecations for. Loading this metadata requires at least one version
 	// lookup per module, and we don't want to load information that's neither
@@ -1583,7 +1651,7 @@ func (r *resolver) checkPackageProblems(ctx context.Context, pkgPatterns []strin
 		resolved modFlags = 1 << iota // version resolved by 'go get'
 		named                         // explicitly named on command line or provides a named package
 		hasPkg                        // needed to build named packages
-		direct                        // provides a direct dependency of the main module
+		direct                        // provides a direct dependency of the main module or workspace modules
 	)
 	relevantMods := make(map[module.Version]modFlags)
 	for path, reason := range r.resolvedVersion {
@@ -1674,8 +1742,8 @@ func (r *resolver) checkPackageProblems(ctx context.Context, pkgPatterns []strin
 
 	// Load deprecations for modules mentioned on the command line. Only load
 	// deprecations for indirect dependencies if they're also direct dependencies
-	// of the main module. Deprecations of purely indirect dependencies are
-	// not actionable.
+	// of the main module or workspace modules. Deprecations of purely indirect
+	// dependencies are not actionable.
 	deprecations := make([]modMessage, 0, len(relevantMods))
 	for m, flags := range relevantMods {
 		if flags&(resolved|named) != 0 || flags&(hasPkg|direct) == hasPkg|direct {
@@ -1692,6 +1760,16 @@ func (r *resolver) checkPackageProblems(ctx context.Context, pkgPatterns []strin
 			}
 			deprecations[i].message = modload.ShortMessage(deprecation, "")
 		})
+	}
+
+	// exit the workspace if we had entered it earlier. We want to add the sums
+	// to the go.sum file for the module we're running go get from.
+	if exitWorkspace != nil {
+		// Wait for retraction and deprecation checks (that depend on the global
+		// modload state containing the workspace) to finish before we reset the
+		// state back to single module mode.
+		<-r.work.Idle()
+		exitWorkspace()
 	}
 
 	// Load sums for updated modules that had sums before. When we update a
@@ -2016,4 +2094,54 @@ func isNoSuchModuleVersion(err error) bool {
 func isNoSuchPackageVersion(err error) bool {
 	var noPackage *modload.PackageNotInModuleError
 	return isNoSuchModuleVersion(err) || errors.As(err, &noPackage)
+}
+
+// workspace represents the set of modules in a workspace.
+// It can be used
+type workspace struct {
+	modules map[string]string // path -> modroot
+}
+
+// loadWorkspace loads infomation about a workspace using a go.work
+// file path.
+func loadWorkspace(workFilePath string) *workspace {
+	if workFilePath == "" {
+		// Return the empty workspace checker. All HasPackage checks will return false.
+		return nil
+	}
+
+	_, modRoots, err := modload.LoadWorkFile(workFilePath)
+	if err != nil {
+		return nil
+	}
+
+	w := &workspace{modules: make(map[string]string)}
+	for _, modRoot := range modRoots {
+		modFile := filepath.Join(modRoot, "go.mod")
+		_, f, err := modload.ReadModFile(modFile, nil)
+		if err != nil {
+			continue // Error will be reported in the final load of the workspace.
+		}
+		w.modules[f.Module.Mod.Path] = modRoot
+	}
+
+	return w
+}
+
+// hasPackage reports whether there is a workspace module that could
+// provide the package with the given path.
+func (w *workspace) hasPackage(pkgpath string) bool {
+	for modPath, modroot := range w.modules {
+		if modload.PkgIsInLocalModule(pkgpath, modPath, modroot) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasModule reports whether there is a workspace module with the given
+// path.
+func (w *workspace) hasModule(modPath string) bool {
+	_, ok := w.modules[modPath]
+	return ok
 }

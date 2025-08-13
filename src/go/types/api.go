@@ -26,6 +26,11 @@
 // specification. Use the Types field of [Info] for the results of
 // type deduction.
 //
+// Applications that need to type-check one or more complete packages
+// of Go source code may find it more convenient not to invoke the
+// type checker directly but instead to use the Load function in
+// package [golang.org/x/tools/go/packages].
+//
 // For a tutorial, see https://go.dev/s/types-tutorial.
 package types
 
@@ -228,7 +233,7 @@ type Info struct {
 	// Similarly, no type is recorded for the (synthetic) FuncType
 	// node in a FuncDecl.Type field, since there is no corresponding
 	// syntactic function type expression in the source in this case
-	// Instead, the function type is found in the Defs.map entry for
+	// Instead, the function type is found in the Defs map entry for
 	// the corresponding function declaration.
 	Types map[ast.Expr]TypeAndValue
 
@@ -253,6 +258,9 @@ type Info struct {
 	// type switch headers), the corresponding objects are nil.
 	//
 	// For an embedded field, Defs returns the field *Var it defines.
+	//
+	// In ill-typed code, such as a duplicate declaration of the
+	// same name, Defs may lack an entry for a declaring identifier.
 	//
 	// Invariant: Defs[id] == nil || Defs[id].Pos() == id.Pos()
 	Defs map[*ast.Ident]Object

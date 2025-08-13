@@ -191,6 +191,7 @@ func h2(h uintptr) uintptr {
 	return h & 0x7f
 }
 
+// Note: changes here must be reflected in cmd/compile/internal/reflectdata/map_swiss.go:SwissMapType.
 type Map struct {
 	// The number of filled slots (i.e. the number of elements in all
 	// tables). Excludes deleted slots.
@@ -234,6 +235,10 @@ type Map struct {
 	// multiple concurrent writers, then toggling increases the probability
 	// that both sides will detect the race.
 	writing uint8
+
+	// tombstonePossible is false if we know that no table in this map
+	// contains a tombstone.
+	tombstonePossible bool
 
 	// clearSeq is a sequence counter of calls to Clear. It is used to
 	// detect map clears during iteration.
@@ -439,15 +444,10 @@ func (m *Map) getWithKeySmall(typ *abi.SwissMapType, hash uintptr, key unsafe.Po
 		data: m.dirPtr,
 	}
 
-	h2 := uint8(h2(hash))
-	ctrls := *g.ctrls()
+	match := g.ctrls().matchH2(h2(hash))
 
-	for i := uintptr(0); i < abi.SwissMapGroupSlots; i++ {
-		c := uint8(ctrls)
-		ctrls >>= 8
-		if c != h2 {
-			continue
-		}
+	for match != 0 {
+		i := match.first()
 
 		slotKey := g.key(typ, i)
 		if typ.IndirectKey() {
@@ -461,8 +461,12 @@ func (m *Map) getWithKeySmall(typ *abi.SwissMapType, hash uintptr, key unsafe.Po
 			}
 			return slotKey, slotElem, true
 		}
+
+		match = match.removeFirst()
 	}
 
+	// No match here means key is not in the map.
+	// (A single group means no need to probe or check for empty).
 	return nil, nil, false
 }
 
@@ -658,7 +662,9 @@ func (m *Map) Delete(typ *abi.SwissMapType, key unsafe.Pointer) {
 		m.deleteSmall(typ, hash, key)
 	} else {
 		idx := m.directoryIndex(hash)
-		m.directoryAt(idx).Delete(typ, m, hash, key)
+		if m.directoryAt(idx).Delete(typ, m, hash, key) {
+			m.tombstonePossible = true
+		}
 	}
 
 	if m.used == 0 {
@@ -723,7 +729,7 @@ func (m *Map) deleteSmall(typ *abi.SwissMapType, hash uintptr, key unsafe.Pointe
 
 // Clear deletes all entries from the map resulting in an empty map.
 func (m *Map) Clear(typ *abi.SwissMapType) {
-	if m == nil || m.Used() == 0 {
+	if m == nil || m.Used() == 0 && !m.tombstonePossible {
 		return
 	}
 
@@ -745,9 +751,10 @@ func (m *Map) Clear(typ *abi.SwissMapType) {
 			lastTab = t
 		}
 		m.used = 0
-		m.clearSeq++
+		m.tombstonePossible = false
 		// TODO: shrink directory?
 	}
+	m.clearSeq++
 
 	// Reset the hash seed to make it more difficult for attackers to
 	// repeatedly trigger hash collisions. See https://go.dev/issue/25237.
@@ -768,5 +775,127 @@ func (m *Map) clearSmall(typ *abi.SwissMapType) {
 	g.ctrls().setEmpty()
 
 	m.used = 0
-	m.clearSeq++
 }
+
+func (m *Map) Clone(typ *abi.SwissMapType) *Map {
+	// Note: this should never be called with a nil map.
+	if m.writing != 0 {
+		fatal("concurrent map clone and map write")
+	}
+
+	// Shallow copy the Map structure.
+	m2 := new(Map)
+	*m2 = *m
+	m = m2
+
+	// We need to just deep copy the dirPtr field.
+	if m.dirPtr == nil {
+		// delayed group allocation, nothing to do.
+	} else if m.dirLen == 0 {
+		// Clone one group.
+		oldGroup := groupReference{data: m.dirPtr}
+		newGroup := groupReference{data: newGroups(typ, 1).data}
+		cloneGroup(typ, newGroup, oldGroup)
+		m.dirPtr = newGroup.data
+	} else {
+		// Clone each (different) table.
+		oldDir := unsafe.Slice((**table)(m.dirPtr), m.dirLen)
+		newDir := make([]*table, m.dirLen)
+		for i, t := range oldDir {
+			if i > 0 && t == oldDir[i-1] {
+				newDir[i] = newDir[i-1]
+				continue
+			}
+			newDir[i] = t.clone(typ)
+		}
+		m.dirPtr = unsafe.Pointer(&newDir[0])
+	}
+
+	return m
+}
+
+func OldMapKeyError(t *abi.OldMapType, p unsafe.Pointer) error {
+	if !t.HashMightPanic() {
+		return nil
+	}
+	return mapKeyError2(t.Key, p)
+}
+
+func mapKeyError(t *abi.SwissMapType, p unsafe.Pointer) error {
+	if !t.HashMightPanic() {
+		return nil
+	}
+	return mapKeyError2(t.Key, p)
+}
+
+func mapKeyError2(t *abi.Type, p unsafe.Pointer) error {
+	if t.TFlag&abi.TFlagRegularMemory != 0 {
+		return nil
+	}
+	switch t.Kind() {
+	case abi.Float32, abi.Float64, abi.Complex64, abi.Complex128, abi.String:
+		return nil
+	case abi.Interface:
+		i := (*abi.InterfaceType)(unsafe.Pointer(t))
+		var t *abi.Type
+		var pdata *unsafe.Pointer
+		if len(i.Methods) == 0 {
+			a := (*abi.EmptyInterface)(p)
+			t = a.Type
+			if t == nil {
+				return nil
+			}
+			pdata = &a.Data
+		} else {
+			a := (*abi.NonEmptyInterface)(p)
+			if a.ITab == nil {
+				return nil
+			}
+			t = a.ITab.Type
+			pdata = &a.Data
+		}
+
+		if t.Equal == nil {
+			return unhashableTypeError{t}
+		}
+
+		if t.Kind_&abi.KindDirectIface != 0 {
+			return mapKeyError2(t, unsafe.Pointer(pdata))
+		} else {
+			return mapKeyError2(t, *pdata)
+		}
+	case abi.Array:
+		a := (*abi.ArrayType)(unsafe.Pointer(t))
+		for i := uintptr(0); i < a.Len; i++ {
+			if err := mapKeyError2(a.Elem, unsafe.Pointer(uintptr(p)+i*a.Elem.Size_)); err != nil {
+				return err
+			}
+		}
+		return nil
+	case abi.Struct:
+		s := (*abi.StructType)(unsafe.Pointer(t))
+		for _, f := range s.Fields {
+			if f.Name.IsBlank() {
+				continue
+			}
+			if err := mapKeyError2(f.Typ, unsafe.Pointer(uintptr(p)+f.Offset)); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		// Should never happen, keep this case for robustness.
+		return unhashableTypeError{t}
+	}
+}
+
+type unhashableTypeError struct{ typ *abi.Type }
+
+func (unhashableTypeError) RuntimeError() {}
+
+func (e unhashableTypeError) Error() string { return "hash of unhashable type: " + typeString(e.typ) }
+
+// Pushed from runtime
+//
+//go:linkname typeString
+func typeString(typ *abi.Type) string

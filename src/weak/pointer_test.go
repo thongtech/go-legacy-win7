@@ -20,6 +20,7 @@ type T struct {
 	// in a tiny block making the tests in this package flaky.
 	t *T
 	a int
+	b int
 }
 
 func TestPointer(t *testing.T) {
@@ -157,6 +158,42 @@ func TestPointerFinalizer(t *testing.T) {
 	}
 }
 
+func TestPointerCleanup(t *testing.T) {
+	bt := new(T)
+	wt := weak.Make(bt)
+	done := make(chan struct{}, 1)
+	runtime.AddCleanup(bt, func(_ bool) {
+		if wt.Value() != nil {
+			t.Errorf("weak pointer did not go nil before cleanup was executed")
+		}
+		done <- struct{}{}
+	}, true)
+
+	// Make sure the weak pointer stays around while bt is live.
+	runtime.GC()
+	if wt.Value() == nil {
+		t.Errorf("weak pointer went nil too soon")
+	}
+	runtime.KeepAlive(bt)
+
+	// bt is no longer referenced.
+	//
+	// Run one cycle to queue the cleanup.
+	runtime.GC()
+	if wt.Value() != nil {
+		t.Errorf("weak pointer did not go nil when cleanup was enqueued")
+	}
+
+	// Wait for the cleanup to run.
+	<-done
+
+	// The weak pointer should still be nil after the cleanup runs.
+	runtime.GC()
+	if wt.Value() != nil {
+		t.Errorf("weak pointer is non-nil even after cleanup: %v", wt)
+	}
+}
+
 func TestPointerSize(t *testing.T) {
 	var p weak.Pointer[T]
 	size := unsafe.Sizeof(p)
@@ -250,5 +287,43 @@ func TestIssue70739(t *testing.T) {
 	wx2 := weak.Make(&x[1<<16])
 	if wx1 != wx2 {
 		t.Fatal("failed to look up special and made duplicate weak handle; see issue #70739")
+	}
+}
+
+var immortal T
+
+func TestImmortalPointer(t *testing.T) {
+	w0 := weak.Make(&immortal)
+	if weak.Make(&immortal) != w0 {
+		t.Error("immortal weak pointers to the same pointer not equal")
+	}
+	w0a := weak.Make(&immortal.a)
+	w0b := weak.Make(&immortal.b)
+	if w0a == w0b {
+		t.Error("separate immortal pointers (same object) have the same pointer")
+	}
+	if got, want := w0.Value(), &immortal; got != want {
+		t.Errorf("immortal weak pointer to %p has unexpected Value %p", want, got)
+	}
+	if got, want := w0a.Value(), &immortal.a; got != want {
+		t.Errorf("immortal weak pointer to %p has unexpected Value %p", want, got)
+	}
+	if got, want := w0b.Value(), &immortal.b; got != want {
+		t.Errorf("immortal weak pointer to %p has unexpected Value %p", want, got)
+	}
+
+	// Run a couple of cycles.
+	runtime.GC()
+	runtime.GC()
+
+	// All immortal weak pointers should never get cleared.
+	if got, want := w0.Value(), &immortal; got != want {
+		t.Errorf("immortal weak pointer to %p has unexpected Value %p", want, got)
+	}
+	if got, want := w0a.Value(), &immortal.a; got != want {
+		t.Errorf("immortal weak pointer to %p has unexpected Value %p", want, got)
+	}
+	if got, want := w0b.Value(), &immortal.b; got != want {
+		t.Errorf("immortal weak pointer to %p has unexpected Value %p", want, got)
 	}
 }

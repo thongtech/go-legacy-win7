@@ -89,6 +89,7 @@ func TestTempDir(t *testing.T) {
 	t.Run("test[]", testTempDir)
 	t.Run("test*", testTempDir)
 	t.Run("äöüéè", testTempDir)
+	t.Run(strings.Repeat("a", 300), testTempDir)
 }
 
 func testTempDir(t *testing.T) {
@@ -801,7 +802,7 @@ func TestRunningTests(t *testing.T) {
 
 	timeout := 10 * time.Millisecond
 	for {
-		cmd := testenv.Command(t, os.Args[0], "-test.run=^"+t.Name()+"$", "-test.timeout="+timeout.String(), "-test.parallel=4")
+		cmd := testenv.Command(t, testenv.Executable(t), "-test.run=^"+t.Name()+"$", "-test.timeout="+timeout.String(), "-test.parallel=4")
 		cmd.Env = append(cmd.Environ(), "GO_WANT_HELPER_PROCESS=1")
 		out, err := cmd.CombinedOutput()
 		t.Logf("%v:\n%s", cmd, out)
@@ -860,7 +861,7 @@ func TestRunningTestsInCleanup(t *testing.T) {
 
 	timeout := 10 * time.Millisecond
 	for {
-		cmd := testenv.Command(t, os.Args[0], "-test.run=^"+t.Name()+"$", "-test.timeout="+timeout.String())
+		cmd := testenv.Command(t, testenv.Executable(t), "-test.run=^"+t.Name()+"$", "-test.timeout="+timeout.String())
 		cmd.Env = append(cmd.Environ(), "GO_WANT_HELPER_PROCESS=1")
 		out, err := cmd.CombinedOutput()
 		t.Logf("%v:\n%s", cmd, out)
@@ -894,7 +895,7 @@ func TestRunningTestsInCleanup(t *testing.T) {
 
 func parseRunningTests(out []byte) (runningTests []string, ok bool) {
 	inRunningTests := false
-	for _, line := range strings.Split(string(out), "\n") {
+	for line := range strings.SplitSeq(string(out), "\n") {
 		if inRunningTests {
 			// Package testing adds one tab, the panic printer adds another.
 			if trimmed, ok := strings.CutPrefix(line, "\t\t"); ok {
@@ -972,6 +973,53 @@ func TestContext(t *testing.T) {
 			t.Fatal("expected context canceled before cleanup")
 		}
 	})
+}
+
+// TestAttrExample is used by TestAttrSet,
+// and also serves as a convenient test to run that sets an attribute.
+func TestAttrExample(t *testing.T) {
+	t.Attr("key", "value")
+}
+
+func TestAttrSet(t *testing.T) {
+	out := string(runTest(t, "TestAttrExample"))
+
+	want := "=== ATTR  TestAttrExample key value\n"
+	if !strings.Contains(out, want) {
+		t.Errorf("expected output containing %q, got:\n%q", want, out)
+	}
+}
+
+func TestAttrInvalid(t *testing.T) {
+	tests := []struct {
+		key   string
+		value string
+	}{
+		{"k ey", "value"},
+		{"k\tey", "value"},
+		{"k\rey", "value"},
+		{"k\ney", "value"},
+		{"key", "val\rue"},
+		{"key", "val\nue"},
+	}
+
+	if os.Getenv("GO_WANT_HELPER_PROCESS") == "1" {
+		for i, test := range tests {
+			t.Run(fmt.Sprint(i), func(t *testing.T) {
+				t.Attr(test.key, test.value)
+			})
+		}
+		return
+	}
+
+	out := string(runTest(t, "TestAttrInvalid"))
+
+	for i := range tests {
+		want := fmt.Sprintf("--- FAIL: TestAttrInvalid/%v ", i)
+		if !strings.Contains(out, want) {
+			t.Errorf("expected output containing %q, got:\n%q", want, out)
+		}
+	}
 }
 
 func TestBenchmarkBLoopIterationCorrect(t *testing.T) {

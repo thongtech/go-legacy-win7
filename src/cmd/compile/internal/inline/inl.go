@@ -454,6 +454,11 @@ opSwitch:
 						// generate code.
 						cheap = true
 					}
+					if strings.HasPrefix(fn, "EscapeNonString[") {
+						// internal/abi.EscapeNonString[T] is a compiler intrinsic
+						// implemented in the escape analysis phase.
+						cheap = true
+					}
 				case "internal/runtime/sys":
 					switch fn {
 					case "GetCallerPC", "GetCallerSP":
@@ -470,12 +475,6 @@ opSwitch:
 						v.budget -= inlineExtraThrowCost
 						break opSwitch
 					case "panicrangestate":
-						cheap = true
-					}
-				case "hash/maphash":
-					if strings.HasPrefix(fn, "escapeForHash[") {
-						// hash/maphash.escapeForHash[T] is a compiler intrinsic
-						// implemented in the escape analysis phase.
 						cheap = true
 					}
 				}
@@ -801,10 +800,10 @@ func inlineCallCheck(callerfn *ir.Func, call *ir.CallExpr) (bool, bool) {
 		}
 	}
 
-	// hash/maphash.escapeForHash[T] is a compiler intrinsic implemented
+	// internal/abi.EscapeNonString[T] is a compiler intrinsic implemented
 	// in the escape analysis phase.
-	if fn := ir.StaticCalleeName(call.Fun); fn != nil && fn.Sym().Pkg.Path == "hash/maphash" &&
-		strings.HasPrefix(fn.Sym().Name, "escapeForHash[") {
+	if fn := ir.StaticCalleeName(call.Fun); fn != nil && fn.Sym().Pkg.Path == "internal/abi" &&
+		strings.HasPrefix(fn.Sym().Name, "EscapeNonString[") {
 		return false, true
 	}
 
@@ -1117,12 +1116,18 @@ func mkinlcall(callerfn *ir.Func, n *ir.CallExpr, fn *ir.Func, bigCaller, closur
 			// Not a standard call.
 			return
 		}
-		if n.Fun.Op() != ir.OCLOSURE {
-			// Not a direct closure call.
+
+		var nf = n.Fun
+		// Skips ir.OCONVNOPs, see issue #73716.
+		for nf.Op() == ir.OCONVNOP {
+			nf = nf.(*ir.ConvExpr).X
+		}
+		if nf.Op() != ir.OCLOSURE {
+			// Not a direct closure call or one with type conversion.
 			return
 		}
 
-		clo := n.Fun.(*ir.ClosureExpr)
+		clo := nf.(*ir.ClosureExpr)
 		if !clo.Func.IsClosure() {
 			// enqueueFunc will handle non closures anyways.
 			return

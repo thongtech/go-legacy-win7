@@ -58,61 +58,25 @@ package runtime
 import (
 	"internal/abi"
 	"internal/goarch"
+	"internal/goexperiment"
 	"internal/runtime/atomic"
+	"internal/runtime/gc"
 	"internal/runtime/sys"
 	"unsafe"
-)
-
-const (
-	// A malloc header is functionally a single type pointer, but
-	// we need to use 8 here to ensure 8-byte alignment of allocations
-	// on 32-bit platforms. It's wasteful, but a lot of code relies on
-	// 8-byte alignment for 8-byte atomics.
-	mallocHeaderSize = 8
-
-	// The minimum object size that has a malloc header, exclusive.
-	//
-	// The size of this value controls overheads from the malloc header.
-	// The minimum size is bound by writeHeapBitsSmall, which assumes that the
-	// pointer bitmap for objects of a size smaller than this doesn't cross
-	// more than one pointer-word boundary. This sets an upper-bound on this
-	// value at the number of bits in a uintptr, multiplied by the pointer
-	// size in bytes.
-	//
-	// We choose a value here that has a natural cutover point in terms of memory
-	// overheads. This value just happens to be the maximum possible value this
-	// can be.
-	//
-	// A span with heap bits in it will have 128 bytes of heap bits on 64-bit
-	// platforms, and 256 bytes of heap bits on 32-bit platforms. The first size
-	// class where malloc headers match this overhead for 64-bit platforms is
-	// 512 bytes (8 KiB / 512 bytes * 8 bytes-per-header = 128 bytes of overhead).
-	// On 32-bit platforms, this same point is the 256 byte size class
-	// (8 KiB / 256 bytes * 8 bytes-per-header = 256 bytes of overhead).
-	//
-	// Guaranteed to be exactly at a size class boundary. The reason this value is
-	// an exclusive minimum is subtle. Suppose we're allocating a 504-byte object
-	// and its rounded up to 512 bytes for the size class. If minSizeForMallocHeader
-	// is 512 and an inclusive minimum, then a comparison against minSizeForMallocHeader
-	// by the two values would produce different results. In other words, the comparison
-	// would not be invariant to size-class rounding. Eschewing this property means a
-	// more complex check or possibly storing additional state to determine whether a
-	// span has malloc headers.
-	minSizeForMallocHeader = goarch.PtrSize * ptrBits
 )
 
 // heapBitsInSpan returns true if the size of an object implies its ptr/scalar
 // data is stored at the end of the span, and is accessible via span.heapBits.
 //
 // Note: this works for both rounded-up sizes (span.elemsize) and unrounded
-// type sizes because minSizeForMallocHeader is guaranteed to be at a size
+// type sizes because gc.MinSizeForMallocHeader is guaranteed to be at a size
 // class boundary.
 //
 //go:nosplit
 func heapBitsInSpan(userSize uintptr) bool {
-	// N.B. minSizeForMallocHeader is an exclusive minimum so that this function is
+	// N.B. gc.MinSizeForMallocHeader is an exclusive minimum so that this function is
 	// invariant under size-class rounding on its input.
-	return userSize <= minSizeForMallocHeader
+	return userSize <= gc.MinSizeForMallocHeader
 }
 
 // typePointers is an iterator over the pointers in a heap object.
@@ -189,7 +153,7 @@ func (span *mspan) typePointersOfUnchecked(addr uintptr) typePointers {
 	if spc.sizeclass() != 0 {
 		// Pull the allocation header from the first word of the object.
 		typ = *(**_type)(unsafe.Pointer(addr))
-		addr += mallocHeaderSize
+		addr += gc.MallocHeaderSize
 	} else {
 		// Synchronize with allocator, in case this came from the conservative scanner.
 		// See heapSetTypeLarge for more details.
@@ -257,8 +221,13 @@ func (tp typePointers) nextFast() (typePointers, uintptr) {
 	} else {
 		i = sys.TrailingZeros32(uint32(tp.mask))
 	}
-	// BTCQ
-	tp.mask ^= uintptr(1) << (i & (ptrBits - 1))
+	if GOARCH == "amd64" {
+		// BTCQ
+		tp.mask ^= uintptr(1) << (i & (ptrBits - 1))
+	} else {
+		// SUB, AND
+		tp.mask &= tp.mask - 1
+	}
 	// LEAQ (XX)(XX*8)
 	return tp, tp.addr + uintptr(i)*goarch.PtrSize
 }
@@ -546,6 +515,9 @@ func (s *mspan) initHeapBits() {
 		b := s.heapBits()
 		clear(b)
 	}
+	if goexperiment.GreenTeaGC && gcUsesSpanInlineMarkBits(s.elemsize) {
+		s.initInlineMarkBits()
+	}
 }
 
 // heapBits returns the heap ptr/scalar bits stored at the end of the span for
@@ -569,7 +541,7 @@ func (span *mspan) heapBits() []uintptr {
 		if span.spanclass.noscan() {
 			throw("heapBits called for noscan")
 		}
-		if span.elemsize > minSizeForMallocHeader {
+		if span.elemsize > gc.MinSizeForMallocHeader {
 			throw("heapBits called for span class that should have a malloc header")
 		}
 	}
@@ -578,20 +550,30 @@ func (span *mspan) heapBits() []uintptr {
 	// Nearly every span with heap bits is exactly one page in size. Arenas are the only exception.
 	if span.npages == 1 {
 		// This will be inlined and constant-folded down.
-		return heapBitsSlice(span.base(), pageSize)
+		return heapBitsSlice(span.base(), pageSize, span.elemsize)
 	}
-	return heapBitsSlice(span.base(), span.npages*pageSize)
+	return heapBitsSlice(span.base(), span.npages*pageSize, span.elemsize)
 }
 
 // Helper for constructing a slice for the span's heap bits.
 //
 //go:nosplit
-func heapBitsSlice(spanBase, spanSize uintptr) []uintptr {
-	bitmapSize := spanSize / goarch.PtrSize / 8
+func heapBitsSlice(spanBase, spanSize, elemsize uintptr) []uintptr {
+	base, bitmapSize := spanHeapBitsRange(spanBase, spanSize, elemsize)
 	elems := int(bitmapSize / goarch.PtrSize)
 	var sl notInHeapSlice
-	sl = notInHeapSlice{(*notInHeap)(unsafe.Pointer(spanBase + spanSize - bitmapSize)), elems, elems}
+	sl = notInHeapSlice{(*notInHeap)(unsafe.Pointer(base)), elems, elems}
 	return *(*[]uintptr)(unsafe.Pointer(&sl))
+}
+
+//go:nosplit
+func spanHeapBitsRange(spanBase, spanSize, elemsize uintptr) (base, size uintptr) {
+	size = spanSize / goarch.PtrSize / 8
+	base = spanBase + spanSize - size
+	if goexperiment.GreenTeaGC && gcUsesSpanInlineMarkBits(elemsize) {
+		base -= unsafe.Sizeof(spanInlineMarkBits{})
+	}
+	return
 }
 
 // heapBitsSmallForAddr loads the heap bits for the object stored at addr from span.heapBits.
@@ -601,9 +583,8 @@ func heapBitsSlice(spanBase, spanSize uintptr) []uintptr {
 //
 //go:nosplit
 func (span *mspan) heapBitsSmallForAddr(addr uintptr) uintptr {
-	spanSize := span.npages * pageSize
-	bitmapSize := spanSize / goarch.PtrSize / 8
-	hbits := (*byte)(unsafe.Pointer(span.base() + spanSize - bitmapSize))
+	hbitsBase, _ := spanHeapBitsRange(span.base(), span.npages*pageSize, span.elemsize)
+	hbits := (*byte)(unsafe.Pointer(hbitsBase))
 
 	// These objects are always small enough that their bitmaps
 	// fit in a single word, so just load the word or two we need.
@@ -669,7 +650,8 @@ func (span *mspan) writeHeapBitsSmall(x, dataSize uintptr, typ *_type) (scanSize
 
 	// Since we're never writing more than one uintptr's worth of bits, we're either going
 	// to do one or two writes.
-	dst := unsafe.Pointer(span.base() + pageSize - pageSize/goarch.PtrSize/8)
+	dstBase, _ := spanHeapBitsRange(span.base(), pageSize, span.elemsize)
+	dst := unsafe.Pointer(dstBase)
 	o := (x - span.base()) / goarch.PtrSize
 	i := o / ptrBits
 	j := o % ptrBits
@@ -1163,7 +1145,32 @@ func (s *mspan) nextFreeIndex() uint16 {
 // The caller must ensure s.state is mSpanInUse, and there must have
 // been no preemption points since ensuring this (which could allow a
 // GC transition, which would allow the state to change).
+//
+// Callers must ensure that the index passed here must not have been
+// produced from a pointer that came from 'thin air', as might happen
+// with conservative scanning.
 func (s *mspan) isFree(index uintptr) bool {
+	if index < uintptr(s.freeindex) {
+		return false
+	}
+	bytep, mask := s.allocBits.bitp(index)
+	return *bytep&mask == 0
+}
+
+// isFreeOrNewlyAllocated reports whether the index'th object in s is
+// either unallocated or has been allocated since the beginning of the
+// last mark phase.
+//
+// The caller must ensure s.state is mSpanInUse, and there must have
+// been no preemption points since ensuring this (which could allow a
+// GC transition, which would allow the state to change).
+//
+// Callers must ensure that the index passed here must not have been
+// produced from a pointer that came from 'thin air', as might happen
+// with conservative scanning, unless the GC is currently in the mark
+// phase. If the GC is currently in the mark phase, this function is
+// safe to call for out-of-thin-air pointers.
+func (s *mspan) isFreeOrNewlyAllocated(index uintptr) bool {
 	if index < uintptr(s.freeIndexForScan) {
 		return false
 	}
@@ -1203,15 +1210,6 @@ func markBitsForAddr(p uintptr) markBits {
 	s := spanOf(p)
 	objIndex := s.objIndex(p)
 	return s.markBitsForIndex(objIndex)
-}
-
-func (s *mspan) markBitsForIndex(objIndex uintptr) markBits {
-	bytep, mask := s.gcmarkBits.bitp(objIndex)
-	return markBits{bytep, mask, objIndex}
-}
-
-func (s *mspan) markBitsForBase() markBits {
-	return markBits{&s.gcmarkBits.x, uint8(1), 0}
 }
 
 // isMarked reports whether mark bit m is set.

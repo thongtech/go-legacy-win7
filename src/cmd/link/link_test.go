@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -45,7 +46,9 @@ func TestIssue21703(t *testing.T) {
 	t.Parallel()
 
 	testenv.MustHaveGoBuild(t)
-	testenv.MustInternalLink(t, false)
+	// N.B. the build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.NoSpecialBuildTypes)
 
 	const source = `
 package main
@@ -90,7 +93,9 @@ func TestIssue28429(t *testing.T) {
 	t.Parallel()
 
 	testenv.MustHaveGoBuild(t)
-	testenv.MustInternalLink(t, false)
+	// N.B. go build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.NoSpecialBuildTypes)
 
 	tmpdir := t.TempDir()
 
@@ -188,7 +193,9 @@ main.x: relocation target main.zero not defined
 func TestIssue33979(t *testing.T) {
 	testenv.MustHaveGoBuild(t)
 	testenv.MustHaveCGO(t)
-	testenv.MustInternalLink(t, true)
+	// N.B. go build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.SpecialBuildTypes{Cgo: true})
 
 	t.Parallel()
 
@@ -390,8 +397,8 @@ func TestMachOBuildVersion(t *testing.T) {
 	found := false
 	checkMin := func(ver uint32) {
 		major, minor, patch := (ver>>16)&0xff, (ver>>8)&0xff, (ver>>0)&0xff
-		if major < 11 {
-			t.Errorf("LC_BUILD_VERSION version %d.%d.%d < 11.0.0", major, minor, patch)
+		if major < 12 {
+			t.Errorf("LC_BUILD_VERSION version %d.%d.%d < 12.0.0", major, minor, patch)
 		}
 	}
 	for _, cmd := range exem.Loads {
@@ -701,7 +708,6 @@ func TestFuncAlign(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Build and run with old object file format.
 	cmd := testenv.Command(t, testenv.GoToolPath(t), "build", "-o", "falign")
 	cmd.Dir = tmpdir
 	out, err := cmd.CombinedOutput()
@@ -716,6 +722,87 @@ func TestFuncAlign(t *testing.T) {
 	if string(out) != "PASS" {
 		t.Errorf("unexpected output: %s\n", out)
 	}
+}
+
+const testFuncAlignOptionSrc = `
+package main
+//go:noinline
+func foo() {
+}
+//go:noinline
+func bar() {
+}
+//go:noinline
+func baz() {
+}
+func main() {
+	foo()
+	bar()
+	baz()
+}
+`
+
+// TestFuncAlignOption verifies that the -funcalign option changes the function alignment
+func TestFuncAlignOption(t *testing.T) {
+	testenv.MustHaveGoBuild(t)
+
+	t.Parallel()
+
+	tmpdir := t.TempDir()
+
+	src := filepath.Join(tmpdir, "falign.go")
+	err := os.WriteFile(src, []byte(testFuncAlignOptionSrc), 0666)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	alignTest := func(align uint64) {
+		exeName := "falign.exe"
+		cmd := testenv.Command(t, testenv.GoToolPath(t), "build", "-ldflags=-funcalign="+strconv.FormatUint(align, 10), "-o", exeName, "falign.go")
+		cmd.Dir = tmpdir
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Errorf("build failed: %v \n%s", err, out)
+		}
+		exe := filepath.Join(tmpdir, exeName)
+		cmd = testenv.Command(t, exe)
+		out, err = cmd.CombinedOutput()
+		if err != nil {
+			t.Errorf("failed to run with err %v, output: %s", err, out)
+		}
+
+		// Check function alignment
+		f, err := objfile.Open(exe)
+		if err != nil {
+			t.Fatalf("failed to open file:%v\n", err)
+		}
+		defer f.Close()
+
+		fname := map[string]bool{"_main.foo": false,
+			"_main.bar": false,
+			"_main.baz": false}
+		syms, err := f.Symbols()
+		for _, s := range syms {
+			fn := s.Name
+			if _, ok := fname[fn]; !ok {
+				fn = "_" + s.Name
+				if _, ok := fname[fn]; !ok {
+					continue
+				}
+			}
+			if s.Addr%align != 0 {
+				t.Fatalf("unaligned function: %s %x. Expected alignment: %d\n", fn, s.Addr, align)
+			}
+			fname[fn] = true
+		}
+		for k, v := range fname {
+			if !v {
+				t.Fatalf("function %s not found\n", k)
+			}
+		}
+	}
+	alignTest(16)
+	alignTest(32)
 }
 
 const testTrampSrc = `
@@ -872,7 +959,9 @@ func TestIndexMismatch(t *testing.T) {
 	// This shouldn't happen with "go build". We invoke the compiler and the linker
 	// manually, and try to "trick" the linker with an inconsistent object file.
 	testenv.MustHaveGoBuild(t)
-	testenv.MustInternalLink(t, false)
+	// N.B. the build below explictly doesn't pass through
+	// -asan/-msan/-race, so we don't care about those.
+	testenv.MustInternalLink(t, testenv.NoSpecialBuildTypes)
 
 	t.Parallel()
 

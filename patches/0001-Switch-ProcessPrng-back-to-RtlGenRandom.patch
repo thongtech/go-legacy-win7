@@ -1,6 +1,6 @@
-From 8dea0c5555bd5f397aa11a4e052bbec0d71e6495 Mon Sep 17 00:00:00 2001
+From f406141ab7c4861f2738d73ea5b77733ad0aab37 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 14 Feb 2025 10:39:55 +0700
+Date: Wed, 13 Aug 2025 21:41:22 +0700
 Subject: [PATCH] Switch ProcessPrng back to RtlGenRandom
 
 ---
@@ -47,10 +47,10 @@ index 1ca16ca..7d5cea8 100644
  //   - On wasip1/wasm, Reader uses random_get.
  //
 diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
-index c848f92..715d072 100644
+index 905cabc..94d280b 100644
 --- a/src/internal/syscall/windows/syscall_windows.go
 +++ b/src/internal/syscall/windows/syscall_windows.go
-@@ -416,7 +416,7 @@ func ErrorLoadingGetTempPath2() error {
+@@ -419,7 +419,7 @@ func ErrorLoadingGetTempPath2() error {
  //sys	DestroyEnvironmentBlock(block *uint16) (err error) = userenv.DestroyEnvironmentBlock
  //sys	CreateEvent(eventAttrs *SecurityAttributes, manualReset uint32, initialState uint32, name *uint16) (handle syscall.Handle, err error) = kernel32.CreateEventW
  
@@ -60,7 +60,7 @@ index c848f92..715d072 100644
  type FILE_ID_BOTH_DIR_INFO struct {
  	NextEntryOffset uint32
 diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
-index 6a6ea7b..9a096cf 100644
+index 90cf0b9..87d0b9e 100644
 --- a/src/internal/syscall/windows/zsyscall_windows.go
 +++ b/src/internal/syscall/windows/zsyscall_windows.go
 @@ -38,7 +38,6 @@ func errnoErr(e syscall.Errno) error {
@@ -79,8 +79,8 @@ index 6a6ea7b..9a096cf 100644
 +	procSystemFunction036                 = modadvapi32.NewProc("SystemFunction036")
  	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
  	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
- 	procGetACP                            = modkernel32.NewProc("GetACP")
-@@ -236,12 +235,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
+ 	procCreateIoCompletionPort            = modkernel32.NewProc("CreateIoCompletionPort")
+@@ -242,12 +241,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
  	return
  }
  
@@ -96,10 +96,10 @@ index 6a6ea7b..9a096cf 100644
  		err = errnoErr(e1)
  	}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index 7183e79..fd65e34 100644
+index 04752f2..a6d3211 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
-@@ -128,8 +128,15 @@ var (
+@@ -127,8 +127,15 @@ var (
  	_WriteFile,
  	_ stdFunction
  
@@ -117,7 +117,7 @@ index 7183e79..fd65e34 100644
  
  	// Load ntdll.dll manually during startup, otherwise Mingw
  	// links wrong printf function to cgo executable (see issue
-@@ -147,10 +154,11 @@ var (
+@@ -146,10 +153,11 @@ var (
  )
  
  var (
@@ -133,7 +133,7 @@ index 7183e79..fd65e34 100644
  )
  
  // Function to be called by windows CreateThread
-@@ -264,11 +272,11 @@ func windows_QueryPerformanceFrequency() int64 {
+@@ -263,11 +271,11 @@ func windows_QueryPerformanceFrequency() int64 {
  }
  
  func loadOptionalSyscalls() {
@@ -149,7 +149,7 @@ index 7183e79..fd65e34 100644
  
  	n32 := windowsLoadSystemLib(ntdlldll[:])
  	if n32 == 0 {
-@@ -501,7 +509,7 @@ func osinit() {
+@@ -500,7 +508,7 @@ func osinit() {
  //go:nosplit
  func readRandom(r []byte) int {
  	n := 0

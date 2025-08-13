@@ -2034,7 +2034,7 @@ func (d *countingDialer) DialContext(ctx context.Context, network, address strin
 	d.total++
 	d.live++
 
-	runtime.SetFinalizer(counted, d.decrement)
+	runtime.AddCleanup(counted, func(dd *countingDialer) { dd.decrement(nil) }, d)
 	return counted, nil
 }
 
@@ -2106,7 +2106,7 @@ func (cc *contextCounter) Track(ctx context.Context) context.Context {
 	cc.mu.Lock()
 	defer cc.mu.Unlock()
 	cc.live++
-	runtime.SetFinalizer(counted, cc.decrement)
+	runtime.AddCleanup(counted, func(c *contextCounter) { cc.decrement(nil) }, cc)
 	return counted
 }
 
@@ -4230,7 +4230,7 @@ func TestTransportIdleConnRacesRequest(t *testing.T) {
 	// block the connection closing.
 	runSynctest(t, testTransportIdleConnRacesRequest, []testMode{http1Mode, http2UnencryptedMode})
 }
-func testTransportIdleConnRacesRequest(t testing.TB, mode testMode) {
+func testTransportIdleConnRacesRequest(t *testing.T, mode testMode) {
 	if mode == http2UnencryptedMode {
 		t.Skip("remove skip when #70515 is fixed")
 	}
@@ -4249,6 +4249,10 @@ func testTransportIdleConnRacesRequest(t testing.TB, mode testMode) {
 	dialc := make(chan struct{})
 	cst.li.onDial = func() {
 		<-dialc
+	}
+	closec := make(chan struct{})
+	cst.li.onClose = func(*fakeNetConn) {
+		<-closec
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	req1c := make(chan error)
@@ -4279,10 +4283,6 @@ func testTransportIdleConnRacesRequest(t testing.TB, mode testMode) {
 	//
 	// First: Wait for IdleConnTimeout. The net.Conn.Close blocks.
 	synctest.Wait()
-	closec := make(chan struct{})
-	cst.li.conns[0].peer.onClose = func() {
-		<-closec
-	}
 	time.Sleep(timeout)
 	synctest.Wait()
 	// Make a request, which will use a new connection (since the existing one is closing).
@@ -4305,7 +4305,7 @@ func testTransportIdleConnRacesRequest(t testing.TB, mode testMode) {
 func TestTransportRemovesConnsAfterIdle(t *testing.T) {
 	runSynctest(t, testTransportRemovesConnsAfterIdle)
 }
-func testTransportRemovesConnsAfterIdle(t testing.TB, mode testMode) {
+func testTransportRemovesConnsAfterIdle(t *testing.T, mode testMode) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}
@@ -4351,7 +4351,7 @@ func testTransportRemovesConnsAfterIdle(t testing.TB, mode testMode) {
 func TestTransportRemovesConnsAfterBroken(t *testing.T) {
 	runSynctest(t, testTransportRemovesConnsAfterBroken)
 }
-func testTransportRemovesConnsAfterBroken(t testing.TB, mode testMode) {
+func testTransportRemovesConnsAfterBroken(t *testing.T, mode testMode) {
 	if testing.Short() {
 		t.Skip("skipping in short mode")
 	}

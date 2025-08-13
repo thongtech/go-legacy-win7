@@ -97,8 +97,12 @@ func osinit() {
 	// before calling minit on m0.
 	miniterrno()
 
-	ncpu = int32(sysconf(__SC_NPROCESSORS_ONLN))
+	numCPUStartup = getCPUCount()
 	physPageSize = sysconf(__SC_PAGE_SIZE)
+}
+
+func getCPUCount() int32 {
+	return int32(sysconf(__SC_NPROCESSORS_ONLN))
 }
 
 // newosproc0 is a version of newosproc that can be called before the runtime
@@ -190,6 +194,7 @@ func unminit() {
 // resources in minit, semacreate, or elsewhere. Do not take locks after calling this.
 //
 // This always runs without a P, so //go:nowritebarrierrec is required.
+//
 //go:nowritebarrierrec
 func mdestroy(mp *m) {
 }

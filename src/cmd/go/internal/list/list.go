@@ -300,8 +300,8 @@ space-separated version list.
 
 The -retracted flag causes list to report information about retracted
 module versions. When -retracted is used with -f or -json, the Retracted
-field will be set to a string explaining why the version was retracted.
-The string is taken from comments on the retract directive in the
+field explains why the version was retracted.
+The strings are taken from comments on the retract directive in the
 module's go.mod file. When -retracted is used with -versions, retracted
 versions are listed together with unretracted versions. The -retracted
 flag may be used with or without -m.
@@ -347,9 +347,7 @@ func init() {
 	CmdList.Run = runList // break init cycle
 	// Omit build -json because list has its own -json
 	work.AddBuildFlags(CmdList, work.OmitJSONFlag)
-	if cfg.Experiment != nil && cfg.Experiment.CoverageRedesign {
-		work.AddCoverFlags(CmdList, nil)
-	}
+	work.AddCoverFlags(CmdList, nil)
 	CmdList.Flag.Var(&listJsonFields, "json", "")
 }
 
@@ -728,7 +726,7 @@ func runList(ctx context.Context, cmd *base.Command, args []string) {
 		b.IsCmdList = true
 		b.NeedExport = *listExport
 		b.NeedCompiledGoFiles = *listCompiled
-		if cfg.Experiment.CoverageRedesign && cfg.BuildCover {
+		if cfg.BuildCover {
 			load.PrepareForCoverageBuild(pkgs)
 		}
 		a := &work.Action{}
@@ -932,7 +930,7 @@ func collectDeps(p *load.Package) {
 	sort.Strings(p.Deps)
 }
 
-// collectDeps populates p.DepsErrors by iterating over p.Internal.Imports.
+// collectDepsErrors populates p.DepsErrors by iterating over p.Internal.Imports.
 // collectDepsErrors must be called on all of p's Imports before being called on p.
 func collectDepsErrors(p *load.Package) {
 	depsErrors := make(map[*load.PackageError]bool)

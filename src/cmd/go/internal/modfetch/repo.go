@@ -110,9 +110,7 @@ type RevInfo struct {
 // introduced, if a path p resolves using the pre-module "go get" lookup
 // to the root of a source code repository without a go.mod file,
 // that repository is treated as if it had a go.mod in its root directory
-// declaring module path p. (The go.mod is further considered to
-// contain requirements corresponding to any legacy version
-// tracking format such as Gopkg.lock, vendor/vendor.conf, and so on.)
+// declaring module path p.
 //
 // The presentation so far ignores the fact that a source code repository
 // has many different versions of a file tree, and those versions may
@@ -186,7 +184,10 @@ type RevInfo struct {
 // To avoid version control access except when absolutely necessary,
 // Lookup does not attempt to connect to the repository itself.
 
-var lookupCache par.Cache[lookupCacheKey, Repo]
+// The Lookup cache is used cache the work done by Lookup.
+// It is important that the global functions of this package that access it do not
+// do so after they return.
+var lookupCache = new(par.Cache[lookupCacheKey, Repo])
 
 type lookupCacheKey struct {
 	proxy, path string
@@ -220,17 +221,21 @@ func Lookup(ctx context.Context, proxy, path string) Repo {
 	})
 }
 
-var lookupLocalCache par.Cache[string, Repo] // path, Repo
+var lookupLocalCache = new(par.Cache[string, Repo]) // path, Repo
 
-// LookupLocal will only use local VCS information to fetch the Repo.
-func LookupLocal(ctx context.Context, path string) Repo {
+// LookupLocal returns a Repo that accesses local VCS information.
+//
+// codeRoot is the module path of the root module in the repository.
+// path is the module path of the module being looked up.
+// dir is the file system path of the repository containing the module.
+func LookupLocal(ctx context.Context, codeRoot string, path string, dir string) Repo {
 	if traceRepo {
 		defer logCall("LookupLocal(%q)", path)()
 	}
 
 	return lookupLocalCache.Do(path, func() Repo {
 		return newCachingRepo(ctx, path, func(ctx context.Context) (Repo, error) {
-			repoDir, vcsCmd, err := vcs.FromDir(path, "")
+			repoDir, vcsCmd, err := vcs.FromDir(dir, "")
 			if err != nil {
 				return nil, err
 			}
@@ -238,7 +243,7 @@ func LookupLocal(ctx context.Context, path string) Repo {
 			if err != nil {
 				return nil, err
 			}
-			r, err := newCodeRepo(code, repoDir, path)
+			r, err := newCodeRepo(code, codeRoot, "", path)
 			if err == nil && traceRepo {
 				r = newLoggingRepo(r)
 			}
@@ -317,7 +322,7 @@ func lookupDirect(ctx context.Context, path string) (Repo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newCodeRepo(code, rr.Root, path)
+	return newCodeRepo(code, rr.Root, rr.SubDir, path)
 }
 
 func lookupCodeRepo(ctx context.Context, rr *vcs.RepoRoot, local bool) (codehost.Repo, error) {

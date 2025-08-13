@@ -138,12 +138,32 @@ func FormatMessage(flags uint32, msgsrc uint32, msgid uint32, langid uint32, buf
 	return formatMessage(flags, uintptr(msgsrc), msgid, langid, buf, args)
 }
 
+var errnoErrorCache sync.Map
+
 func (e Errno) Error() string {
 	// deal with special go errors
 	idx := int(e - APPLICATION_ERROR)
 	if 0 <= idx && idx < len(errors) {
 		return errors[idx]
 	}
+
+	cache := false
+	switch e {
+	case ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND:
+		if cached, ok := errnoErrorCache.Load(e); ok {
+			return cached.(string)
+		}
+		cache = true
+	}
+
+	result := e.error()
+	if cache {
+		errnoErrorCache.Store(e, result)
+	}
+	return result
+}
+
+func (e Errno) error() string {
 	// ask windows for the remaining errors
 	var flags uint32 = FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ARGUMENT_ARRAY | FORMAT_MESSAGE_IGNORE_INSERTS
 	b := make([]uint16, 300)
@@ -287,6 +307,7 @@ func NewCallbackCDecl(fn any) uintptr {
 //sys	GetCommandLine() (cmd *uint16) = kernel32.GetCommandLineW
 //sys	CommandLineToArgv(cmd *uint16, argc *int32) (argv *[8192]*[8192]uint16, err error) [failretval==nil] = shell32.CommandLineToArgvW
 //sys	LocalFree(hmem Handle) (handle Handle, err error) [failretval!=0]
+//sys	localAlloc(flags uint32, length uint32) (ptr uintptr, err error) = kernel32.LocalAlloc
 //sys	SetHandleInformation(handle Handle, mask uint32, flags uint32) (err error)
 //sys	FlushFileBuffers(handle Handle) (err error)
 //sys	GetFullPathName(path *uint16, buflen uint32, buf *uint16, fname **uint16) (n uint32, err error) = kernel32.GetFullPathNameW
@@ -349,8 +370,9 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
 	if err != nil {
 		return InvalidHandle, err
 	}
+	accessFlags := flag & (O_RDONLY | O_WRONLY | O_RDWR)
 	var access uint32
-	switch flag & (O_RDONLY | O_WRONLY | O_RDWR) {
+	switch accessFlags {
 	case O_RDONLY:
 		access = GENERIC_READ
 	case O_WRONLY:
@@ -380,9 +402,15 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
 	if perm&S_IWRITE == 0 {
 		attrs = FILE_ATTRIBUTE_READONLY
 	}
-	if flag&O_WRONLY == 0 && flag&O_RDWR == 0 {
-		// We might be opening or creating a directory.
-		// CreateFile requires FILE_FLAG_BACKUP_SEMANTICS
+	switch accessFlags {
+	case O_WRONLY, O_RDWR:
+		// Unix doesn't allow opening a directory with O_WRONLY
+		// or O_RDWR, so we don't set the flag in that case,
+		// which will make CreateFile fail with ERROR_ACCESS_DENIED.
+		// We will map that to EISDIR if the file is a directory.
+	default:
+		// We might be opening a directory for reading,
+		// and CreateFile requires FILE_FLAG_BACKUP_SEMANTICS
 		// to work with directories.
 		attrs |= FILE_FLAG_BACKUP_SEMANTICS
 	}
@@ -407,7 +435,7 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
 	}
 	h, err := createFile(namep, access, sharemode, sa, createmode, attrs, 0)
 	if h == InvalidHandle {
-		if err == ERROR_ACCESS_DENIED && (flag&O_WRONLY != 0 || flag&O_RDWR != 0) {
+		if err == ERROR_ACCESS_DENIED && (attrs&FILE_FLAG_BACKUP_SEMANTICS == 0) {
 			// We should return EISDIR when we are trying to open a directory with write access.
 			fa, e1 := GetFileAttributes(namep)
 			if e1 == nil && fa&FILE_ATTRIBUTE_DIRECTORY != 0 {
@@ -859,23 +887,29 @@ func (sa *SockaddrUnix) sockaddr() (unsafe.Pointer, int32, error) {
 	if n > len(sa.raw.Path) {
 		return nil, 0, EINVAL
 	}
-	if n == len(sa.raw.Path) && name[0] != '@' {
+	// Abstract addresses start with NUL.
+	// '@' is also a valid way to specify abstract addresses.
+	isAbstract := n > 0 && (name[0] == '@' || name[0] == '\x00')
+
+	// Non-abstract named addresses are NUL terminated.
+	// The length can't use the full capacity as we need to add NUL.
+	if n == len(sa.raw.Path) && !isAbstract {
 		return nil, 0, EINVAL
 	}
 	sa.raw.Family = AF_UNIX
 	for i := 0; i < n; i++ {
 		sa.raw.Path[i] = int8(name[i])
 	}
-	// length is family (uint16), name, NUL.
-	sl := int32(2)
-	if n > 0 {
-		sl += int32(n) + 1
-	}
-	if sa.raw.Path[0] == '@' || (sa.raw.Path[0] == 0 && sl > 3) {
-		// Check sl > 3 so we don't change unnamed socket behavior.
+	// Length is family + name (+ NUL if non-abstract).
+	// Family is of type uint16 (2 bytes).
+	sl := int32(2 + n)
+	if isAbstract {
+		// Abstract addresses are not NUL terminated.
+		// We rewrite '@' prefix to NUL here.
 		sa.raw.Path[0] = 0
-		// Don't count trailing NUL for abstract address.
-		sl--
+	} else if n > 0 {
+		// Add NUL for non-abstract named addresses.
+		sl++
 	}
 
 	return unsafe.Pointer(&sa.raw), sl, nil
@@ -1186,7 +1220,9 @@ func SetsockoptInet4Addr(fd Handle, level, opt int, value [4]byte) (err error) {
 func SetsockoptIPMreq(fd Handle, level, opt int, mreq *IPMreq) (err error) {
 	return Setsockopt(fd, int32(level), int32(opt), (*byte)(unsafe.Pointer(mreq)), int32(unsafe.Sizeof(*mreq)))
 }
-func SetsockoptIPv6Mreq(fd Handle, level, opt int, mreq *IPv6Mreq) (err error) { return EWINDOWS }
+func SetsockoptIPv6Mreq(fd Handle, level, opt int, mreq *IPv6Mreq) (err error) {
+	return Setsockopt(fd, int32(level), int32(opt), (*byte)(unsafe.Pointer(mreq)), int32(unsafe.Sizeof(*mreq)))
+}
 
 func Getpid() (pid int) { return int(getCurrentProcessId()) }
 
@@ -1404,10 +1440,8 @@ func PostQueuedCompletionStatus(cphandle Handle, qty uint32, key uint32, overlap
 	return postQueuedCompletionStatus(cphandle, qty, uintptr(key), overlapped)
 }
 
-// newProcThreadAttributeList allocates new PROC_THREAD_ATTRIBUTE_LIST, with
-// the requested maximum number of attributes, which must be cleaned up by
-// deleteProcThreadAttributeList.
-func newProcThreadAttributeList(maxAttrCount uint32) (*_PROC_THREAD_ATTRIBUTE_LIST, error) {
+// newProcThreadAttributeList allocates a new [procThreadAttributeListContainer], with the requested maximum number of attributes.
+func newProcThreadAttributeList(maxAttrCount uint32) (*procThreadAttributeListContainer, error) {
 	var size uintptr
 	err := initializeProcThreadAttributeList(nil, maxAttrCount, 0, &size)
 	if err != ERROR_INSUFFICIENT_BUFFER {
@@ -1416,13 +1450,38 @@ func newProcThreadAttributeList(maxAttrCount uint32) (*_PROC_THREAD_ATTRIBUTE_LI
 		}
 		return nil, err
 	}
-	// size is guaranteed to be ≥1 by initializeProcThreadAttributeList.
-	al := (*_PROC_THREAD_ATTRIBUTE_LIST)(unsafe.Pointer(&make([]byte, size)[0]))
-	err = initializeProcThreadAttributeList(al, maxAttrCount, 0, &size)
+	const LMEM_FIXED = 0
+	alloc, err := localAlloc(LMEM_FIXED, uint32(size))
 	if err != nil {
 		return nil, err
 	}
-	return al, nil
+	// size is guaranteed to be ≥1 by InitializeProcThreadAttributeList.
+	al := &procThreadAttributeListContainer{data: (*_PROC_THREAD_ATTRIBUTE_LIST)(unsafe.Pointer(alloc))}
+	err = initializeProcThreadAttributeList(al.data, maxAttrCount, 0, &size)
+	if err != nil {
+		return nil, err
+	}
+	al.pointers = make([]unsafe.Pointer, 0, maxAttrCount)
+	return al, err
+}
+
+// Update modifies the ProcThreadAttributeList using UpdateProcThreadAttribute.
+func (al *procThreadAttributeListContainer) update(attribute uintptr, value unsafe.Pointer, size uintptr) error {
+	al.pointers = append(al.pointers, value)
+	return updateProcThreadAttribute(al.data, 0, attribute, value, size, nil, nil)
+}
+
+// Delete frees ProcThreadAttributeList's resources.
+func (al *procThreadAttributeListContainer) delete() {
+	deleteProcThreadAttributeList(al.data)
+	LocalFree(Handle(unsafe.Pointer(al.data)))
+	al.data = nil
+	al.pointers = nil
+}
+
+// List returns the actual ProcThreadAttributeList to be passed to StartupInfoEx.
+func (al *procThreadAttributeListContainer) list() *_PROC_THREAD_ATTRIBUTE_LIST {
+	return al.data
 }
 
 // RegEnumKeyEx enumerates the subkeys of an open registry key.

@@ -24,12 +24,12 @@ type Expr interface {
 // A miniExpr is a miniNode with extra fields common to expressions.
 // TODO(rsc): Once we are sure about the contents, compact the bools
 // into a bit field and leave extra bits available for implementations
-// embedding miniExpr. Right now there are ~60 unused bits sitting here.
+// embedding miniExpr. Right now there are ~24 unused bits sitting here.
 type miniExpr struct {
 	miniNode
+	flags bitset8
 	typ   *types.Type
 	init  Nodes // TODO(rsc): Don't require every Node to have an init
-	flags bitset8
 }
 
 const (
@@ -854,6 +854,10 @@ func IsAddressable(n Node) bool {
 //
 // calling StaticValue on the "int(y)" expression returns the outer
 // "g()" expression.
+//
+// NOTE: StaticValue can return a result with a different type than
+// n's type because it can traverse through OCONVNOP operations.
+// TODO: consider reapplying OCONVNOP operations to the result. See https://go.dev/cl/676517.
 func StaticValue(n Node) Node {
 	for {
 		switch n1 := n.(type) {

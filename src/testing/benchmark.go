@@ -82,9 +82,9 @@ type InternalBenchmark struct {
 // timing and control the number of iterations.
 //
 // A benchmark ends when its Benchmark function returns or calls any of the methods
-// FailNow, Fatal, Fatalf, SkipNow, Skip, or Skipf. Those methods must be called
-// only from the goroutine running the Benchmark function.
-// The other reporting methods, such as the variations of Log and Error,
+// [B.FailNow], [B.Fatal], [B.Fatalf], [B.SkipNow], [B.Skip], or [B.Skipf].
+// Those methods must be called only from the goroutine running the Benchmark function.
+// The other reporting methods, such as the variations of [B.Log] and [B.Error],
 // may be called simultaneously from multiple goroutines.
 //
 // Like in tests, benchmark logs are accumulated during execution
@@ -391,11 +391,7 @@ func (b *B) ReportMetric(n float64, unit string) {
 func (b *B) stopOrScaleBLoop() bool {
 	t := b.Elapsed()
 	if t >= b.benchTime.d {
-		// Stop the timer so we don't count cleanup time
-		b.StopTimer()
-		// Commit iteration count
-		b.N = int(b.loop.n)
-		b.loop.done = true
+		// We've reached the target
 		return false
 	}
 	// Loop scaling
@@ -407,7 +403,6 @@ func (b *B) stopOrScaleBLoop() bool {
 		// in big trouble.
 		panic("loop iteration target overflow")
 	}
-	b.loop.i++
 	return true
 }
 
@@ -421,31 +416,48 @@ func (b *B) loopSlowPath() bool {
 	}
 
 	if b.loop.n == 0 {
-		// If it's the first call to b.Loop() in the benchmark function.
-		// Allows more precise measurement of benchmark loop cost counts.
-		// Also initialize target to 1 to kick start loop scaling.
-		b.loop.n = 1
+		// It's the first call to b.Loop() in the benchmark function.
+		if b.benchTime.n > 0 {
+			// Fixed iteration count.
+			b.loop.n = uint64(b.benchTime.n)
+		} else {
+			// Initialize target to 1 to kick start loop scaling.
+			b.loop.n = 1
+		}
 		// Within a b.Loop loop, we don't use b.N (to avoid confusion).
 		b.N = 0
-		b.loop.i++
 		b.ResetTimer()
+
+		// Start the next iteration.
+		b.loop.i++
 		return true
 	}
-	// Handles fixed iterations case
+
+	// Should we keep iterating?
+	var more bool
 	if b.benchTime.n > 0 {
-		if b.loop.n < uint64(b.benchTime.n) {
-			b.loop.n = uint64(b.benchTime.n)
-			b.loop.i++
-			return true
+		// The iteration count is fixed, so we should have run this many and now
+		// be done.
+		if b.loop.i != uint64(b.benchTime.n) {
+			// We shouldn't be able to reach the slow path in this case.
+			panic(fmt.Sprintf("iteration count %d < fixed target %d", b.loop.i, b.benchTime.n))
 		}
+		more = false
+	} else {
+		// Handle fixed time case
+		more = b.stopOrScaleBLoop()
+	}
+	if !more {
 		b.StopTimer()
 		// Commit iteration count
 		b.N = int(b.loop.n)
 		b.loop.done = true
 		return false
 	}
-	// Handles fixed time case
-	return b.stopOrScaleBLoop()
+
+	// Start the next iteration.
+	b.loop.i++
+	return true
 }
 
 // Loop returns true as long as the benchmark should continue running.
@@ -465,11 +477,12 @@ func (b *B) loopSlowPath() bool {
 // toward the benchmark measurement. Likewise, when it returns false, it stops
 // the timer so cleanup code is not measured.
 //
-// The compiler never optimizes away calls to functions within the body of a
-// "for b.Loop() { ... }" loop. This prevents surprises that can otherwise occur
-// if the compiler determines that the result of a benchmarked function is
-// unused. The loop must be written in exactly this form, and this only applies
-// to calls syntactically between the curly braces of the loop. Optimizations
+// Within the body of a "for b.Loop() { ... }" loop, arguments to and
+// results from function calls within the loop are kept alive, preventing
+// the compiler from fully optimizing away the loop body. Currently, this is
+// implemented by disabling inlining of functions called in a b.Loop loop.
+// This applies only to calls syntactically between the curly braces of the loop,
+// and the loop condition must be written exactly as "b.Loop()". Optimizations
 // are performed as usual in any functions called by the loop.
 //
 // After Loop returns false, b.N contains the total number of iterations that
@@ -742,6 +755,7 @@ func (s *benchState) processBench(b *B) {
 					benchFunc: b.benchFunc,
 					benchTime: b.benchTime,
 				}
+				b.setOutputWriter()
 				b.run1()
 			}
 			r := b.doBench()
@@ -818,6 +832,7 @@ func (b *B) Run(name string, f func(b *B)) bool {
 		benchTime:  b.benchTime,
 		bstate:     b.bstate,
 	}
+	sub.setOutputWriter()
 	if partial {
 		// Partial name match, like -bench=X/Y matching BenchmarkX.
 		// Only process sub-benchmarks, if any.
@@ -994,6 +1009,7 @@ func Benchmark(f func(b *B)) BenchmarkResult {
 		benchFunc: f,
 		benchTime: benchTime,
 	}
+	b.setOutputWriter()
 	if b.run1() {
 		b.run()
 	}

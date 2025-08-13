@@ -24,8 +24,8 @@ func TestParseASN1String(t *testing.T) {
 		{
 			name:     "T61String",
 			tag:      cryptobyte_asn1.T61String,
-			value:    []byte{80, 81, 82},
-			expected: string("PQR"),
+			value:    []byte{0xbf, 0x61, 0x3f},
+			expected: string("¿a?"),
 		},
 		{
 			name:     "PrintableString",
@@ -61,6 +61,30 @@ func TestParseASN1String(t *testing.T) {
 			name:        "BMPString (invalid length)",
 			tag:         cryptobyte_asn1.Tag(asn1.TagBMPString),
 			value:       []byte{255},
+			expectedErr: "invalid BMPString",
+		},
+		{
+			name:        "BMPString (invalid surrogate)",
+			tag:         cryptobyte_asn1.Tag(asn1.TagBMPString),
+			value:       []byte{80, 81, 216, 1},
+			expectedErr: "invalid BMPString",
+		},
+		{
+			name:        "BMPString (invalid noncharacter 0xfdd1)",
+			tag:         cryptobyte_asn1.Tag(asn1.TagBMPString),
+			value:       []byte{80, 81, 253, 209},
+			expectedErr: "invalid BMPString",
+		},
+		{
+			name:        "BMPString (invalid noncharacter 0xffff)",
+			tag:         cryptobyte_asn1.Tag(asn1.TagBMPString),
+			value:       []byte{80, 81, 255, 255},
+			expectedErr: "invalid BMPString",
+		},
+		{
+			name:        "BMPString (invalid noncharacter 0xfffe)",
+			tag:         cryptobyte_asn1.Tag(asn1.TagBMPString),
+			value:       []byte{80, 81, 255, 254},
 			expectedErr: "invalid BMPString",
 		},
 		{
@@ -182,5 +206,48 @@ func TestParsePolicies(t *testing.T) {
 				t.Error("parsing should've failed")
 			}
 		})
+	}
+}
+
+func TestParseCertificateNegativeMaxPathLength(t *testing.T) {
+	certs := []string{
+		// Certificate with MaxPathLen set to -1.
+		`
+-----BEGIN CERTIFICATE-----
+MIIByTCCATKgAwIBAgIBATANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDEwRURVNU
+MB4XDTcwMDEwMTAwMTY0MFoXDTcwMDEwMjAzNDY0MFowDzENMAsGA1UEAxMEVEVT
+VDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsaHglFuSicTT8TKfipgsSi3N
+Wb/TcvuAhanFF1VGB+vS95kO7yFqyfRgX3GgOwT0KlJVsVjPjghEGR9RGTSLqkTD
+UFbiBgm8+VEPMOrUtIHIHXhl+ye44AkOEStxfz7gjN/EAS2h8ffPKhvDTHOlShKw
+Y3LQlxR0LdeJXq3eSqUCAwEAAaM1MDMwEgYDVR0TAQH/BAgwBgEB/wIB/zAdBgNV
+HQ4EFgQUrbrk0tqQAEsce8uYifP0BIVhuFAwDQYJKoZIhvcNAQELBQADgYEAIkhV
+ZBj1ThT+eyh50XsoU570NUysTg3Nj/3lbkEolzdcE+wu0CPXvgxLRM6Y62u1ey82
+8d5VQHstzF4dXgc3W+O9UySa+CKdcHx/q7o7seOGXdysT0IJtAY3w66mFkuF7PIn
+y9b7M5t6pmWjb7N0QqGuWeNqi4ZvS8gLKmVEgGY=
+-----END CERTIFICATE-----
+`,
+		// Certificate with MaxPathLen set to -2.
+		`
+-----BEGIN CERTIFICATE-----
+MIIByTCCATKgAwIBAgIBATANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDEwRURVNU
+MB4XDTcwMDEwMTAwMTY0MFoXDTcwMDEwMjAzNDY0MFowDzENMAsGA1UEAxMEVEVT
+VDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAsaHglFuSicTT8TKfipgsSi3N
+Wb/TcvuAhanFF1VGB+vS95kO7yFqyfRgX3GgOwT0KlJVsVjPjghEGR9RGTSLqkTD
+UFbiBgm8+VEPMOrUtIHIHXhl+ye44AkOEStxfz7gjN/EAS2h8ffPKhvDTHOlShKw
+Y3LQlxR0LdeJXq3eSqUCAwEAAaM1MDMwEgYDVR0TAQH/BAgwBgEB/wIB/jAdBgNV
+HQ4EFgQUrbrk0tqQAEsce8uYifP0BIVhuFAwDQYJKoZIhvcNAQELBQADgYEAGjIr
+YGQc7Ods+BuKck7p+vpAMONM8SLEuUtKorCP3ecsO51MoA4/niLbgMHaOGNHwzMp
+ajg0zLbY0Dj6Ml0VZ+lS3rjgTEhYXc626eZkoQqgUzL1jhe3S0ZbSxxmHMBKjJFl
+d5l1tRhScKu2NBgm74nYmJxJYgvuTA38wGhRrGU=
+-----END CERTIFICATE-----
+`,
+	}
+
+	for _, cert := range certs {
+		b, _ := pem.Decode([]byte(cert))
+		_, err := ParseCertificate(b.Bytes)
+		if err == nil || err.Error() != "x509: invalid basic constraints" {
+			t.Errorf(`ParseCertificate() = %v; want = "x509: invalid basic constraints"`, err)
+		}
 	}
 }

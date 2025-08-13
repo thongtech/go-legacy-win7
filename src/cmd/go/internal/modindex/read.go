@@ -146,6 +146,8 @@ func GetPackage(modroot, pkgdir string) (*IndexPackage, error) {
 	if strings.Contains(filepath.ToSlash(pkgdir), "internal/fips140/v") {
 		return nil, errFIPS140
 	}
+	modroot = filepath.Clean(modroot)
+	pkgdir = filepath.Clean(pkgdir)
 	return openIndexPackage(modroot, pkgdir)
 }
 
@@ -154,7 +156,7 @@ func GetPackage(modroot, pkgdir string) (*IndexPackage, error) {
 // using the index, for instance because the index is disabled, or the package
 // is not in a module.
 func GetModule(modroot string) (*Module, error) {
-	dir, _ := cache.DefaultDir()
+	dir, _, _ := cache.DefaultDir()
 	if !enabled || dir == "off" {
 		return nil, errDisabled
 	}

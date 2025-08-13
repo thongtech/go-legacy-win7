@@ -6,6 +6,7 @@ package runtime
 
 import (
 	"internal/abi"
+	"internal/byteorder"
 	"internal/cpu"
 	"internal/goarch"
 	"internal/runtime/sys"
@@ -249,74 +250,6 @@ func typehash(t *_type, p unsafe.Pointer, h uintptr) uintptr {
 	}
 }
 
-func mapKeyError(t *maptype, p unsafe.Pointer) error {
-	if !t.HashMightPanic() {
-		return nil
-	}
-	return mapKeyError2(t.Key, p)
-}
-
-func mapKeyError2(t *_type, p unsafe.Pointer) error {
-	if t.TFlag&abi.TFlagRegularMemory != 0 {
-		return nil
-	}
-	switch t.Kind_ & abi.KindMask {
-	case abi.Float32, abi.Float64, abi.Complex64, abi.Complex128, abi.String:
-		return nil
-	case abi.Interface:
-		i := (*interfacetype)(unsafe.Pointer(t))
-		var t *_type
-		var pdata *unsafe.Pointer
-		if len(i.Methods) == 0 {
-			a := (*eface)(p)
-			t = a._type
-			if t == nil {
-				return nil
-			}
-			pdata = &a.data
-		} else {
-			a := (*iface)(p)
-			if a.tab == nil {
-				return nil
-			}
-			t = a.tab.Type
-			pdata = &a.data
-		}
-
-		if t.Equal == nil {
-			return errorString("hash of unhashable type " + toRType(t).string())
-		}
-
-		if isDirectIface(t) {
-			return mapKeyError2(t, unsafe.Pointer(pdata))
-		} else {
-			return mapKeyError2(t, *pdata)
-		}
-	case abi.Array:
-		a := (*arraytype)(unsafe.Pointer(t))
-		for i := uintptr(0); i < a.Len; i++ {
-			if err := mapKeyError2(a.Elem, add(p, i*a.Elem.Size_)); err != nil {
-				return err
-			}
-		}
-		return nil
-	case abi.Struct:
-		s := (*structtype)(unsafe.Pointer(t))
-		for _, f := range s.Fields {
-			if f.Name.IsBlank() {
-				continue
-			}
-			if err := mapKeyError2(f.Typ, add(p, f.Offset)); err != nil {
-				return err
-			}
-		}
-		return nil
-	default:
-		// Should never happen, keep this case for robustness.
-		return errorString("hash of unhashable type " + toRType(t).string())
-	}
-}
-
 //go:linkname reflect_typehash reflect.typehash
 func reflect_typehash(t *_type, p unsafe.Pointer, h uintptr) uintptr {
 	return typehash(t, p, h)
@@ -474,16 +407,15 @@ func initAlgAES() {
 func readUnaligned32(p unsafe.Pointer) uint32 {
 	q := (*[4]byte)(p)
 	if goarch.BigEndian {
-		return uint32(q[3]) | uint32(q[2])<<8 | uint32(q[1])<<16 | uint32(q[0])<<24
+		return byteorder.BEUint32(q[:])
 	}
-	return uint32(q[0]) | uint32(q[1])<<8 | uint32(q[2])<<16 | uint32(q[3])<<24
+	return byteorder.LEUint32(q[:])
 }
 
 func readUnaligned64(p unsafe.Pointer) uint64 {
 	q := (*[8]byte)(p)
 	if goarch.BigEndian {
-		return uint64(q[7]) | uint64(q[6])<<8 | uint64(q[5])<<16 | uint64(q[4])<<24 |
-			uint64(q[3])<<32 | uint64(q[2])<<40 | uint64(q[1])<<48 | uint64(q[0])<<56
+		return byteorder.BEUint64(q[:])
 	}
-	return uint64(q[0]) | uint64(q[1])<<8 | uint64(q[2])<<16 | uint64(q[3])<<24 | uint64(q[4])<<32 | uint64(q[5])<<40 | uint64(q[6])<<48 | uint64(q[7])<<56
+	return byteorder.LEUint64(q[:])
 }

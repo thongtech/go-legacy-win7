@@ -24,11 +24,6 @@ type maptype = abi.SwissMapType
 //go:linkname maps_errNilAssign internal/runtime/maps.errNilAssign
 var maps_errNilAssign error = plainError("assignment to entry in nil map")
 
-//go:linkname maps_mapKeyError internal/runtime/maps.mapKeyError
-func maps_mapKeyError(t *abi.SwissMapType, p unsafe.Pointer) error {
-	return mapKeyError(t, p)
-}
-
 func makemap64(t *abi.SwissMapType, hint int64, m *maps.Map) *maps.Map {
 	if int64(int(hint)) != hint {
 		hint = 0
@@ -330,20 +325,11 @@ func mapinitnoop()
 //go:linkname mapclone maps.clone
 func mapclone(m any) any {
 	e := efaceOf(&m)
-	e.data = unsafe.Pointer(mapclone2((*abi.SwissMapType)(unsafe.Pointer(e._type)), (*maps.Map)(e.data)))
+	typ := (*abi.SwissMapType)(unsafe.Pointer(e._type))
+	map_ := (*maps.Map)(e.data)
+	map_ = map_.Clone(typ)
+	e.data = (unsafe.Pointer)(map_)
 	return m
-}
-
-func mapclone2(t *abi.SwissMapType, src *maps.Map) *maps.Map {
-	dst := makemap(t, int(src.Used()), nil)
-
-	var iter maps.Iter
-	iter.Init(t, src)
-	for iter.Next(); iter.Key() != nil; iter.Next() {
-		dst.Put(t, iter.Key(), iter.Elem())
-	}
-
-	return dst
 }
 
 // keys for implementing maps.keys

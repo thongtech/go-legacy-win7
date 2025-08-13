@@ -43,6 +43,7 @@ type opInfo struct {
 	hasSideEffects    bool      // for "reasons", not to be eliminated.  E.g., atomic store, #19182.
 	zeroWidth         bool      // op never translates into any machine code. example: copy, which may sometimes translate to machine code, is not zero-width.
 	unsafePoint       bool      // this op is an unsafe point, i.e. not safe for async preemption
+	fixedReg          bool      // this op will be assigned a fixed register
 	symEffect         SymEffect // effect this op has on symbol in aux
 	scale             uint8     // amd64/386 indexed load scale
 }
@@ -76,18 +77,18 @@ func (r *regInfo) String() string {
 	s += "INS:\n"
 	for _, i := range r.inputs {
 		mask := fmt.Sprintf("%64b", i.regs)
-		mask = strings.Replace(mask, "0", ".", -1)
+		mask = strings.ReplaceAll(mask, "0", ".")
 		s += fmt.Sprintf("%2d |%s|\n", i.idx, mask)
 	}
 	s += "OUTS:\n"
 	for _, i := range r.outputs {
 		mask := fmt.Sprintf("%64b", i.regs)
-		mask = strings.Replace(mask, "0", ".", -1)
+		mask = strings.ReplaceAll(mask, "0", ".")
 		s += fmt.Sprintf("%2d |%s|\n", i.idx, mask)
 	}
 	s += "CLOBBERS:\n"
 	mask := fmt.Sprintf("%64b", r.clobbers)
-	mask = strings.Replace(mask, "0", ".", -1)
+	mask = strings.ReplaceAll(mask, "0", ".")
 	s += fmt.Sprintf("   |%s|\n", mask)
 	return s
 }
@@ -356,7 +357,7 @@ const (
 	auxCCop                   // auxInt is a ssa.Op that represents a flags-to-bool conversion (e.g. LessThan)
 	auxNameOffsetInt8         // aux is a &struct{Name ir.Name, Offset int64}; auxInt is index in parameter registers array
 	auxString                 // aux is a string
-	auxSym                    // aux is a symbol (a *gc.Node for locals, an *obj.LSym for globals, or nil for none)
+	auxSym                    // aux is a symbol (a *ir.Name for locals, an *obj.LSym for globals, or nil for none)
 	auxSymOff                 // aux is a symbol, auxInt is an offset
 	auxSymValAndOff           // aux is a symbol, auxInt is a ValAndOff
 	auxTyp                    // aux is a type
@@ -388,12 +389,12 @@ const (
 
 // A Sym represents a symbolic offset from a base register.
 // Currently a Sym can be one of 3 things:
-//   - a *gc.Node, for an offset from SP (the stack pointer)
+//   - a *ir.Name, for an offset from SP (the stack pointer)
 //   - a *obj.LSym, for an offset from SB (the global pointer)
 //   - nil, for no offset
 type Sym interface {
+	Aux
 	CanBeAnSSASym()
-	CanBeAnSSAAux()
 }
 
 // A ValAndOff is used by the several opcodes. It holds

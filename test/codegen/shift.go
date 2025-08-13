@@ -11,87 +11,132 @@ package codegen
 // ------------------ //
 
 func lshConst64x64(v int64) int64 {
+	// loong64:"SLLV"
 	// ppc64x:"SLD"
 	// riscv64:"SLLI",-"AND",-"SLTIU"
 	return v << uint64(33)
 }
 
 func rshConst64Ux64(v uint64) uint64 {
+	// loong64:"SRLV"
 	// ppc64x:"SRD"
 	// riscv64:"SRLI\t",-"AND",-"SLTIU"
 	return v >> uint64(33)
 }
 
 func rshConst64Ux64Overflow32(v uint32) uint64 {
+	// loong64:"MOVV\t\\$0,",-"SRL\t"
 	// riscv64:"MOV\t\\$0,",-"SRL"
 	return uint64(v) >> 32
 }
 
 func rshConst64Ux64Overflow16(v uint16) uint64 {
+	// loong64:"MOVV\t\\$0,",-"SRLV"
 	// riscv64:"MOV\t\\$0,",-"SRL"
 	return uint64(v) >> 16
 }
 
 func rshConst64Ux64Overflow8(v uint8) uint64 {
+	// loong64:"MOVV\t\\$0,",-"SRLV"
 	// riscv64:"MOV\t\\$0,",-"SRL"
 	return uint64(v) >> 8
 }
 
 func rshConst64x64(v int64) int64 {
+	// loong64:"SRAV"
 	// ppc64x:"SRAD"
 	// riscv64:"SRAI\t",-"OR",-"SLTIU"
 	return v >> uint64(33)
 }
 
 func rshConst64x64Overflow32(v int32) int64 {
+	// loong64:"SRA\t\\$31"
 	// riscv64:"SRAIW",-"SLLI",-"SRAI\t"
 	return int64(v) >> 32
 }
 
 func rshConst64x64Overflow16(v int16) int64 {
+	// loong64:"SLLV\t\\$48","SRAV\t\\$63"
 	// riscv64:"SLLI","SRAI",-"SRAIW"
 	return int64(v) >> 16
 }
 
 func rshConst64x64Overflow8(v int8) int64 {
+	// loong64:"SLLV\t\\$56","SRAV\t\\$63"
 	// riscv64:"SLLI","SRAI",-"SRAIW"
 	return int64(v) >> 8
 }
 
+func lshConst32x1(v int32) int32 {
+	// amd64:"ADDL", -"SHLL"
+	return v << 1
+}
+
+func lshConst64x1(v int64) int64 {
+	// amd64:"ADDQ", -"SHLQ"
+	return v << 1
+}
+
 func lshConst32x64(v int32) int32 {
+	// loong64:"SLL\t"
 	// ppc64x:"SLW"
 	// riscv64:"SLLI",-"AND",-"SLTIU", -"MOVW"
 	return v << uint64(29)
 }
 
 func rshConst32Ux64(v uint32) uint32 {
+	// loong64:"SRL\t"
 	// ppc64x:"SRW"
 	// riscv64:"SRLIW",-"AND",-"SLTIU", -"MOVW"
 	return v >> uint64(29)
 }
 
 func rshConst32x64(v int32) int32 {
+	// loong64:"SRA\t"
 	// ppc64x:"SRAW"
 	// riscv64:"SRAIW",-"OR",-"SLTIU", -"MOVW"
 	return v >> uint64(29)
 }
 
 func lshConst64x32(v int64) int64 {
+	// loong64:"SLLV"
 	// ppc64x:"SLD"
 	// riscv64:"SLLI",-"AND",-"SLTIU"
 	return v << uint32(33)
 }
 
 func rshConst64Ux32(v uint64) uint64 {
+	// loong64:"SRLV"
 	// ppc64x:"SRD"
 	// riscv64:"SRLI\t",-"AND",-"SLTIU"
 	return v >> uint32(33)
 }
 
 func rshConst64x32(v int64) int64 {
+	// loong64:"SRAV"
 	// ppc64x:"SRAD"
 	// riscv64:"SRAI\t",-"OR",-"SLTIU"
 	return v >> uint32(33)
+}
+
+func lshConst32x1Add(x int32) int32 {
+	// amd64:"SHLL\t[$]2"
+	return (x + x) << 1
+}
+
+func lshConst64x1Add(x int64) int64 {
+	// amd64:"SHLQ\t[$]2"
+	return (x + x) << 1
+}
+
+func lshConst32x2Add(x int32) int32 {
+	// amd64:"SHLL\t[$]3"
+	return (x + x) << 2
+}
+
+func lshConst64x2Add(x int64) int64 {
+	// amd64:"SHLQ\t[$]3"
+	return (x + x) << 2
 }
 
 // ------------------ //
@@ -100,6 +145,7 @@ func rshConst64x32(v int64) int64 {
 
 func lshMask64x64(v int64, s uint64) int64 {
 	// arm64:"LSL",-"AND"
+	// loong64:"SLLV",-"AND"
 	// ppc64x:"RLDICL",-"ORN",-"ISEL"
 	// riscv64:"SLL",-"AND\t",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -108,6 +154,7 @@ func lshMask64x64(v int64, s uint64) int64 {
 
 func rshMask64Ux64(v uint64, s uint64) uint64 {
 	// arm64:"LSR",-"AND",-"CSEL"
+	// loong64:"SRLV",-"AND"
 	// ppc64x:"RLDICL",-"ORN",-"ISEL"
 	// riscv64:"SRL\t",-"AND\t",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -116,6 +163,7 @@ func rshMask64Ux64(v uint64, s uint64) uint64 {
 
 func rshMask64x64(v int64, s uint64) int64 {
 	// arm64:"ASR",-"AND",-"CSEL"
+	// loong64:"SRAV",-"AND"
 	// ppc64x:"RLDICL",-"ORN",-"ISEL"
 	// riscv64:"SRA\t",-"OR",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -124,14 +172,21 @@ func rshMask64x64(v int64, s uint64) int64 {
 
 func lshMask32x64(v int32, s uint64) int32 {
 	// arm64:"LSL",-"AND"
+	// loong64:"SLL\t","AND","SGTU","MASKEQZ"
 	// ppc64x:"ISEL",-"ORN"
 	// riscv64:"SLL",-"AND\t",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
 	return v << (s & 63)
 }
 
+func lsh5Mask32x64(v int32, s uint64) int32 {
+	// loong64:"SLL\t",-"AND"
+	return v << (s & 31)
+}
+
 func rshMask32Ux64(v uint32, s uint64) uint32 {
 	// arm64:"LSR",-"AND"
+	// loong64:"SRL\t","AND","SGTU","MASKEQZ"
 	// ppc64x:"ISEL",-"ORN"
 	// riscv64:"SRLW","SLTIU","NEG","AND\t",-"SRL\t"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -139,12 +194,14 @@ func rshMask32Ux64(v uint32, s uint64) uint32 {
 }
 
 func rsh5Mask32Ux64(v uint32, s uint64) uint32 {
+	// loong64:"SRL\t",-"AND"
 	// riscv64:"SRLW",-"AND\t",-"SLTIU",-"SRL\t"
 	return v >> (s & 31)
 }
 
 func rshMask32x64(v int32, s uint64) int32 {
 	// arm64:"ASR",-"AND"
+	// loong64:"SRA\t","AND","SGTU","SUBVU","OR"
 	// ppc64x:"ISEL",-"ORN"
 	// riscv64:"SRAW","OR","SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -152,12 +209,14 @@ func rshMask32x64(v int32, s uint64) int32 {
 }
 
 func rsh5Mask32x64(v int32, s uint64) int32 {
+	// loong64:"SRA\t",-"AND"
 	// riscv64:"SRAW",-"OR",-"SLTIU"
 	return v >> (s & 31)
 }
 
 func lshMask64x32(v int64, s uint32) int64 {
 	// arm64:"LSL",-"AND"
+	// loong64:"SLLV",-"AND"
 	// ppc64x:"RLDICL",-"ORN"
 	// riscv64:"SLL",-"AND\t",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -166,6 +225,7 @@ func lshMask64x32(v int64, s uint32) int64 {
 
 func rshMask64Ux32(v uint64, s uint32) uint64 {
 	// arm64:"LSR",-"AND",-"CSEL"
+	// loong64:"SRLV",-"AND"
 	// ppc64x:"RLDICL",-"ORN"
 	// riscv64:"SRL\t",-"AND\t",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -174,6 +234,7 @@ func rshMask64Ux32(v uint64, s uint32) uint64 {
 
 func rshMask64x32(v int64, s uint32) int64 {
 	// arm64:"ASR",-"AND",-"CSEL"
+	// loong64:"SRAV",-"AND"
 	// ppc64x:"RLDICL",-"ORN",-"ISEL"
 	// riscv64:"SRA\t",-"OR",-"SLTIU"
 	// s390x:-"RISBGZ",-"AND",-"LOCGR"
@@ -531,13 +592,86 @@ func checkShiftToMask(u []uint64, s []int64) {
 
 func checkLeftShiftWithAddition(a int64, b int64) int64 {
 	// riscv64/rva20u64: "SLLI","ADD"
-	// riscv64/rva22u64: "SH1ADD"
+	// riscv64/rva22u64,riscv64/rva23u64: "SH1ADD"
 	a = a + b<<1
 	// riscv64/rva20u64: "SLLI","ADD"
-	// riscv64/rva22u64: "SH2ADD"
+	// riscv64/rva22u64,riscv64/rva23u64: "SH2ADD"
 	a = a + b<<2
 	// riscv64/rva20u64: "SLLI","ADD"
-	// riscv64/rva22u64: "SH3ADD"
+	// riscv64/rva22u64,riscv64/rva23u64: "SH3ADD"
 	a = a + b<<3
 	return a
+}
+
+//
+// Convert and shift.
+//
+
+func rsh64Uto32U(v uint64) uint32 {
+	x := uint32(v)
+	// riscv64:"MOVWU"
+	if x > 8 {
+		// riscv64:"SRLIW",-"MOVWU",-"SLLI"
+		x >>= 2
+	}
+	return x
+}
+
+func rsh64Uto16U(v uint64) uint16 {
+	x := uint16(v)
+	// riscv64:"MOVHU"
+	if x > 8 {
+		// riscv64:"SLLI","SRLI"
+		x >>= 2
+	}
+	return x
+}
+
+func rsh64Uto8U(v uint64) uint8 {
+	x := uint8(v)
+	// riscv64:"MOVBU"
+	if x > 8 {
+		// riscv64:"SLLI","SRLI"
+		x >>= 2
+	}
+	return x
+}
+
+func rsh64to32(v int64) int32 {
+	x := int32(v)
+	// riscv64:"MOVW"
+	if x > 8 {
+		// riscv64:"SRAIW",-"MOVW",-"SLLI"
+		x >>= 2
+	}
+	return x
+}
+
+func rsh64to16(v int64) int16 {
+	x := int16(v)
+	// riscv64:"MOVH"
+	if x > 8 {
+		// riscv64:"SLLI","SRAI"
+		x >>= 2
+	}
+	return x
+}
+
+func rsh64to8(v int64) int8 {
+	x := int8(v)
+	// riscv64:"MOVB"
+	if x > 8 {
+		// riscv64:"SLLI","SRAI"
+		x >>= 2
+	}
+	return x
+}
+
+// We don't need to worry about shifting
+// more than the type size.
+// (There is still a negative shift test, but
+// no shift-too-big test.)
+func signedModShift(i int) int64 {
+	// arm64:-"CMP",-"CSEL"
+	return 1 << (i % 64)
 }

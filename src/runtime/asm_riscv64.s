@@ -247,11 +247,6 @@ TEXT runtime·memhash32<ABIInternal>(SB),NOSPLIT|NOFRAME,$0-24
 TEXT runtime·memhash64<ABIInternal>(SB),NOSPLIT|NOFRAME,$0-24
 	JMP	runtime·memhash64Fallback<ABIInternal>(SB)
 
-// func return0()
-TEXT runtime·return0(SB), NOSPLIT, $0
-	MOV	$0, A0
-	RET
-
 // restore state from Gobuf; longjmp
 
 // func gogo(buf *gobuf)
@@ -267,10 +262,8 @@ TEXT gogo<>(SB), NOSPLIT|NOFRAME, $0
 
 	MOV	gobuf_sp(T0), X2
 	MOV	gobuf_lr(T0), RA
-	MOV	gobuf_ret(T0), A0
 	MOV	gobuf_ctxt(T0), CTXT
 	MOV	ZERO, gobuf_sp(T0)
-	MOV	ZERO, gobuf_ret(T0)
 	MOV	ZERO, gobuf_lr(T0)
 	MOV	ZERO, gobuf_ctxt(T0)
 	MOV	gobuf_pc(T0), T0
@@ -320,7 +313,6 @@ TEXT gosave_systemstack_switch<>(SB),NOSPLIT|NOFRAME,$0
 	MOV	X31, (g_sched+gobuf_pc)(g)
 	MOV	X2, (g_sched+gobuf_sp)(g)
 	MOV	ZERO, (g_sched+gobuf_lr)(g)
-	MOV	ZERO, (g_sched+gobuf_ret)(g)
 	// Assert ctxt is zero. See func save.
 	MOV	(g_sched+gobuf_ctxt)(g), X31
 	BEQ	ZERO, X31, 2(PC)
@@ -540,6 +532,15 @@ TEXT runtime·goexit(SB),NOSPLIT|NOFRAME|TOPFRAME,$0-0
 	JMP	runtime·goexit1(SB)	// does not return
 	// traceback from goexit1 must hit code range of goexit
 	MOV	ZERO, ZERO	// NOP
+
+
+// This is called from .init_array and follows the platform, not the Go ABI.
+TEXT runtime·addmoduledata(SB),NOSPLIT,$0-0
+	// Use X31 as it is a scratch register in both the Go ABI and psABI.
+	MOV	runtime·lastmoduledatap(SB), X31
+	MOV	X10, moduledata_next(X31)
+	MOV	X10, runtime·lastmoduledatap(SB)
+	RET
 
 // func cgocallback(fn, frame unsafe.Pointer, ctxt uintptr)
 // See cgocall.go for more details.
