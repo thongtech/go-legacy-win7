@@ -10,13 +10,15 @@ _Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attrib
 1. **Windows 7 and Windows Server 2008 R2 Support**  
    While the official Go project has dropped support for Windows 7 and Windows Server 2008 R2, this fork maintains compatibility with these legacy Windows systems.
 
-2. **Classic `go get` Behaviour**  
+   Tested on Windows 7 RTM (build 7600) — no updates required — through Windows 11 24H2
+
+3. **Classic `go get` Behaviour**  
    This fork allows for the deprecated `go get` behaviour when `GO111MODULE` is set to "off" or "auto". This means:
 
    - In `GOPATH/src`, `go get` and `go install` can operate in `GOPATH` mode.
    - Outside of `GOPATH/src`, these commands can use module-aware mode when appropriate.
 
-3. **Compatibility Notes**  
+4. **Compatibility Notes**  
    Please be aware that some newer Go features may not be fully compatible with Windows 7 or Windows Server 2008 R2. We try to maintain as much functionality as possible, but some limitations may exist.
 
 ## Changes in Each Release
@@ -38,6 +40,9 @@ The Windows binary provided here also supports Windows 7 and Windows Server 2008
 ### Binary Distributions
 
 Binary distributions are **available at the [release page](https://github.com/thongtech/go-legacy-win7/releases/latest)**.
+
+### Before you begin
+To avoid PATH/GOROOT conflicts and mixed toolchains, uninstall any existing Go installation first.
 
 #### Windows Installation
 
