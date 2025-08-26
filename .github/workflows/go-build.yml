@@ -73,6 +73,7 @@ jobs:
           rm -rf src/*.rc
           rm -rf src/make.*
           rm -rf src/run.*
+          rm -rf *.md
 
           # Process binaries
           cd bin
