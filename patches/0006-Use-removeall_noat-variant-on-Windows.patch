@@ -1,0 +1,130 @@
+From c0f79a96a0262b2dd69d1a85e20b481d03cba8f2 Mon Sep 17 00:00:00 2001
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Tue, 26 Aug 2025 15:07:25 +0700
+Subject: [PATCH] Use removeall_noat variant on Windows
+
+---
+ src/os/removeall_at.go   |  2 +-
+ src/os/removeall_noat.go |  2 +-
+ src/os/root.go           |  6 ------
+ src/os/root_noopenat.go  | 20 --------------------
+ src/os/root_openat.go    | 22 ----------------------
+ 5 files changed, 2 insertions(+), 50 deletions(-)
+
+diff --git a/src/os/removeall_at.go b/src/os/removeall_at.go
+index 5ddc1ade..61298a46 100644
+--- a/src/os/removeall_at.go
++++ b/src/os/removeall_at.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build unix || wasip1 || windows
++//go:build unix || wasip1
+ 
+ package os
+ 
+diff --git a/src/os/removeall_noat.go b/src/os/removeall_noat.go
+index 395a1503..02f6fca7 100644
+--- a/src/os/removeall_noat.go
++++ b/src/os/removeall_noat.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build (js && wasm) || plan9
++//go:build (js && wasm) || plan9 || windows
+ 
+ package os
+ 
+diff --git a/src/os/root.go b/src/os/root.go
+index d759727c..1ecbcc09 100644
+--- a/src/os/root.go
++++ b/src/os/root.go
+@@ -189,12 +189,6 @@ func (r *Root) Remove(name string) error {
+ 	return rootRemove(r, name)
+ }
+ 
+-// RemoveAll removes the named file or directory and any children that it contains.
+-// See [RemoveAll] for more details.
+-func (r *Root) RemoveAll(name string) error {
+-	return rootRemoveAll(r, name)
+-}
+-
+ // Stat returns a [FileInfo] describing the named file in the root.
+ // See [Stat] for more details.
+ func (r *Root) Stat(name string) (FileInfo, error) {
+diff --git a/src/os/root_noopenat.go b/src/os/root_noopenat.go
+index 59f1abe9..ecdf264f 100644
+--- a/src/os/root_noopenat.go
++++ b/src/os/root_noopenat.go
+@@ -11,7 +11,6 @@ import (
+ 	"internal/filepathlite"
+ 	"internal/stringslite"
+ 	"sync/atomic"
+-	"syscall"
+ 	"time"
+ )
+ 
+@@ -186,25 +185,6 @@ func rootRemove(r *Root, name string) error {
+ 	return nil
+ }
+ 
+-func rootRemoveAll(r *Root, name string) error {
+-	if endsWithDot(name) {
+-		// Consistency with os.RemoveAll: Return EINVAL when trying to remove .
+-		return &PathError{Op: "RemoveAll", Path: name, Err: syscall.EINVAL}
+-	}
+-	if err := checkPathEscapesLstat(r, name); err != nil {
+-		if err == syscall.ENOTDIR {
+-			// Some intermediate path component is not a directory.
+-			// RemoveAll treats this as success (since the target doesn't exist).
+-			return nil
+-		}
+-		return &PathError{Op: "RemoveAll", Path: name, Err: err}
+-	}
+-	if err := RemoveAll(joinPath(r.root.name, name)); err != nil {
+-		return &PathError{Op: "RemoveAll", Path: name, Err: underlyingError(err)}
+-	}
+-	return nil
+-}
+-
+ func rootReadlink(r *Root, name string) (string, error) {
+ 	if err := checkPathEscapesLstat(r, name); err != nil {
+ 		return "", &PathError{Op: "readlinkat", Path: name, Err: err}
+diff --git a/src/os/root_openat.go b/src/os/root_openat.go
+index e433bd50..cfc6d906 100644
+--- a/src/os/root_openat.go
++++ b/src/os/root_openat.go
+@@ -194,28 +194,6 @@ func rootRemove(r *Root, name string) error {
+ 	return nil
+ }
+ 
+-func rootRemoveAll(r *Root, name string) error {
+-	// Consistency with os.RemoveAll: Strip trailing /s from the name,
+-	// so RemoveAll("not_a_directory/") succeeds.
+-	for len(name) > 0 && IsPathSeparator(name[len(name)-1]) {
+-		name = name[:len(name)-1]
+-	}
+-	if endsWithDot(name) {
+-		// Consistency with os.RemoveAll: Return EINVAL when trying to remove .
+-		return &PathError{Op: "RemoveAll", Path: name, Err: syscall.EINVAL}
+-	}
+-	_, err := doInRoot(r, name, nil, func(parent sysfdType, name string) (struct{}, error) {
+-		return struct{}{}, removeAllFrom(parent, name)
+-	})
+-	if IsNotExist(err) {
+-		return nil
+-	}
+-	if err != nil {
+-		return &PathError{Op: "RemoveAll", Path: name, Err: underlyingError(err)}
+-	}
+-	return err
+-}
+-
+ func rootRename(r *Root, oldname, newname string) error {
+ 	_, err := doInRoot(r, oldname, nil, func(oldparent sysfdType, oldname string) (struct{}, error) {
+ 		_, err := doInRoot(r, newname, nil, func(newparent sysfdType, newname string) (struct{}, error) {
+-- 
+2.50.1.windows.1
+
