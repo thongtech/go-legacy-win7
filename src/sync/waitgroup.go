@@ -94,10 +94,19 @@ func (wg *WaitGroup) Add(delta int) {
 			fatal("sync: WaitGroup.Add called from multiple synctest bubbles")
 		case synctest.CurrentBubble:
 			bubbled = true
-			state := wg.state.Or(waitGroupBubbleFlag)
-			if state != 0 && state&waitGroupBubbleFlag == 0 {
-				// Add has been called from outside this bubble.
-				fatal("sync: WaitGroup.Add called from inside and outside synctest bubble")
+			// Use compare-and-swap loop to implement atomic Or operation
+			// since race detector doesn't have __tsan_go_atomic64_fetch_or
+			for {
+				old := wg.state.Load()
+				new := old | waitGroupBubbleFlag
+				if wg.state.CompareAndSwap(old, new) {
+					state := old
+					if state != 0 && state&waitGroupBubbleFlag == 0 {
+						// Add has been called from outside this bubble.
+						fatal("sync: WaitGroup.Add called from inside and outside synctest bubble")
+					}
+					break
+				}
 			}
 		}
 	}
