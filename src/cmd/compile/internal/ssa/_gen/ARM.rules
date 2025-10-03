@@ -59,10 +59,15 @@
 (Sqrt32 ...) => (SQRTF ...)
 (Abs ...) => (ABSD ...)
 
-// TODO: optimize this for ARMv5 and ARMv6
-(Ctz32NonZero ...) => (Ctz32 ...)
-(Ctz16NonZero ...) => (Ctz32 ...)
-(Ctz8NonZero ...) => (Ctz32 ...)
+// Optimized: For NonZero variants, we can skip the -1 step since we know x != 0
+// For ARMv5/ARMv6: Use simplified formula 32 - CLZ(x&-x) instead of 32 - CLZ(x&-x - 1)
+(Ctz32NonZero <t> x) && buildcfg.GOARM.Version<=6 => (RSBconst [32] (CLZ <t> (AND <t> x (RSBconst <t> [0] x))))
+(Ctz16NonZero <t> x) && buildcfg.GOARM.Version<=6 => (RSBconst [32] (CLZ <t> (AND <typ.UInt32> (ORconst <typ.UInt32> [0x10000] x) (RSBconst <typ.UInt32> [0] (ORconst <typ.UInt32> [0x10000] x)))))
+(Ctz8NonZero <t> x) && buildcfg.GOARM.Version<=6 => (RSBconst [32] (CLZ <t> (AND <typ.UInt32> (ORconst <typ.UInt32> [0x100] x) (RSBconst <typ.UInt32> [0] (ORconst <typ.UInt32> [0x100] x)))))
+// For ARMv7, NonZero variants are the same as regular Ctz (already optimal)
+(Ctz32NonZero ...) && buildcfg.GOARM.Version==7 => (Ctz32 ...)
+(Ctz16NonZero ...) && buildcfg.GOARM.Version==7 => (Ctz32 ...)
+(Ctz8NonZero ...) && buildcfg.GOARM.Version==7 => (Ctz32 ...)
 
 // count trailing zero for ARMv5 and ARMv6
 // 32 - CLZ(x&-x - 1)

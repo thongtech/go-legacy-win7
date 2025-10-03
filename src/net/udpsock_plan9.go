@@ -9,11 +9,34 @@ import (
 	"errors"
 	"net/netip"
 	"os"
+	"sync"
 	"syscall"
 )
 
+// udpBufferPool reduces allocations for UDP read/write operations
+var udpBufferPool = sync.Pool{
+	New: func() interface{} {
+		// Allocate a reasonably-sized buffer (4KB is common UDP payload size)
+		b := make([]byte, 4096+udpHeaderSize)
+		return &b
+	},
+}
+
 func (c *UDPConn) readFrom(b []byte, addr *UDPAddr) (int, *UDPAddr, error) {
-	buf := make([]byte, udpHeaderSize+len(b))
+	bufSize := udpHeaderSize + len(b)
+	var buf []byte
+	var pooled bool
+
+	// Try to use pooled buffer if it's large enough
+	if bufSize <= 4096+udpHeaderSize {
+		bufPtr := udpBufferPool.Get().(*[]byte)
+		buf = (*bufPtr)[:bufSize]
+		defer udpBufferPool.Put(bufPtr)
+		pooled = true
+	} else {
+		buf = make([]byte, bufSize)
+	}
+
 	m, err := c.fd.Read(buf)
 	if err != nil {
 		return 0, nil, err
@@ -30,8 +53,19 @@ func (c *UDPConn) readFrom(b []byte, addr *UDPAddr) (int, *UDPAddr, error) {
 }
 
 func (c *UDPConn) readFromAddrPort(b []byte) (int, netip.AddrPort, error) {
-	// TODO: optimize. The equivalent code on posix is alloc-free.
-	buf := make([]byte, udpHeaderSize+len(b))
+	// Optimized to use buffer pooling
+	bufSize := udpHeaderSize + len(b)
+	var buf []byte
+
+	// Try to use pooled buffer if it's large enough
+	if bufSize <= 4096+udpHeaderSize {
+		bufPtr := udpBufferPool.Get().(*[]byte)
+		buf = (*bufPtr)[:bufSize]
+		defer udpBufferPool.Put(bufPtr)
+	} else {
+		buf = make([]byte, bufSize)
+	}
+
 	m, err := c.fd.Read(buf)
 	if err != nil {
 		return 0, netip.AddrPort{}, err
@@ -63,7 +97,18 @@ func (c *UDPConn) writeTo(b []byte, addr *UDPAddr) (int, error) {
 	h.rport = uint16(addr.Port)
 	h.lport = uint16(c.fd.laddr.(*UDPAddr).Port)
 
-	buf := make([]byte, udpHeaderSize+len(b))
+	bufSize := udpHeaderSize + len(b)
+	var buf []byte
+
+	// Try to use pooled buffer if it's large enough
+	if bufSize <= 4096+udpHeaderSize {
+		bufPtr := udpBufferPool.Get().(*[]byte)
+		buf = (*bufPtr)[:bufSize]
+		defer udpBufferPool.Put(bufPtr)
+	} else {
+		buf = make([]byte, bufSize)
+	}
+
 	i := copy(buf, h.Bytes())
 	copy(buf[i:], b)
 	if _, err := c.fd.Write(buf); err != nil {
@@ -73,7 +118,36 @@ func (c *UDPConn) writeTo(b []byte, addr *UDPAddr) (int, error) {
 }
 
 func (c *UDPConn) writeToAddrPort(b []byte, addr netip.AddrPort) (int, error) {
-	return c.writeTo(b, UDPAddrFromAddrPort(addr)) // TODO: optimize instead of allocating
+	// Optimized to avoid allocating UDPAddr
+	if !addr.IsValid() {
+		return 0, errMissingAddress
+	}
+
+	h := new(udpHeader)
+	h.raddr = addr.Addr().As16()
+	h.laddr = c.fd.laddr.(*UDPAddr).IP.To16()
+	h.ifcaddr = IPv6zero // ignored (receive only)
+	h.rport = addr.Port()
+	h.lport = uint16(c.fd.laddr.(*UDPAddr).Port)
+
+	bufSize := udpHeaderSize + len(b)
+	var buf []byte
+
+	// Try to use pooled buffer if it's large enough
+	if bufSize <= 4096+udpHeaderSize {
+		bufPtr := udpBufferPool.Get().(*[]byte)
+		buf = (*bufPtr)[:bufSize]
+		defer udpBufferPool.Put(bufPtr)
+	} else {
+		buf = make([]byte, bufSize)
+	}
+
+	i := copy(buf, h.Bytes())
+	copy(buf[i:], b)
+	if _, err := c.fd.Write(buf); err != nil {
+		return 0, err
+	}
+	return len(b), nil
 }
 
 func (c *UDPConn) writeMsg(b, oob []byte, addr *UDPAddr) (n, oobn int, err error) {

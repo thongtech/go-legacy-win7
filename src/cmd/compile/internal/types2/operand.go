@@ -125,7 +125,9 @@ func operandString(x *operand, qf Qualifier) string {
 		}
 	}
 
-	var buf bytes.Buffer
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
 
 	var expr string
 	if x.expr != nil {

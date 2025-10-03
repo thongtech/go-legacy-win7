@@ -12,8 +12,16 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 )
+
+// bufPool reduces allocations for temporary buffers used in type string formatting
+var bufPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
 
 // A Qualifier controls how named package-level objects are printed in
 // calls to [TypeString], [ObjectString], and [SelectionString].
@@ -45,8 +53,10 @@ func RelativeTo(pkg *Package) Qualifier {
 // The [Qualifier] controls the printing of
 // package-level objects, and may be nil.
 func TypeString(typ Type, qf Qualifier) string {
-	var buf bytes.Buffer
-	WriteType(&buf, typ, qf)
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	WriteType(buf, typ, qf)
 	return buf.String()
 }
 

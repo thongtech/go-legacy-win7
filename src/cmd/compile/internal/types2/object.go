@@ -473,8 +473,10 @@ func (obj *Func) Signature() *Signature {
 // FullName returns the package- or receiver-type-qualified name of
 // function or method obj.
 func (obj *Func) FullName() string {
-	var buf bytes.Buffer
-	writeFuncName(&buf, obj, nil)
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	writeFuncName(buf, obj, nil)
 	return buf.String()
 }
 

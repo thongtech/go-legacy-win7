@@ -157,8 +157,10 @@ func (u *unifier) String() string {
 	}
 	sort.Sort(tparams)
 
-	var buf bytes.Buffer
-	w := newTypeWriter(&buf, nil)
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+	w := newTypeWriter(buf, nil)
 	w.byte('[')
 	for i, x := range tparams {
 		if i > 0 {

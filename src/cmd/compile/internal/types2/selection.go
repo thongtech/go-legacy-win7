@@ -165,16 +165,18 @@ func SelectionString(s *Selection, qf Qualifier) string {
 	default:
 		panic("unreachable")
 	}
-	var buf bytes.Buffer
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
 	buf.WriteString(k)
 	buf.WriteByte('(')
-	WriteType(&buf, s.Recv(), qf)
-	fmt.Fprintf(&buf, ") %s", s.obj.Name())
+	WriteType(buf, s.Recv(), qf)
+	fmt.Fprintf(buf, ") %s", s.obj.Name())
 	if T := s.Type(); s.kind == FieldVal {
 		buf.WriteByte(' ')
-		WriteType(&buf, T, qf)
+		WriteType(buf, T, qf)
 	} else {
-		WriteSignature(&buf, T.(*Signature), qf)
+		WriteSignature(buf, T.(*Signature), qf)
 	}
 	return buf.String()
 }
