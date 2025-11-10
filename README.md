@@ -51,6 +51,7 @@ The Windows binary provided here also supports Windows 7 and Windows Server 2008
 | Linux | ARM64 | [go-legacy-win7-1.25.4-1.linux_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.25.4-1/go-legacy-win7-1.25.4-1.linux_arm64.tar.gz) | `bcb523e9feea546394b153102e03c6fef903b41ad61f2e995bd58fcc0bdc5701` |
 | **Windows** | x86 (386) | [go-legacy-win7-1.25.4-1.windows_386.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.25.4-1/go-legacy-win7-1.25.4-1.windows_386.zip) | `e71659dfea7e3c14b773f81d62804210a7eb1b97ffce1317daae745ea5cfe7d2` |
 | Windows | x64 (amd64) | [go-legacy-win7-1.25.4-1.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.25.4-1/go-legacy-win7-1.25.4-1.windows_amd64.zip) | `ad88eea574495424cbbc461ee24cd7f1977dded1786bf28fba72d6d908f03a3a` |
+| Windows | x64 (amd64) - Race | [go-legacy-win7-1.25.4-1-race.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.25.4-1/go-legacy-win7-1.25.4-1-race.windows_amd64.zip) | `791a100d6496366cacab3ccd2e790673a1ceec3b638cd847e739dfbdedc91b85` |
 | Windows | ARM64 | [go-legacy-win7-1.25.4-1.windows_arm64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.25.4-1/go-legacy-win7-1.25.4-1.windows_arm64.zip) | `803829126819b3983b7b07ff7873fb80cbb579fb4785677c942f309053fe4a5f` |
 
 ### Before you begin
