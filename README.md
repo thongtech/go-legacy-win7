@@ -35,7 +35,13 @@ Current release includes the following modifications:
 - Rolled back `race_windows.syso` to the previous compatible version (fixed [issue #3](https://github.com/thongtech/go-legacy-win7/issues/3))
 - Includes all improvements and bug fixes from the corresponding upstream Go release
 
-The Windows binary provided here also supports Windows 7 and Windows Server 2008 R2
+We now provide two build options for Windows amd64:
+
+- **Standard build**  
+  Maximum Windows 7/2008R2 compatibility with the reverted race detector. Use this if you need Windows 7 and Windows Server 2008 R2 support.
+
+- **Race detector build** (version suffix `-race`)  
+  Uses Go's latest stable race detector without modifications. Recommended for Windows 10+ when running race tests to avoid potential edge cases with the legacy race detector. See [issue #6](https://github.com/thongtech/go-legacy-win7/issues/6)
 
 ## Download and Install
 
