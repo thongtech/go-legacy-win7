@@ -10,7 +10,7 @@ _Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attrib
 1. **Windows 7 and Windows Server 2008 R2 Support**  
    While the official Go project has dropped support for Windows 7 and Windows Server 2008 R2, this fork maintains compatibility with these legacy Windows systems.
 
-   Tested on Windows 7 RTM (build 7600) — no updates required — through Windows 11 24H2
+   Tested on Windows 7 RTM (build 7600) — no updates required — through Windows 11 25H2
 
 2. **Classic `go get` Behaviour**  
    This fork allows for the deprecated `go get` behaviour when `GO111MODULE` is set to "off" or "auto". This means:
