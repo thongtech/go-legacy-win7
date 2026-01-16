@@ -424,10 +424,9 @@ func downloadPackage(p *load.Package) error {
 		vcsCmd                  *vcs.Cmd
 		repo, rootPath, repoDir string
 		err                     error
-		blindRepo               bool // set if the repo has unusual configuration
 	)
 
-	// p can be either a real package, or a pseudo-package whose “import path” is
+	// p can be either a real package, or a pseudo-package whose "import path" is
 	// actually a wildcard pattern.
 	// Trim the path at the element containing the first wildcard,
 	// and hope that it applies to the wildcarded parts too.
@@ -464,32 +463,6 @@ func downloadPackage(p *load.Package) error {
 		}
 
 		repo = "<local>" // should be unused; make distinctive
-
-		// Double-check where it came from.
-		if *getU && vcsCmd.RemoteRepo != nil {
-			dir := filepath.Join(p.Internal.Build.SrcRoot, filepath.FromSlash(rootPath))
-			remote, err := vcsCmd.RemoteRepo(vcsCmd, dir)
-			if err != nil {
-				// Proceed anyway. The package is present; we likely just don't understand
-				// the repo configuration (e.g. unusual remote protocol).
-				blindRepo = true
-			}
-			repo = remote
-			if !*getF && err == nil {
-				if rr, err := vcs.RepoRootForImportPath(importPrefix, vcs.IgnoreMod, security); err == nil {
-					repo := rr.Repo
-					if rr.VCS.ResolveRepo != nil {
-						resolved, err := rr.VCS.ResolveRepo(rr.VCS, dir, repo)
-						if err == nil {
-							repo = resolved
-						}
-					}
-					if remote != repo && rr.IsCustom {
-						return fmt.Errorf("%s is a custom import path for %s, but %s is checked out from %s", rr.Root, repo, dir, remote)
-					}
-				}
-			}
-		}
 	} else {
 		// Analyze the import path to determine the version control system,
 		// repository, and the import path for the root of the repository.
@@ -499,7 +472,7 @@ func downloadPackage(p *load.Package) error {
 		}
 		vcsCmd, repo, rootPath = rr.VCS, rr.Repo, rr.Root
 	}
-	if !blindRepo && !vcsCmd.IsSecure(repo) && security != web.Insecure {
+	if !vcsCmd.IsSecure(repo) && security != web.Insecure {
 		return fmt.Errorf("cannot download: %v uses insecure protocol", repo)
 	}
 
