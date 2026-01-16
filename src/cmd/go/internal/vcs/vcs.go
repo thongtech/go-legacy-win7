@@ -253,7 +253,7 @@ var vcsGit = &Cmd{
 		{filename: ".git", isDir: true},
 	},
 
-	CreateCmd:   []string{"clone --end-of-options -- {repo} {dir}", "--go-internal-cd {dir} submodule update --init --recursive"},
+	CreateCmd:   []string{"clone -- {repo} {dir}", "--go-internal-cd {dir} submodule update --init --recursive"},
 	DownloadCmd: []string{"pull --ff-only", "submodule update --init --recursive"},
 
 	TagCmd: []tagCmd{
@@ -262,9 +262,9 @@ var vcsGit = &Cmd{
 		{"show-ref", `(?:tags|origin)/(\S+)$`},
 	},
 	TagLookupCmd: []tagCmd{
-		{"show-ref --end-of-options tags/{tag} origin/{tag}", `((?:tags|origin)/\S+)$`},
+		{"show-ref tags/{tag} origin/{tag}", `((?:tags|origin)/\S+)$`},
 	},
-	TagSyncCmd: []string{"checkout --end-of-options {tag}", "submodule update --init --recursive"},
+	TagSyncCmd: []string{"checkout {tag}", "submodule update --init --recursive"},
 	// both createCmd and downloadCmd update the working dir.
 	// No need to do more here. We used to 'checkout master'
 	// but that doesn't work if the default branch is not named master.
