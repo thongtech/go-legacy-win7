@@ -1,12 +1,12 @@
-From 7d330febd42674f6395aad25ea85dce35b4604c5 Mon Sep 17 00:00:00 2001
+From 1cf3e9a205e4a8d5d0372676b1ca191fa7779eb5 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Wed, 13 Aug 2025 22:04:56 +0700
+Date: Sat, 17 Jan 2026 05:18:14 +0800
 Subject: [PATCH] Restore GOPATH-mode get
 
 ---
  src/cmd/go/alldocs.go                         |  66 ++
  src/cmd/go/go_test.go                         | 100 +++
- src/cmd/go/internal/get/get.go                | 639 ++++++++++++++++++
+ src/cmd/go/internal/get/get.go                | 612 ++++++++++++++++++
  src/cmd/go/internal/get/tag_test.go           | 100 +++
  src/cmd/go/internal/help/help.go              |   7 +
  src/cmd/go/internal/load/pkg.go               |  60 ++
@@ -51,7 +51,7 @@ Subject: [PATCH] Restore GOPATH-mode get
  .../script/vendor_test_issue11864.txt         |  79 +--
  .../script/vendor_test_issue14613.txt         |  46 +-
  src/cmd/internal/par/work.go                  |  38 ++
- 47 files changed, 1933 insertions(+), 195 deletions(-)
+ 47 files changed, 1906 insertions(+), 195 deletions(-)
  create mode 100644 src/cmd/go/internal/get/get.go
  create mode 100644 src/cmd/go/internal/get/tag_test.go
  create mode 100644 src/cmd/go/testdata/script/get_brace.txt
@@ -291,10 +291,10 @@ index 3e691ab..513ea86 100644
  	defer tg.cleanup()
 diff --git a/src/cmd/go/internal/get/get.go b/src/cmd/go/internal/get/get.go
 new file mode 100644
-index 0000000..6c39640
+index 0000000..79571c2
 --- /dev/null
 +++ b/src/cmd/go/internal/get/get.go
-@@ -0,0 +1,639 @@
+@@ -0,0 +1,612 @@
 +// Copyright 2011 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -721,10 +721,9 @@ index 0000000..6c39640
 +		vcsCmd                  *vcs.Cmd
 +		repo, rootPath, repoDir string
 +		err                     error
-+		blindRepo               bool // set if the repo has unusual configuration
 +	)
 +
-+	// p can be either a real package, or a pseudo-package whose “import path” is
++	// p can be either a real package, or a pseudo-package whose "import path" is
 +	// actually a wildcard pattern.
 +	// Trim the path at the element containing the first wildcard,
 +	// and hope that it applies to the wildcarded parts too.
@@ -761,32 +760,6 @@ index 0000000..6c39640
 +		}
 +
 +		repo = "<local>" // should be unused; make distinctive
-+
-+		// Double-check where it came from.
-+		if *getU && vcsCmd.RemoteRepo != nil {
-+			dir := filepath.Join(p.Internal.Build.SrcRoot, filepath.FromSlash(rootPath))
-+			remote, err := vcsCmd.RemoteRepo(vcsCmd, dir)
-+			if err != nil {
-+				// Proceed anyway. The package is present; we likely just don't understand
-+				// the repo configuration (e.g. unusual remote protocol).
-+				blindRepo = true
-+			}
-+			repo = remote
-+			if !*getF && err == nil {
-+				if rr, err := vcs.RepoRootForImportPath(importPrefix, vcs.IgnoreMod, security); err == nil {
-+					repo := rr.Repo
-+					if rr.VCS.ResolveRepo != nil {
-+						resolved, err := rr.VCS.ResolveRepo(rr.VCS, dir, repo)
-+						if err == nil {
-+							repo = resolved
-+						}
-+					}
-+					if remote != repo && rr.IsCustom {
-+						return fmt.Errorf("%s is a custom import path for %s, but %s is checked out from %s", rr.Root, repo, dir, remote)
-+					}
-+				}
-+			}
-+		}
 +	} else {
 +		// Analyze the import path to determine the version control system,
 +		// repository, and the import path for the root of the repository.
@@ -796,7 +769,7 @@ index 0000000..6c39640
 +		}
 +		vcsCmd, repo, rootPath = rr.VCS, rr.Repo, rr.Root
 +	}
-+	if !blindRepo && !vcsCmd.IsSecure(repo) && security != web.Insecure {
++	if !vcsCmd.IsSecure(repo) && security != web.Insecure {
 +		return fmt.Errorf("cannot download: %v uses insecure protocol", repo)
 +	}
 +
@@ -1179,10 +1152,10 @@ index 31e9244..698c45b 100644
  	UsageLine: "vcs",
  	Short:     "controlling version control with GOVCS",
 diff --git a/src/cmd/go/internal/vcs/vcs.go b/src/cmd/go/internal/vcs/vcs.go
-index 7e081eb..6b29068 100644
+index b8204c7..606f6c8 100644
 --- a/src/cmd/go/internal/vcs/vcs.go
 +++ b/src/cmd/go/internal/vcs/vcs.go
-@@ -1061,11 +1061,11 @@ var defaultGOVCS = govcsConfig{
+@@ -764,11 +764,11 @@ var defaultGOVCS = govcsConfig{
  	{"public", []string{"git", "hg"}},
  }
  
@@ -1196,7 +1169,7 @@ index 7e081eb..6b29068 100644
  	if vcs == vcsMod {
  		// Direct module (proxy protocol) fetches don't
  		// involve an external version control system
-@@ -1093,6 +1093,37 @@ func checkGOVCS(vcs *Cmd, root string) error {
+@@ -796,6 +796,37 @@ func checkGOVCS(vcs *Cmd, root string) error {
  	return nil
  }
  
@@ -1234,7 +1207,7 @@ index 7e081eb..6b29068 100644
  // RepoRoot describes the repository root for a tree of source code.
  type RepoRoot struct {
  	Repo     string // repository URL, including scheme
-@@ -1209,7 +1240,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
+@@ -912,7 +943,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
  		if vcs == nil {
  			return nil, fmt.Errorf("unknown version control system %q", match["vcs"])
  		}
@@ -1243,7 +1216,7 @@ index 7e081eb..6b29068 100644
  			return nil, err
  		}
  		var repoURL string
-@@ -1398,7 +1429,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
+@@ -1105,7 +1136,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
  		}
  	}
  
@@ -2659,5 +2632,5 @@ index 881b51b..3f1e69a 100644
 +	})
 +}
 -- 
-2.39.5
+2.52.0
 
