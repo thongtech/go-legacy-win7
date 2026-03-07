@@ -1,15 +1,15 @@
-From 60c2599965077fe6e9edd1ae54bcd608d595b9f9 Mon Sep 17 00:00:00 2001
+From 0293de81c0dcf855f15e1c5d3f4e1a87ba09aa39 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Thu, 12 Feb 2026 00:41:49 +0700
+Date: Sat, 7 Mar 2026 10:31:41 +0700
 Subject: [PATCH] Switch ProcessPrng back to RtlGenRandom
 
 ---
  src/crypto/internal/sysrand/rand_windows.go   | 13 +++++++-
  src/crypto/rand/rand.go                       |  2 +-
  .../syscall/windows/syscall_windows.go        |  2 +-
- .../syscall/windows/zsyscall_windows.go       |  7 ++---
+ .../syscall/windows/zsyscall_windows.go       | 23 +++++++-------
  src/runtime/os_windows.go                     | 30 ++++++++++++-------
- 5 files changed, 36 insertions(+), 18 deletions(-)
+ 5 files changed, 44 insertions(+), 26 deletions(-)
 
 diff --git a/src/crypto/internal/sysrand/rand_windows.go b/src/crypto/internal/sysrand/rand_windows.go
 index 91f1490..d23f180 100644
@@ -47,7 +47,7 @@ index 018fe01..93d0add 100644
  //   - On wasip1/wasm, Reader uses random_get.
  //
 diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
-index b908a2c..6f29bd9 100644
+index 00291b5..9f3ea26 100644
 --- a/src/internal/syscall/windows/syscall_windows.go
 +++ b/src/internal/syscall/windows/syscall_windows.go
 @@ -421,7 +421,7 @@ func ErrorLoadingGetTempPath2() error {
@@ -60,27 +60,43 @@ index b908a2c..6f29bd9 100644
  type FILE_ID_BOTH_DIR_INFO struct {
  	NextEntryOffset uint32
 diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
-index d087fd4..ccc21dd 100644
+index 2172746..26c66cf 100644
 --- a/src/internal/syscall/windows/zsyscall_windows.go
 +++ b/src/internal/syscall/windows/zsyscall_windows.go
-@@ -38,7 +38,6 @@ func errnoErr(e syscall.Errno) error {
+@@ -37,15 +37,14 @@ func errnoErr(e syscall.Errno) error {
+ }
  
  var (
- 	modadvapi32         = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
+-	modadvapi32         = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
 -	modbcryptprimitives = syscall.NewLazyDLL(sysdll.Add("bcryptprimitives.dll"))
- 	modiphlpapi         = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
- 	modkernel32         = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
- 	modnetapi32         = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
-@@ -63,7 +62,7 @@ var (
- 	procQueryServiceStatus                = modadvapi32.NewProc("QueryServiceStatus")
- 	procRevertToSelf                      = modadvapi32.NewProc("RevertToSelf")
+-	modiphlpapi         = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
+-	modkernel32         = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
+-	modnetapi32         = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
+-	modntdll            = syscall.NewLazyDLL(sysdll.Add("ntdll.dll"))
+-	modpsapi            = syscall.NewLazyDLL(sysdll.Add("psapi.dll"))
+-	moduserenv          = syscall.NewLazyDLL(sysdll.Add("userenv.dll"))
+-	modws2_32           = syscall.NewLazyDLL(sysdll.Add("ws2_32.dll"))
++	modadvapi32 = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
++	modiphlpapi = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
++	modkernel32 = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
++	modnetapi32 = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
++	modntdll    = syscall.NewLazyDLL(sysdll.Add("ntdll.dll"))
++	modpsapi    = syscall.NewLazyDLL(sysdll.Add("psapi.dll"))
++	moduserenv  = syscall.NewLazyDLL(sysdll.Add("userenv.dll"))
++	modws2_32   = syscall.NewLazyDLL(sysdll.Add("ws2_32.dll"))
+ 
+ 	procAdjustTokenPrivileges             = modadvapi32.NewProc("AdjustTokenPrivileges")
+ 	procDuplicateTokenEx                  = modadvapi32.NewProc("DuplicateTokenEx")
+@@ -65,7 +64,7 @@ var (
+ 	procSetEntriesInAclW                  = modadvapi32.NewProc("SetEntriesInAclW")
+ 	procSetNamedSecurityInfoW             = modadvapi32.NewProc("SetNamedSecurityInfoW")
  	procSetTokenInformation               = modadvapi32.NewProc("SetTokenInformation")
 -	procProcessPrng                       = modbcryptprimitives.NewProc("ProcessPrng")
 +	procSystemFunction036                 = modadvapi32.NewProc("SystemFunction036")
  	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
  	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
  	procCreateIoCompletionPort            = modkernel32.NewProc("CreateIoCompletionPort")
-@@ -244,12 +243,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
+@@ -271,12 +270,12 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
  	return
  }
  

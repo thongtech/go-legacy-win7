@@ -1612,6 +1612,50 @@ var nameConstraintsTests = []nameConstraintsTest{
 			sans: []string{"dns:testexample.com"},
 		},
 	},
+	{
+		name: "excluded email constraint, multiple email with matching local portion",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"email:a@example.com", "email:a@test.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"email:a@example.com"},
+		},
+		expectedError: "\"a@example.com\" is excluded by constraint \"a@example.com\"",
+	},
+	{
+		name: "email_case_check",
+		roots: []constraintsSpec{
+			{
+				ok: []string{"email:a@example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"email:a@ExAmple.com"},
+		},
+	},
+	{
+		name: "excluded constraint, empty DNS san",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:example.com"},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:"},
+		},
+	},
 }
 
 func makeConstraintsCACert(constraints constraintsSpec, name string, key *ecdsa.PrivateKey, parent *Certificate, parentKey *ecdsa.PrivateKey) (*Certificate, error) {

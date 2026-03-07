@@ -37,14 +37,14 @@ func errnoErr(e syscall.Errno) error {
 }
 
 var (
-	modadvapi32         = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
-	modiphlpapi         = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
-	modkernel32         = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
-	modnetapi32         = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
-	modntdll            = syscall.NewLazyDLL(sysdll.Add("ntdll.dll"))
-	modpsapi            = syscall.NewLazyDLL(sysdll.Add("psapi.dll"))
-	moduserenv          = syscall.NewLazyDLL(sysdll.Add("userenv.dll"))
-	modws2_32           = syscall.NewLazyDLL(sysdll.Add("ws2_32.dll"))
+	modadvapi32 = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
+	modiphlpapi = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
+	modkernel32 = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
+	modnetapi32 = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
+	modntdll    = syscall.NewLazyDLL(sysdll.Add("ntdll.dll"))
+	modpsapi    = syscall.NewLazyDLL(sysdll.Add("psapi.dll"))
+	moduserenv  = syscall.NewLazyDLL(sysdll.Add("userenv.dll"))
+	modws2_32   = syscall.NewLazyDLL(sysdll.Add("ws2_32.dll"))
 
 	procAdjustTokenPrivileges             = modadvapi32.NewProc("AdjustTokenPrivileges")
 	procDuplicateTokenEx                  = modadvapi32.NewProc("DuplicateTokenEx")
@@ -61,6 +61,8 @@ var (
 	procOpenThreadToken                   = modadvapi32.NewProc("OpenThreadToken")
 	procQueryServiceStatus                = modadvapi32.NewProc("QueryServiceStatus")
 	procRevertToSelf                      = modadvapi32.NewProc("RevertToSelf")
+	procSetEntriesInAclW                  = modadvapi32.NewProc("SetEntriesInAclW")
+	procSetNamedSecurityInfoW             = modadvapi32.NewProc("SetNamedSecurityInfoW")
 	procSetTokenInformation               = modadvapi32.NewProc("SetTokenInformation")
 	procSystemFunction036                 = modadvapi32.NewProc("SystemFunction036")
 	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
@@ -231,6 +233,31 @@ func RevertToSelf() (err error) {
 	r1, _, e1 := syscall.SyscallN(procRevertToSelf.Addr())
 	if r1 == 0 {
 		err = errnoErr(e1)
+	}
+	return
+}
+
+func SetEntriesInAcl(countExplicitEntries uint32, explicitEntries *EXPLICIT_ACCESS, oldACL *ACL, newACL **ACL) (ret error) {
+	r0, _, _ := syscall.SyscallN(procSetEntriesInAclW.Addr(), uintptr(countExplicitEntries), uintptr(unsafe.Pointer(explicitEntries)), uintptr(unsafe.Pointer(oldACL)), uintptr(unsafe.Pointer(newACL)))
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
+	}
+	return
+}
+
+func SetNamedSecurityInfo(objectName string, objectType uint32, securityInformation uint32, owner *syscall.SID, group *syscall.SID, dacl *ACL, sacl *ACL) (ret error) {
+	var _p0 *uint16
+	_p0, ret = syscall.UTF16PtrFromString(objectName)
+	if ret != nil {
+		return
+	}
+	return _SetNamedSecurityInfo(_p0, objectType, securityInformation, owner, group, dacl, sacl)
+}
+
+func _SetNamedSecurityInfo(objectName *uint16, objectType uint32, securityInformation uint32, owner *syscall.SID, group *syscall.SID, dacl *ACL, sacl *ACL) (ret error) {
+	r0, _, _ := syscall.SyscallN(procSetNamedSecurityInfoW.Addr(), uintptr(unsafe.Pointer(objectName)), uintptr(objectType), uintptr(securityInformation), uintptr(unsafe.Pointer(owner)), uintptr(unsafe.Pointer(group)), uintptr(unsafe.Pointer(dacl)), uintptr(unsafe.Pointer(sacl)))
+	if r0 != 0 {
+		ret = syscall.Errno(r0)
 	}
 	return
 }
