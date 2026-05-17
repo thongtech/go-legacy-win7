@@ -32,9 +32,28 @@ jobs:
             variant: race
 
     steps:
+      - name: Resolve source branch
+        id: branch
+        run: |
+          VERSION="${{ inputs.version }}"
+          MAJOR_MINOR=$(echo "$VERSION" | grep -oP '^\d+\.\d+')
+
+          BRANCHES=$(git ls-remote --heads https://github.com/${{ github.repository }} | awk '{print $2}' | sed 's|refs/heads/||')
+
+          RELEASE_BRANCH="release-branch.go${MAJOR_MINOR}"
+
+          if echo "$BRANCHES" | grep -qx "$RELEASE_BRANCH"; then
+            echo "branch=$RELEASE_BRANCH" >> $GITHUB_OUTPUT
+            echo "Checking out $RELEASE_BRANCH for version $VERSION"
+          else
+            echo "branch=main" >> $GITHUB_OUTPUT
+            echo "No release branch found for $MAJOR_MINOR, falling back to main"
+          fi
+
       - uses: actions/checkout@v4
         with:
           path: go-legacy-win7
+          ref: ${{ steps.branch.outputs.branch }}
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
@@ -142,7 +161,7 @@ jobs:
             --title "go-legacy-win7-${{ inputs.version }}" \
             --notes "go-legacy-win7-${{ inputs.version }}" \
             --draft \
-            --target main
+            --target ${{ steps.branch.outputs.branch }}   # <-- dynamic branch
 
           gh release upload v${{ inputs.version }} \
             ../go-legacy-win7-${{ inputs.version }}${{ steps.version.outputs.suffix }}.${{ matrix.target }}.* \
