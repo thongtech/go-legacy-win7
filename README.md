@@ -48,18 +48,20 @@ We now provide two build options for Windows amd64:
 
 ### Binary Distributions
 
+> Note: The table below shows the latest Go stable version. For previous versions, including other stable releases, visit the [Releases](https://github.com/thongtech/go-legacy-win7/releases) page and select the one matching your desired Go version.
+
 | OS | Architecture | Filename | SHA‑256 Hash |
 |----|--------------|----------|--------------|
-| macOS | Intel (amd64) | [go-legacy-win7-1.26.2-1.darwin_amd64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.darwin_amd64.tar.gz) | `6a1754bbbb7f38a964cae1eb2936ee3d63c1cf89c5dbb625fa9a2ec6aef51b5b` |
-| **macOS** | **Apple (ARM64)** | [go-legacy-win7-1.26.2-1.darwin_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.darwin_arm64.tar.gz) | `23ce60e5c36df2821ce59c24178934d0d538d21289662b3d619b2c92b4084f52` |
-| Linux | x86 (386) | [go-legacy-win7-1.26.2-1.linux_386.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.linux_386.tar.gz) | `a2e3ab19a6f76469d442f7729b472c0a856cfebd0d591f2fbeeb745c88f2ca27` |
-| **Linux** | **x64 (amd64)** | [go-legacy-win7-1.26.2-1.linux_amd64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.linux_amd64.tar.gz) | `fe7bdbf18b884e43b9f3508745e2817f9711d8cbfa9726b8f3c7140b6ca25630` |
-| Linux | ARM (32‑bit) | [go-legacy-win7-1.26.2-1.linux_arm.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.linux_arm.tar.gz) | `09c6ac05fec8a1c7653de63437da37678d86852c0d6347c9340f52b4fa9482b1` |
-| Linux | ARM64 | [go-legacy-win7-1.26.2-1.linux_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.linux_arm64.tar.gz) | `e0c63581f623564c12b643723a0eb6ac7dd8a96685d3b8e223303203cf514d72` |
-| Windows | x86 (386) | [go-legacy-win7-1.26.2-1.windows_386.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.windows_386.zip) | `f34d8fb13076c085f2880d99350b420184a1a6ad99e28b61e2821e53970e7e5a` |
-| **Windows** | **x64 (amd64)** | [go-legacy-win7-1.26.2-1.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.windows_amd64.zip) | `1246a4e8705015c316eba3667dd7097a0a5c157e9d8ca4ef5a4dcd9f9cc5811b` |
-| Windows | x64 (amd64) - Race | [go-legacy-win7-1.26.2-1-race.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1-race.windows_amd64.zip) | `6abb8ffef7c5167802350c90488efbc6c984aaa68cf7a983349cba2576a15188` |
-| Windows | ARM64 | [go-legacy-win7-1.26.2-1.windows_arm64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.2-1/go-legacy-win7-1.26.2-1.windows_arm64.zip) | `1335e5bd33afab9d9bcf8803d6d7897b786abf203fd1abc21c9214444fdeb9cb` |
+| macOS | Intel (amd64) | [go-legacy-win7-1.26.3-1.darwin_amd64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.darwin_amd64.tar.gz) | `b4386e4693170867faf583d09479f528da787943ebea898099068dc755722f48` |
+| **macOS** | **Apple (ARM64)** | [go-legacy-win7-1.26.3-1.darwin_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.darwin_arm64.tar.gz) | `0474fcde75fa9f9554f18b9c175978c68497f3738f0288ba93ed8ebc23efb3b4` |
+| Linux | x86 (386) | [go-legacy-win7-1.26.3-1.linux_386.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.linux_386.tar.gz) | `5f589db21111ae778fdcb5286bd9bd0021719b8be09192c49713b2f78efcf24d` |
+| **Linux** | **x64 (amd64)** | [go-legacy-win7-1.26.3-1.linux_amd64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.linux_amd64.tar.gz) | `8a1acb588fa3ab7827ce7b1be5795b356be65a500c70af297ad94ab2b3370ea6` |
+| Linux | ARM (32‑bit) | [go-legacy-win7-1.26.3-1.linux_arm.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.linux_arm.tar.gz) | `a14ee3a7fbd45f3b0867917825564c9e7dbfd400007d6f16cb41c04442297922` |
+| Linux | ARM64 | [go-legacy-win7-1.26.3-1.linux_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.linux_arm64.tar.gz) | `d07c088dfc3b6e03246ac407948d77990f08818ec3b5a94e99aa0b0792c3600e` |
+| Windows | x86 (386) | [go-legacy-win7-1.26.3-1.windows_386.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.windows_386.zip) | `fde0fb97e8a24eb5b53341861010fcb4dba6636a8d46059cff281f5e36a1f9b0` |
+| **Windows** | **x64 (amd64)** | [go-legacy-win7-1.26.3-1.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.windows_amd64.zip) | `5e968370eb54c6f0655439c972fb68366ca494d85bf88bbf9a32b2647bfd82b8` |
+| Windows | x64 (amd64) - Race | [go-legacy-win7-1.26.3-1-race.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1-race.windows_amd64.zip) | `13f84028a0fb0afdf4be47c62d746f8f12e881e383af2b62875b086803000d30` |
+| Windows | ARM64 | [go-legacy-win7-1.26.3-1.windows_arm64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.3-1/go-legacy-win7-1.26.3-1.windows_arm64.zip) | `29caa9a347ba11a925566525cb87c85fe456352f77f21599d8d616a2a9d7d3d7` |
 
 ### Before you begin
 To avoid PATH/GOROOT conflicts and mixed toolchains, uninstall any existing Go installation first.
