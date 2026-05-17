@@ -1,6 +1,6 @@
-From b832732b5d8509512c5021b5f4b1cf3e2ec6ea2c Mon Sep 17 00:00:00 2001
+From 2de5e0cf7368ad04aac9fad60e92ee2b82125a6a Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 14 Feb 2025 11:35:56 +0700
+Date: Mon, 18 May 2026 00:07:11 +0700
 Subject: [PATCH] Add back LoadLibraryA fallback
 
 ---
@@ -26,10 +26,10 @@ index 13d30d4..5ff5229 100644
 +	return useLoadLibraryEx, _LoadLibraryExW != nil, _AddDllDirectory != nil
 +}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index fd65e34..c85fab7 100644
+index a6d3211..6d56976 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
-@@ -42,6 +42,7 @@ const (
+@@ -41,6 +41,7 @@ const (
  //go:cgo_import_dynamic runtime._SetThreadContext SetThreadContext%2 "kernel32.dll"
  //go:cgo_import_dynamic runtime._LoadLibraryExW LoadLibraryExW%3 "kernel32.dll"
  //go:cgo_import_dynamic runtime._LoadLibraryW LoadLibraryW%1 "kernel32.dll"
@@ -37,7 +37,7 @@ index fd65e34..c85fab7 100644
  //go:cgo_import_dynamic runtime._PostQueuedCompletionStatus PostQueuedCompletionStatus%4 "kernel32.dll"
  //go:cgo_import_dynamic runtime._QueryPerformanceCounter QueryPerformanceCounter%1 "kernel32.dll"
  //go:cgo_import_dynamic runtime._QueryPerformanceFrequency QueryPerformanceFrequency%1 "kernel32.dll"
-@@ -75,6 +76,7 @@ var (
+@@ -74,6 +75,7 @@ var (
  	// Following syscalls are available on every Windows PC.
  	// All these variables are set by the Windows executable
  	// loader before the Go program starts.
@@ -45,7 +45,7 @@ index fd65e34..c85fab7 100644
  	_AddVectoredContinueHandler,
  	_AddVectoredExceptionHandler,
  	_CloseHandle,
-@@ -100,6 +102,7 @@ var (
+@@ -99,6 +101,7 @@ var (
  	_SetThreadContext,
  	_LoadLibraryExW,
  	_LoadLibraryW,
@@ -53,7 +53,7 @@ index fd65e34..c85fab7 100644
  	_PostQueuedCompletionStatus,
  	_QueryPerformanceCounter,
  	_QueryPerformanceFrequency,
-@@ -158,7 +161,6 @@ var (
+@@ -157,7 +160,6 @@ var (
  	ntdlldll    = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
  	powrprofdll = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
  	winmmdll    = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
@@ -61,7 +61,7 @@ index fd65e34..c85fab7 100644
  )
  
  // Function to be called by windows CreateThread
-@@ -254,7 +256,36 @@ func windows_GetSystemDirectory() string {
+@@ -253,7 +255,36 @@ func windows_GetSystemDirectory() string {
  }
  
  func windowsLoadSystemLib(name []uint16) uintptr {
@@ -99,7 +99,7 @@ index fd65e34..c85fab7 100644
  }
  
  //go:linkname windows_QueryPerformanceCounter internal/syscall/windows.QueryPerformanceCounter
-@@ -272,6 +303,15 @@ func windows_QueryPerformanceFrequency() int64 {
+@@ -271,6 +302,15 @@ func windows_QueryPerformanceFrequency() int64 {
  }
  
  func loadOptionalSyscalls() {
@@ -115,7 +115,7 @@ index fd65e34..c85fab7 100644
  	a32 := windowsLoadSystemLib(advapi32dll[:])
  	if a32 == 0 {
  		throw("advapi32.dll not found")
-@@ -366,6 +406,22 @@ const (
+@@ -365,6 +405,22 @@ const (
  // in sys_windows_386.s and sys_windows_amd64.s:
  func getlasterror() uint32
  
@@ -169,10 +169,10 @@ index 85b1b8c..eb808fe 100644
  		err = 0
  	}
 diff --git a/src/runtime/syscall_windows_test.go b/src/runtime/syscall_windows_test.go
-index 01a9ca3..53f7110 100644
+index ad9bfb4..549d2e3 100644
 --- a/src/runtime/syscall_windows_test.go
 +++ b/src/runtime/syscall_windows_test.go
-@@ -1160,7 +1160,10 @@ uintptr_t cfunc(void) {
+@@ -1164,7 +1164,10 @@ uintptr_t cfunc(void) {
  	dll, err = syscall.LoadDLL(name)
  	if err == nil {
  		dll.Release()
@@ -184,7 +184,7 @@ index 01a9ca3..53f7110 100644
  	}
  }
  
-@@ -1213,6 +1216,24 @@ func TestSyscallStackUsage(t *testing.T) {
+@@ -1217,6 +1220,24 @@ func TestSyscallStackUsage(t *testing.T) {
  	syscall.Syscall18(procSetEvent.Addr(), 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
  }
  
@@ -275,7 +275,7 @@ index 4e988c4..45b1908 100644
  // An access token contains the security information for a logon session.
  // The system creates an access token when a user logs on, and every
 diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
-index c0585a6..85c66de 100644
+index 70ac19a..aec4b2d 100644
 --- a/src/syscall/zsyscall_windows.go
 +++ b/src/syscall/zsyscall_windows.go
 @@ -128,6 +128,7 @@ var (
@@ -286,7 +286,7 @@ index c0585a6..85c66de 100644
  	procGetSystemTimeAsFileTime            = modkernel32.NewProc("GetSystemTimeAsFileTime")
  	procGetTempPathW                       = modkernel32.NewProc("GetTempPathW")
  	procGetTimeZoneInformation             = modkernel32.NewProc("GetTimeZoneInformation")
-@@ -871,6 +872,15 @@ func GetStdHandle(stdhandle int) (handle Handle, err error) {
+@@ -872,6 +873,15 @@ func GetStdHandle(stdhandle int) (handle Handle, err error) {
  	return
  }
  
@@ -300,8 +300,8 @@ index c0585a6..85c66de 100644
 +}
 +
  func GetSystemTimeAsFileTime(time *Filetime) {
- 	Syscall(procGetSystemTimeAsFileTime.Addr(), 1, uintptr(unsafe.Pointer(time)), 0, 0)
+ 	SyscallN(procGetSystemTimeAsFileTime.Addr(), uintptr(unsafe.Pointer(time)))
  	return
 -- 
-2.39.5
+2.47.3
 

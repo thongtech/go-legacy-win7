@@ -144,6 +144,15 @@ func (file *File) readdir(n int, mode readdirMode) (names []string, dirents []Di
 					// [1] https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-fsa/fa8194e0-53ec-413b-8315-e8fa85396fd8
 					break
 				}
+				if (err == windows.ERROR_INVALID_PARAMETER || err == windows.ERROR_NOT_SUPPORTED) &&
+					(d.class == windows.FileFullDirectoryRestartInfo || d.class == windows.FileFullDirectoryInfo) {
+					// Even FileFullDirectoryRestartInfo is not supported by very old SMB shares.
+					// This is common with Windows 7 accessing SMB 1.0 shares.
+					// Use FindFirstFile/FindNextFile as the final fallback.
+					dirBufPool.Put(d.buf)
+					d.buf = nil
+					return readDirFindFirstFile(file, n, wantAll, mode)
+				}
 				if s, _ := file.Stat(); s != nil && !s.IsDir() {
 					err = &PathError{Op: "readdir", Path: file.name, Err: syscall.ENOTDIR}
 				} else {
@@ -210,6 +219,91 @@ func (file *File) readdir(n int, mode readdirMode) (names []string, dirents []Di
 			n--
 		}
 	}
+	if !wantAll && len(names)+len(dirents)+len(infos) == 0 {
+		return nil, nil, nil, io.EOF
+	}
+	return names, dirents, infos, nil
+}
+
+// readDirFindFirstFile is a fallback for very old SMB shares that don't support
+// GetFileInformationByHandleEx with any directory info class.
+// It uses the legacy FindFirstFile/FindNextFile API.
+func readDirFindFirstFile(file *File, n int, wantAll bool, mode readdirMode) (names []string, dirents []DirEntry, infos []FileInfo, err error) {
+	d := file.dirinfo.Load()
+
+	// Build the search pattern
+	searchPath := file.name
+	if searchPath == "" {
+		return nil, nil, nil, &PathError{Op: "readdir", Path: file.name, Err: syscall.EINVAL}
+	}
+	if searchPath[len(searchPath)-1] != '\\' && searchPath[len(searchPath)-1] != '/' {
+		searchPath += `\`
+	}
+	searchPath += "*"
+
+	searchPathPtr, err := syscall.UTF16PtrFromString(searchPath)
+	if err != nil {
+		return nil, nil, nil, &PathError{Op: "FindFirstFile", Path: file.name, Err: err}
+	}
+
+	var fd syscall.Win32finddata
+	h, err := syscall.FindFirstFile(searchPathPtr, &fd)
+	if err != nil {
+		if err == syscall.ERROR_FILE_NOT_FOUND {
+			// Empty directory
+			return nil, nil, nil, nil
+		}
+		return nil, nil, nil, &PathError{Op: "FindFirstFile", Path: file.name, Err: err}
+	}
+	defer syscall.FindClose(h)
+
+	for {
+		name := syscall.UTF16ToString(fd.FileName[:])
+
+		// Skip "." and ".."
+		if name == "." || name == ".." {
+			if err = syscall.FindNextFile(h, &fd); err != nil {
+				if err == syscall.ERROR_NO_MORE_FILES {
+					break
+				}
+				return names, dirents, infos, &PathError{Op: "FindNextFile", Path: file.name, Err: err}
+			}
+			continue
+		}
+
+		if mode == readdirName {
+			names = append(names, name)
+		} else {
+			// Convert Win32finddata to FileInfo
+			f := newFileStatFromWin32finddata(&fd)
+			f.name = name
+			f.vol = d.vol
+			if d.path != "" {
+				// Set the directory path for os.SameFile support.
+				// The entry name will be appended when needed.
+				f.appendNameToPath = true
+				f.path = d.path
+			}
+			if mode == readdirDirEntry {
+				dirents = append(dirents, dirEntry{f})
+			} else {
+				infos = append(infos, f)
+			}
+		}
+
+		n--
+		if !wantAll && n == 0 {
+			break
+		}
+
+		if err = syscall.FindNextFile(h, &fd); err != nil {
+			if err == syscall.ERROR_NO_MORE_FILES {
+				break
+			}
+			return names, dirents, infos, &PathError{Op: "FindNextFile", Path: file.name, Err: err}
+		}
+	}
+
 	if !wantAll && len(names)+len(dirents)+len(infos) == 0 {
 		return nil, nil, nil, io.EOF
 	}

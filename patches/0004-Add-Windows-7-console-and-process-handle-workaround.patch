@@ -1,6 +1,6 @@
-From 4c18dbd71ffab945d87cbd5fa86a0027dd6248f1 Mon Sep 17 00:00:00 2001
+From 78b4730d6bc36eb8ea200605858fab045060645c Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Wed, 13 Aug 2025 21:47:16 +0700
+Date: Thu, 12 Feb 2026 03:31:08 +0700
 Subject: [PATCH] Add Windows 7 console and process handle workaround
 
 ---
@@ -32,10 +32,10 @@ index 68c7064..6a44a7d 100644
  	// than statusDone.
  	p.doRelease(statusReleased)
 diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
-index 3ba2fbe..77c0d44 100644
+index 96089fc..60fe466 100644
 --- a/src/syscall/exec_windows.go
 +++ b/src/syscall/exec_windows.go
-@@ -254,6 +254,16 @@ type SysProcAttr struct {
+@@ -304,6 +304,16 @@ type SysProcAttr struct {
  var zeroProcAttr ProcAttr
  var zeroSysProcAttr SysProcAttr
  
@@ -52,7 +52,7 @@ index 3ba2fbe..77c0d44 100644
  func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle uintptr, err error) {
  	if len(argv0) == 0 {
  		return 0, 0, EWINDOWS
-@@ -317,6 +327,16 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+@@ -367,6 +377,16 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
  		}
  	}
  
@@ -69,7 +69,7 @@ index 3ba2fbe..77c0d44 100644
  	p, _ := GetCurrentProcess()
  	parentProcess := p
  	if sys.ParentProcess != 0 {
-@@ -325,7 +345,15 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+@@ -375,7 +395,15 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
  	fd := make([]Handle, len(attr.Files))
  	for i := range attr.Files {
  		if attr.Files[i] > 0 {
@@ -86,7 +86,7 @@ index 3ba2fbe..77c0d44 100644
  			if err != nil {
  				return 0, 0, err
  			}
-@@ -356,6 +384,14 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+@@ -406,6 +434,14 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
  
  	fd = append(fd, sys.AdditionalInheritedHandles...)
  
@@ -102,10 +102,10 @@ index 3ba2fbe..77c0d44 100644
  	// to treat the entire list as empty, so remove NULL handles.
  	j := 0
 diff --git a/src/syscall/types_windows.go b/src/syscall/types_windows.go
-index 92fa796..c9749ba 100644
+index 1bffb27..96c315f 100644
 --- a/src/syscall/types_windows.go
 +++ b/src/syscall/types_windows.go
-@@ -1183,3 +1183,13 @@ const (
+@@ -1210,3 +1210,13 @@ const (
  )
  
  const UNIX_PATH_MAX = 108 // defined in afunix.h
@@ -120,7 +120,7 @@ index 92fa796..c9749ba 100644
 +	csdVersion        [128]uint16
 +}
 diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
-index ef00c0b..065977e 100644
+index aec4b2d..7d049c9 100644
 --- a/src/syscall/zsyscall_windows.go
 +++ b/src/syscall/zsyscall_windows.go
 @@ -43,6 +43,7 @@ var (
@@ -149,8 +149,8 @@ index ef00c0b..065977e 100644
 +}
 +
  func TranslateName(accName *uint16, accNameFormat uint32, desiredNameFormat uint32, translatedName *uint16, nSize *uint32) (err error) {
- 	r1, _, e1 := Syscall6(procTranslateNameW.Addr(), 5, uintptr(unsafe.Pointer(accName)), uintptr(accNameFormat), uintptr(desiredNameFormat), uintptr(unsafe.Pointer(translatedName)), uintptr(unsafe.Pointer(nSize)), 0)
+ 	r1, _, e1 := SyscallN(procTranslateNameW.Addr(), uintptr(unsafe.Pointer(accName)), uintptr(accNameFormat), uintptr(desiredNameFormat), uintptr(unsafe.Pointer(translatedName)), uintptr(unsafe.Pointer(nSize)))
  	if r1&0xff == 0 {
 -- 
-2.39.5
+2.47.3
 

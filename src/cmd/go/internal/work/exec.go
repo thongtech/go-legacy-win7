@@ -1637,10 +1637,7 @@ func (b *Builder) getPkgConfigFlags(a *Action) (cflags, ldflags []string, err er
 			}
 		}
 
-		// Running 'pkg-config' can cause execution of
-		// arbitrary code using flags that are not in
-		// the safelist.
-		if err := checkCompilerFlags("CFLAGS", "pkg-config --cflags", pcflags); err != nil {
+		if err := checkPkgConfigFlags("", "pkg-config", pcflags); err != nil {
 			return nil, nil, err
 		}
 
@@ -3234,6 +3231,10 @@ func (b *Builder) swigIntSize(objdir string) (intsize string, err error) {
 
 // Run SWIG on one SWIG input file.
 func (b *Builder) swigOne(a *Action, file, objdir string, pcCFLAGS []string, cxx bool, intgosize string) (outGo, outC string, err error) {
+	if strings.HasPrefix(file, "cgo") {
+		return "", "", errors.New("SWIG file must not use prefix 'cgo'")
+	}
+
 	p := a.Package
 	sh := b.Shell(a)
 

@@ -547,8 +547,25 @@ func matchDomainConstraint(domain, constraint string, excluded bool, reversedDom
 	}
 
 	if excluded && wildcardDomain && len(domainLabels) > 1 && len(constraintLabels) > 1 {
-		domainLabels = domainLabels[:len(domainLabels)-1]
-		constraintLabels = constraintLabels[:len(constraintLabels)-1]
+		// Rules must apply to wildcard domains as if the wildcard could be any DNS label.
+		//
+		// For inclusion rules this works simply by treating the wildcard like a label
+		// (which does not exist in the constraints, and thus must be within a subtree).
+		//
+		// For exclusion rules, however, care must be taken that the excluded
+		// tree is not covered by the wildcard domain range.
+		//
+		// The following cases exist:
+		//
+		// 1. excluded.example.com <-> *.com: no match, as wildcards can only match one label.
+		// 2. excluded.example.com <-> *.example.com: match, as this contains excluded.example.com.
+		// 3. excluded.example.com <-> *.excluded.example.com: match (but matches just as well when treating the wildcard like a label).
+		//
+		// As such, only case 2 needs explicit handling here.
+		if len(domainLabels) == len(constraintLabels) {
+			domainLabels = domainLabels[:len(domainLabels)-1]
+			constraintLabels = constraintLabels[:len(constraintLabels)-1]
+		}
 	}
 
 	for i, constraintLabel := range constraintLabels {
@@ -999,6 +1016,8 @@ func alreadyInChain(candidate *Certificate, chain []*Certificate) bool {
 // for failed checks due to different intermediates having the same Subject.
 const maxChainSignatureChecks = 100
 
+var errSignatureLimit = errors.New("x509: signature check attempts limit reached while verifying certificate chain")
+
 func (c *Certificate) buildChains(currentChain []*Certificate, sigChecks *int, opts *VerifyOptions) (chains [][]*Certificate, err error) {
 	var (
 		hintErr  error
@@ -1006,16 +1025,16 @@ func (c *Certificate) buildChains(currentChain []*Certificate, sigChecks *int, o
 	)
 
 	considerCandidate := func(certType int, candidate potentialParent) {
-		if candidate.cert.PublicKey == nil || alreadyInChain(candidate.cert, currentChain) {
-			return
-		}
-
 		if sigChecks == nil {
 			sigChecks = new(int)
 		}
 		*sigChecks++
 		if *sigChecks > maxChainSignatureChecks {
-			err = errors.New("x509: signature check attempts limit reached while verifying certificate chain")
+			err = errSignatureLimit
+			return
+		}
+
+		if candidate.cert.PublicKey == nil || alreadyInChain(candidate.cert, currentChain) {
 			return
 		}
 
@@ -1056,11 +1075,20 @@ func (c *Certificate) buildChains(currentChain []*Certificate, sigChecks *int, o
 		}
 	}
 
-	for _, root := range opts.Roots.findPotentialParents(c) {
-		considerCandidate(rootCertificate, root)
-	}
-	for _, intermediate := range opts.Intermediates.findPotentialParents(c) {
-		considerCandidate(intermediateCertificate, intermediate)
+candidateLoop:
+	for _, parents := range []struct {
+		certType   int
+		potentials []potentialParent
+	}{
+		{rootCertificate, opts.Roots.findPotentialParents(c)},
+		{intermediateCertificate, opts.Intermediates.findPotentialParents(c)},
+	} {
+		for _, parent := range parents.potentials {
+			considerCandidate(parents.certType, parent)
+			if err == errSignatureLimit {
+				break candidateLoop
+			}
+		}
 	}
 
 	if len(chains) > 0 {
@@ -1563,11 +1591,11 @@ func policiesValid(chain []*Certificate, opts VerifyOptions) bool {
 						} else {
 							// 6.1.4 (b) (3) (i) -- as updated by RFC 9618
 							pg.deleteLeaf(mapping.IssuerDomainPolicy)
-
-							// 6.1.4 (b) (3) (ii) -- as updated by RFC 9618
-							pg.prune()
 						}
 					}
+
+					// 6.1.4 (b) (3) (ii) -- as updated by RFC 9618
+					pg.prune()
 
 					for issuerStr, subjectPolicies := range mappings {
 						// 6.1.4 (b) (1) -- as updated by RFC 9618
