@@ -1,18 +1,18 @@
-From c0f79a96a0262b2dd69d1a85e20b481d03cba8f2 Mon Sep 17 00:00:00 2001
+From d24d28d7d268e9746a55d042b0cf14462ded1c85 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Tue, 26 Aug 2025 15:07:25 +0700
+Date: Wed, 8 Jul 2026 22:04:07 +0800
 Subject: [PATCH] Use removeall_noat variant on Windows
 
 ---
  src/os/removeall_at.go   |  2 +-
  src/os/removeall_noat.go |  2 +-
  src/os/root.go           |  6 ------
- src/os/root_noopenat.go  | 20 --------------------
+ src/os/root_noopenat.go  | 25 -------------------------
  src/os/root_openat.go    | 22 ----------------------
- 5 files changed, 2 insertions(+), 50 deletions(-)
+ 5 files changed, 2 insertions(+), 55 deletions(-)
 
 diff --git a/src/os/removeall_at.go b/src/os/removeall_at.go
-index 5ddc1ade..61298a46 100644
+index 9a7cea61..d04fdd62 100644
 --- a/src/os/removeall_at.go
 +++ b/src/os/removeall_at.go
 @@ -2,7 +2,7 @@
@@ -38,7 +38,7 @@ index 395a1503..02f6fca7 100644
  package os
  
 diff --git a/src/os/root.go b/src/os/root.go
-index d759727c..1ecbcc09 100644
+index 80e655e4..beb568d5 100644
 --- a/src/os/root.go
 +++ b/src/os/root.go
 @@ -189,12 +189,6 @@ func (r *Root) Remove(name string) error {
@@ -55,7 +55,7 @@ index d759727c..1ecbcc09 100644
  // See [Stat] for more details.
  func (r *Root) Stat(name string) (FileInfo, error) {
 diff --git a/src/os/root_noopenat.go b/src/os/root_noopenat.go
-index 59f1abe9..ecdf264f 100644
+index 228b580d..ecdf264f 100644
 --- a/src/os/root_noopenat.go
 +++ b/src/os/root_noopenat.go
 @@ -11,7 +11,6 @@ import (
@@ -66,11 +66,16 @@ index 59f1abe9..ecdf264f 100644
  	"time"
  )
  
-@@ -186,25 +185,6 @@ func rootRemove(r *Root, name string) error {
+@@ -186,30 +185,6 @@ func rootRemove(r *Root, name string) error {
  	return nil
  }
  
 -func rootRemoveAll(r *Root, name string) error {
+-	// Consistency with os.RemoveAll: Strip trailing /s from the name,
+-	// so RemoveAll("not_a_directory/") succeeds.
+-	for len(name) > 0 && IsPathSeparator(name[len(name)-1]) {
+-		name = name[:len(name)-1]
+-	}
 -	if endsWithDot(name) {
 -		// Consistency with os.RemoveAll: Return EINVAL when trying to remove .
 -		return &PathError{Op: "RemoveAll", Path: name, Err: syscall.EINVAL}
@@ -93,10 +98,10 @@ index 59f1abe9..ecdf264f 100644
  	if err := checkPathEscapesLstat(r, name); err != nil {
  		return "", &PathError{Op: "readlinkat", Path: name, Err: err}
 diff --git a/src/os/root_openat.go b/src/os/root_openat.go
-index e433bd50..cfc6d906 100644
+index d7c9334a..87d39a16 100644
 --- a/src/os/root_openat.go
 +++ b/src/os/root_openat.go
-@@ -194,28 +194,6 @@ func rootRemove(r *Root, name string) error {
+@@ -206,28 +206,6 @@ func rootRemove(r *Root, name string) error {
  	return nil
  }
  
@@ -110,7 +115,7 @@ index e433bd50..cfc6d906 100644
 -		// Consistency with os.RemoveAll: Return EINVAL when trying to remove .
 -		return &PathError{Op: "RemoveAll", Path: name, Err: syscall.EINVAL}
 -	}
--	_, err := doInRoot(r, name, nil, func(parent sysfdType, name string) (struct{}, error) {
+-	_, err := doInRoot(r, name, 0, nil, func(parent sysfdType, name string, endsInSlash bool) (struct{}, error) {
 -		return struct{}{}, removeAllFrom(parent, name)
 -	})
 -	if IsNotExist(err) {
@@ -123,8 +128,8 @@ index e433bd50..cfc6d906 100644
 -}
 -
  func rootRename(r *Root, oldname, newname string) error {
- 	_, err := doInRoot(r, oldname, nil, func(oldparent sysfdType, oldname string) (struct{}, error) {
- 		_, err := doInRoot(r, newname, nil, func(newparent sysfdType, newname string) (struct{}, error) {
+ 	_, err := doInRoot(r, oldname, 0, nil, func(oldparent sysfdType, oldname string, oldEndsInSlash bool) (struct{}, error) {
+ 		flags := uint(doInRootCreatingDirectory)
 -- 
-2.50.1.windows.1
+2.47.3
 
