@@ -141,18 +141,23 @@ func init() {
 	)
 	// Common regInfo
 	var (
-		gp01     = regInfo{inputs: nil, outputs: []regMask{gp}}
-		gp11     = regInfo{inputs: []regMask{gpg}, outputs: []regMask{gp}}
-		gp11sp   = regInfo{inputs: []regMask{gpspg}, outputs: []regMask{gp}}
-		gp21     = regInfo{inputs: []regMask{gpg, gpg | rz}, outputs: []regMask{gp}}
-		gp2hilo  = regInfo{inputs: []regMask{gpg, gpg}, outputs: []regMask{hi, lo}}
-		gpload   = regInfo{inputs: []regMask{gpspsbg}, outputs: []regMask{gp}}
-		gpstore  = regInfo{inputs: []regMask{gpspsbg, gpg | rz}}
-		gpstore0 = regInfo{inputs: []regMask{gpspsbg}}
-		gpxchg   = regInfo{inputs: []regMask{gpspsbg, gpg}, outputs: []regMask{gp}}
-		gpcas    = regInfo{inputs: []regMask{gpspsbg, gpg, gpg}, outputs: []regMask{gp}}
-		fp01     = regInfo{inputs: nil, outputs: []regMask{fp}}
-		fp11     = regInfo{inputs: []regMask{fp}, outputs: []regMask{fp}}
+		gp01   = regInfo{inputs: nil, outputs: []regMask{gp}}
+		gp11   = regInfo{inputs: []regMask{gpg}, outputs: []regMask{gp}}
+		gp11sp = regInfo{inputs: []regMask{gpspg}, outputs: []regMask{gp}}
+		gp21   = regInfo{inputs: []regMask{gpg, gpg | rz}, outputs: []regMask{gp}}
+		// Multiply/divide move their results out of HI/LO into general
+		// registers as part of the op itself: a value living in HI/LO
+		// cannot be spilled, as spilling needs REGTMP as the data
+		// register, which collides with REGTMP-based address
+		// materialization when the frame is too large for 16-bit offsets.
+		gp22clobbershilo = regInfo{inputs: []regMask{gpg, gpg}, outputs: []regMask{gp, gp}, clobbers: hi | lo}
+		gpload           = regInfo{inputs: []regMask{gpspsbg}, outputs: []regMask{gp}}
+		gpstore          = regInfo{inputs: []regMask{gpspsbg, gpg | rz}}
+		gpstore0         = regInfo{inputs: []regMask{gpspsbg}}
+		gpxchg           = regInfo{inputs: []regMask{gpspsbg, gpg}, outputs: []regMask{gp}}
+		gpcas            = regInfo{inputs: []regMask{gpspsbg, gpg, gpg}, outputs: []regMask{gp}}
+		fp01             = regInfo{inputs: nil, outputs: []regMask{fp}}
+		fp11             = regInfo{inputs: []regMask{fp}, outputs: []regMask{fp}}
 		//fp1flags  = regInfo{inputs: []regMask{fp}}
 		fpgp      = regInfo{inputs: []regMask{fp}, outputs: []regMask{gp}}
 		gpfp      = regInfo{inputs: []regMask{gp}, outputs: []regMask{fp}}
@@ -164,14 +169,14 @@ func init() {
 	)
 	ops := []opData{
 		// binary ops
-		{name: "ADDV", argLength: 2, reg: gp21, asm: "ADDVU", commutative: true},                             // arg0 + arg1
-		{name: "ADDVconst", argLength: 1, reg: gp11sp, asm: "ADDVU", aux: "Int64"},                           // arg0 + auxInt. auxInt is 32-bit, also in other *const ops.
-		{name: "SUBV", argLength: 2, reg: gp21, asm: "SUBVU"},                                                // arg0 - arg1
-		{name: "SUBVconst", argLength: 1, reg: gp11, asm: "SUBVU", aux: "Int64"},                             // arg0 - auxInt
-		{name: "MULV", argLength: 2, reg: gp2hilo, asm: "MULV", commutative: true, typ: "(Int64,Int64)"},     // arg0 * arg1, signed, results hi,lo
-		{name: "MULVU", argLength: 2, reg: gp2hilo, asm: "MULVU", commutative: true, typ: "(UInt64,UInt64)"}, // arg0 * arg1, unsigned, results hi,lo
-		{name: "DIVV", argLength: 2, reg: gp2hilo, asm: "DIVV", typ: "(Int64,Int64)"},                        // arg0 / arg1, signed, results hi=arg0%arg1,lo=arg0/arg1
-		{name: "DIVVU", argLength: 2, reg: gp2hilo, asm: "DIVVU", typ: "(UInt64,UInt64)"},                    // arg0 / arg1, signed, results hi=arg0%arg1,lo=arg0/arg1
+		{name: "ADDV", argLength: 2, reg: gp21, asm: "ADDVU", commutative: true},                                      // arg0 + arg1
+		{name: "ADDVconst", argLength: 1, reg: gp11sp, asm: "ADDVU", aux: "Int64"},                                    // arg0 + auxInt. auxInt is 32-bit, also in other *const ops.
+		{name: "SUBV", argLength: 2, reg: gp21, asm: "SUBVU"},                                                         // arg0 - arg1
+		{name: "SUBVconst", argLength: 1, reg: gp11, asm: "SUBVU", aux: "Int64"},                                      // arg0 - auxInt
+		{name: "MULV", argLength: 2, reg: gp22clobbershilo, asm: "MULV", commutative: true, typ: "(Int64,Int64)"},     // arg0 * arg1, signed, results high,low
+		{name: "MULVU", argLength: 2, reg: gp22clobbershilo, asm: "MULVU", commutative: true, typ: "(UInt64,UInt64)"}, // arg0 * arg1, unsigned, results high,low
+		{name: "DIVV", argLength: 2, reg: gp22clobbershilo, asm: "DIVV", typ: "(Int64,Int64)"},                        // arg0 / arg1, signed, results arg0%arg1,arg0/arg1
+		{name: "DIVVU", argLength: 2, reg: gp22clobbershilo, asm: "DIVVU", typ: "(UInt64,UInt64)"},                    // arg0 / arg1, unsigned, results arg0%arg1,arg0/arg1
 
 		{name: "ADDF", argLength: 2, reg: fp21, asm: "ADDF", commutative: true}, // arg0 + arg1
 		{name: "ADDD", argLength: 2, reg: fp21, asm: "ADDD", commutative: true}, // arg0 + arg1
@@ -226,22 +231,22 @@ func init() {
 
 		{name: "MOVVaddr", argLength: 1, reg: regInfo{inputs: []regMask{buildReg("SP") | buildReg("SB")}, outputs: []regMask{gp}}, aux: "SymOff", asm: "MOVV", rematerializeable: true, symEffect: "Addr"}, // arg0 + auxInt + aux.(*gc.Sym), arg0=SP/SB
 
-		{name: "MOVBload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVB", typ: "Int8", faultOnNilArg0: true, symEffect: "Read"},     // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVBUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVBU", typ: "UInt8", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVHload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVH", typ: "Int16", faultOnNilArg0: true, symEffect: "Read"},    // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVHUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVHU", typ: "UInt16", faultOnNilArg0: true, symEffect: "Read"}, // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVWload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVW", typ: "Int32", faultOnNilArg0: true, symEffect: "Read"},    // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVWUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVWU", typ: "UInt32", faultOnNilArg0: true, symEffect: "Read"}, // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVVload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVV", typ: "UInt64", faultOnNilArg0: true, symEffect: "Read"},   // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVFload", argLength: 2, reg: fpload, aux: "SymOff", asm: "MOVF", typ: "Float32", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
-		{name: "MOVDload", argLength: 2, reg: fpload, aux: "SymOff", asm: "MOVD", typ: "Float64", faultOnNilArg0: true, symEffect: "Read"},  // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVBload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVB", typ: "Int8", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},     // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVBUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVBU", typ: "UInt8", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},  // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVHload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVH", typ: "Int16", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},    // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVHUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVHU", typ: "UInt16", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true}, // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVWload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVW", typ: "Int32", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},    // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVWUload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVWU", typ: "UInt32", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true}, // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVVload", argLength: 2, reg: gpload, aux: "SymOff", asm: "MOVV", typ: "UInt64", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},   // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVFload", argLength: 2, reg: fpload, aux: "SymOff", asm: "MOVF", typ: "Float32", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},  // load from arg0 + auxInt + aux.  arg1=mem.
+		{name: "MOVDload", argLength: 2, reg: fpload, aux: "SymOff", asm: "MOVD", typ: "Float64", faultOnNilArg0: true, symEffect: "Read", addrSinkArg0: true},  // load from arg0 + auxInt + aux.  arg1=mem.
 
-		{name: "MOVBstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVB", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 1 byte of arg1 to arg0 + auxInt + aux.  arg2=mem.
-		{name: "MOVHstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVH", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 2 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
-		{name: "MOVWstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVW", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 4 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
-		{name: "MOVVstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVV", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 8 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
-		{name: "MOVFstore", argLength: 3, reg: fpstore, aux: "SymOff", asm: "MOVF", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 4 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
-		{name: "MOVDstore", argLength: 3, reg: fpstore, aux: "SymOff", asm: "MOVD", typ: "Mem", faultOnNilArg0: true, symEffect: "Write"}, // store 8 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
+		{name: "MOVBstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVB", typ: "Mem", faultOnNilArg0: true, symEffect: "Write", addrSinkArg0: true}, // store 1 byte of arg1 to arg0 + auxInt + aux.  arg2=mem.
+		{name: "MOVHstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVH", typ: "Mem", faultOnNilArg0: true, symEffect: "Write", addrSinkArg0: true}, // store 2 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
+		{name: "MOVWstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVW", typ: "Mem", faultOnNilArg0: true, symEffect: "Write", addrSinkArg0: true}, // store 4 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
+		{name: "MOVVstore", argLength: 3, reg: gpstore, aux: "SymOff", asm: "MOVV", typ: "Mem", faultOnNilArg0: true, symEffect: "Write", addrSinkArg0: true}, // store 8 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
+		{name: "MOVFstore", argLength: 3, reg: fpstore, aux: "SymOff", asm: "MOVF", typ: "Mem", faultOnNilArg0: true, symEffect: "Write", addrSinkArg0: true}, // store 4 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
+		{name: "MOVDstore", argLength: 3, reg: fpstore, aux: "SymOff", asm: "MOVD", typ: "Mem", faultOnNilArg0: true, symEffect: "Write", addrSinkArg0: true}, // store 8 bytes of arg1 to arg0 + auxInt + aux.  arg2=mem.
 
 		{name: "ZERO", zeroWidth: true, fixedReg: true},
 
@@ -294,6 +299,7 @@ func init() {
 				clobbers: buildReg("R1 R31"),
 			},
 			faultOnNilArg0: true,
+			addrSinkArg0:   true,
 		},
 
 		// duffcopy
@@ -312,6 +318,8 @@ func init() {
 			},
 			faultOnNilArg0: true,
 			faultOnNilArg1: true,
+			addrSinkArg0:   true,
+			addrSinkArg1:   true,
 		},
 
 		// large or unaligned zeroing
@@ -334,6 +342,8 @@ func init() {
 			},
 			clobberFlags:   true,
 			faultOnNilArg0: true,
+			addrSinkArg0:   true,
+			addrSinkArg1:   true,
 		},
 
 		// large or unaligned move
@@ -360,6 +370,9 @@ func init() {
 			clobberFlags:   true,
 			faultOnNilArg0: true,
 			faultOnNilArg1: true,
+			addrSinkArg0:   true,
+			addrSinkArg1:   true,
+			// TODO: could use addrSinkArg2 here.
 		},
 
 		// atomic and/or.
