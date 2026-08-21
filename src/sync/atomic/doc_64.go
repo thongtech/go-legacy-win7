@@ -50,34 +50,6 @@ func AddInt64(addr *int64, delta int64) (new int64)
 //go:noescape
 func AddUint64(addr *uint64, delta uint64) (new uint64)
 
-// AndInt64 atomically performs a bitwise AND operation on *addr using the bitmask provided as mask
-// and returns the old value.
-// Consider using the more ergonomic and less error-prone [Int64.And] instead.
-//
-//go:noescape
-func AndInt64(addr *int64, mask int64) (old int64)
-
-// AndUint64 atomically performs a bitwise AND operation on *addr using the bitmask provided as mask
-// and returns the old.
-// Consider using the more ergonomic and less error-prone [Uint64.And] instead.
-//
-//go:noescape
-func AndUint64(addr *uint64, mask uint64) (old uint64)
-
-// OrInt64 atomically performs a bitwise OR operation on *addr using the bitmask provided as mask
-// and returns the old value.
-// Consider using the more ergonomic and less error-prone [Int64.Or] instead.
-//
-//go:noescape
-func OrInt64(addr *int64, mask int64) (old int64)
-
-// OrUint64 atomically performs a bitwise OR operation on *addr using the bitmask provided as mask
-// and returns the old value.
-// Consider using the more ergonomic and less error-prone [Uint64.Or] instead.
-//
-//go:noescape
-func OrUint64(addr *uint64, mask uint64) (old uint64)
-
 // LoadInt64 atomically loads *addr.
 // Consider using the more ergonomic and less error-prone [Int64.Load] instead
 // (particularly if you target 32-bit platforms; see the bugs section).

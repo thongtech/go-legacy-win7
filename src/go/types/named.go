@@ -295,13 +295,7 @@ func (n *Named) stateHas(m stateMask) bool {
 // setState atomically sets the current state to include each active bit in sm.
 // Must only be called while holding n.mu.
 func (n *Named) setState(m stateMask) {
-	for {
-		old := atomic.LoadUint32(&n.state_)
-		new := old | uint32(m)
-		if old == new || atomic.CompareAndSwapUint32(&n.state_, old, new) {
-			break
-		}
-	}
+	atomic.OrUint32(&n.state_, uint32(m))
 	// verify state transitions
 	if debug {
 		m := stateMask(atomic.LoadUint32(&n.state_))

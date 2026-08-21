@@ -1,20 +1,10 @@
-From 6151c55927f183e81f0f09e54b765cd81bcd5627 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 10 Apr 2026 21:05:05 +0700
-Subject: [PATCH] Drop public And/Or ops and race instrumentation
+Date: Fri, 21 Aug 2026 17:07:57 +1000
+Subject: [PATCH] Roll back race_windows.syso and drop TSAN And/Or instrumentation
 
----
- src/runtime/race.go                           |  34 --
- .../race/internal/amd64v1/race_windows.syso   | Bin 562902 -> 461185 bytes
- src/runtime/race_amd64.s                      |  51 --
- src/runtime/race_arm64.s                      |  50 --
- src/runtime/race_ppc64le.s                    |  50 --
- src/runtime/race_s390x.s                      |  50 --
- src/sync/atomic/asm.s                         |  30 --
- src/sync/atomic/atomic_test.go                | 466 ------------------
- src/sync/atomic/doc.go                        |  42 --
- src/sync/atomic/type.go                       |  40 --
- 10 files changed, 813 deletions(-)
+Keep public sync/atomic And/Or. Race-mode And/Or are provided by
+andor_race.go (CAS via Load/CompareAndSwap) so the legacy Windows
+race_windows.syso still links.
 
 diff --git a/src/runtime/race.go b/src/runtime/race.go
 index 2cd4e3a..b4377dd 100644
@@ -7721,653 +7711,125 @@ index d5a0bbe..9f93214 100644
  // CompareAndSwap
  
  TEXT	sync∕atomic·CompareAndSwapInt32(SB), NOSPLIT, $0-17
-diff --git a/src/sync/atomic/asm.s b/src/sync/atomic/asm.s
-index c46869e..b9318fe 100644
---- a/src/sync/atomic/asm.s
-+++ b/src/sync/atomic/asm.s
-@@ -83,33 +83,3 @@ TEXT ·StoreUint64(SB),NOSPLIT,$0
+diff --git a/src/runtime/race_loong64.s b/src/runtime/race_loong64.s
+index d731871d..c911c705 100644
+--- a/src/runtime/race_loong64.s
++++ b/src/runtime/race_loong64.s
+@@ -308,56 +308,6 @@ TEXT	sync∕atomic·AddUintptr(SB), NOSPLIT, $0-24
+ 	GO_ARGS
+ 	JMP	sync∕atomic·AddInt64(SB)
  
- TEXT ·StoreUintptr(SB),NOSPLIT,$0
- 	JMP	internal∕runtime∕atomic·Storeuintptr(SB)
+-// And
+-TEXT	sync∕atomic·AndInt32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	MOVV	$__tsan_go_atomic32_fetch_and(SB), RCALL
+-	JAL	racecallatomic<>(SB)
+-	RET
 -
--TEXT ·AndInt32(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·And32(SB)
+-TEXT	sync∕atomic·AndInt64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	MOVV	$__tsan_go_atomic64_fetch_and(SB), RCALL
+-	JAL	racecallatomic<>(SB)
+-	RET
 -
--TEXT ·AndUint32(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·And32(SB)
+-TEXT	sync∕atomic·AndUint32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	JMP	sync∕atomic·AndInt32(SB)
 -
--TEXT ·AndUintptr(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·Anduintptr(SB)
+-TEXT	sync∕atomic·AndUint64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·AndInt64(SB)
 -
--TEXT ·AndInt64(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·And64(SB)
+-TEXT	sync∕atomic·AndUintptr(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·AndInt64(SB)
 -
--TEXT ·AndUint64(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·And64(SB)
+-// Or
+-TEXT	sync∕atomic·OrInt32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	MOVV	$__tsan_go_atomic32_fetch_or(SB), RCALL
+-	JAL	racecallatomic<>(SB)
+-	RET
 -
--TEXT ·OrInt32(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·Or32(SB)
+-TEXT	sync∕atomic·OrInt64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	MOVV	$__tsan_go_atomic64_fetch_or(SB), RCALL
+-	JAL	racecallatomic<>(SB)
+-	RET
 -
--TEXT ·OrUint32(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·Or32(SB)
+-TEXT	sync∕atomic·OrUint32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	JMP	sync∕atomic·OrInt32(SB)
 -
--TEXT ·OrUintptr(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·Oruintptr(SB)
+-TEXT	sync∕atomic·OrUint64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·OrInt64(SB)
 -
--TEXT ·OrInt64(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·Or64(SB)
+-TEXT	sync∕atomic·OrUintptr(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·OrInt64(SB)
 -
--TEXT ·OrUint64(SB),NOSPLIT,$0
--	JMP	internal∕runtime∕atomic·Or64(SB)
-diff --git a/src/sync/atomic/atomic_test.go b/src/sync/atomic/atomic_test.go
-index 0617b27..c3604ef 100644
---- a/src/sync/atomic/atomic_test.go
-+++ b/src/sync/atomic/atomic_test.go
-@@ -531,472 +531,6 @@ func TestAddUintptrMethod(t *testing.T) {
- 	}
- }
+ // CompareAndSwap
+ TEXT	sync∕atomic·CompareAndSwapInt32(SB), NOSPLIT, $0-17
+ 	GO_ARGS
+diff --git a/src/runtime/race_riscv64.s b/src/runtime/race_riscv64.s
+index 9992a519..915cffc9 100644
+--- a/src/runtime/race_riscv64.s
++++ b/src/runtime/race_riscv64.s
+@@ -287,56 +287,6 @@ TEXT	sync∕atomic·AddUintptr(SB), NOSPLIT, $0-24
+ 	GO_ARGS
+ 	JMP	sync∕atomic·AddInt64(SB)
  
--func TestAndInt32(t *testing.T) {
--	var x struct {
--		before int32
--		i      int32
--		after  int32
--	}
--	x.before = magic32
--	x.after = magic32
--	x.i = -1
--	j := x.i
--	for mask := int32(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := AndInt32(&x.i, ^mask)
--		j &= ^mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
+-// And
+-TEXT	sync∕atomic·AndInt32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	MOV	$__tsan_go_atomic32_fetch_and(SB), X5
+-	CALL	racecallatomic<>(SB)
+-	RET
 -
--func TestAndInt32Method(t *testing.T) {
--	var x struct {
--		before int32
--		i      Int32
--		after  int32
--	}
--	x.before = magic32
--	x.after = magic32
--	x.i.Store(-1)
--	j := x.i.Load()
--	for mask := int32(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.And(^mask)
--		j &= ^mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
+-TEXT	sync∕atomic·AndInt64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	MOV	$__tsan_go_atomic64_fetch_and(SB), X5
+-	CALL	racecallatomic<>(SB)
+-	RET
 -
--func TestAndUint32(t *testing.T) {
--	var x struct {
--		before uint32
--		i      uint32
--		after  uint32
--	}
--	x.before = magic32
--	x.after = magic32
--	x.i = 0xffffffff
--	j := x.i
--	for mask := uint32(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := AndUint32(&x.i, ^mask)
--		j &= ^mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
+-TEXT	sync∕atomic·AndUint32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	JMP	sync∕atomic·AndInt32(SB)
 -
--func TestAndUint32Method(t *testing.T) {
--	var x struct {
--		before uint32
--		i      Uint32
--		after  uint32
--	}
--	x.before = magic32
--	x.after = magic32
--	x.i.Store(0xffffffff)
--	j := x.i.Load()
--	for mask := uint32(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.And(^mask)
--		j &= ^mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
+-TEXT	sync∕atomic·AndUint64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·AndInt64(SB)
 -
--func TestAndInt64(t *testing.T) {
--	var x struct {
--		before int64
--		i      int64
--		after  int64
--	}
--	magic64 := int64(magic64)
--	x.before = magic64
--	x.after = magic64
--	x.i = -1
--	j := x.i
--	for mask := int64(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := AndInt64(&x.i, ^mask)
--		j &= ^mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
+-TEXT	sync∕atomic·AndUintptr(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·AndInt64(SB)
 -
--func TestAndInt64Method(t *testing.T) {
--	var x struct {
--		before int64
--		i      Int64
--		after  int64
--	}
--	magic64 := int64(magic64)
--	x.before = magic64
--	x.after = magic64
--	x.i.Store(-1)
--	j := x.i.Load()
--	for mask := int64(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.And(^mask)
--		j &= ^mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
+-// Or
+-TEXT	sync∕atomic·OrInt32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	MOV	$__tsan_go_atomic32_fetch_or(SB), X5
+-	CALL	racecallatomic<>(SB)
+-	RET
 -
--func TestAndUint64(t *testing.T) {
--	var x struct {
--		before uint64
--		i      uint64
--		after  uint64
--	}
--	magic64 := uint64(magic64)
--	x.before = magic64
--	x.after = magic64
--	x.i = 0xfffffffffffffff
--	j := x.i
--	for mask := uint64(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := AndUint64(&x.i, ^mask)
--		j &= ^mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
+-TEXT	sync∕atomic·OrInt64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	MOV	$__tsan_go_atomic64_fetch_or(SB), X5
+-	CALL	racecallatomic<>(SB)
+-	RET
 -
--func TestAndUint64Method(t *testing.T) {
--	var x struct {
--		before uint64
--		i      Uint64
--		after  uint64
--	}
--	magic64 := uint64(magic64)
--	x.before = magic64
--	x.after = magic64
--	x.i.Store(0xfffffffffffffff)
--	j := x.i.Load()
--	for mask := uint64(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.And(^mask)
--		j &= ^mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
+-TEXT	sync∕atomic·OrUint32(SB), NOSPLIT, $0-20
+-	GO_ARGS
+-	JMP	sync∕atomic·OrInt32(SB)
 -
--func TestAndUintptr(t *testing.T) {
--	var x struct {
--		before uintptr
--		i      uintptr
--		after  uintptr
--	}
--	var m uint64 = magic64
--	magicptr := uintptr(m)
--	x.before = magicptr
--	x.after = magicptr
--	x.i = ^uintptr(0)
--	j := x.i
--	for mask := uintptr(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := AndUintptr(&x.i, ^mask)
--		j &= ^mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magicptr || x.after != magicptr {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magicptr, magicptr)
--	}
--}
+-TEXT	sync∕atomic·OrUint64(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·OrInt64(SB)
 -
--func TestAndUintptrMethod(t *testing.T) {
--	var x struct {
--		before uintptr
--		i      Uintptr
--		after  uintptr
--	}
--	var m uint64 = magic64
--	magicptr := uintptr(m)
--	x.before = magicptr
--	x.after = magicptr
--	x.i.Store(^uintptr(0))
--	j := x.i.Load()
--	for mask := uintptr(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.And(^mask)
--		j &= ^mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magicptr || x.after != magicptr {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magicptr, magicptr)
--	}
--}
+-TEXT	sync∕atomic·OrUintptr(SB), NOSPLIT, $0-24
+-	GO_ARGS
+-	JMP	sync∕atomic·OrInt64(SB)
 -
--func TestOrInt32(t *testing.T) {
--	var x struct {
--		before int32
--		i      int32
--		after  int32
--	}
--	x.before = magic32
--	x.after = magic32
--	var j int32
--	for mask := int32(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := OrInt32(&x.i, mask)
--		j |= mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
--
--func TestOrInt32Method(t *testing.T) {
--	var x struct {
--		before int32
--		i      Int32
--		after  int32
--	}
--	x.before = magic32
--	x.after = magic32
--	var j int32
--	for mask := int32(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.Or(mask)
--		j |= mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
--
--func TestOrUint32(t *testing.T) {
--	var x struct {
--		before uint32
--		i      uint32
--		after  uint32
--	}
--	x.before = magic32
--	x.after = magic32
--	var j uint32
--	for mask := uint32(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := OrUint32(&x.i, mask)
--		j |= mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
--
--func TestOrUint32Method(t *testing.T) {
--	var x struct {
--		before uint32
--		i      Uint32
--		after  uint32
--	}
--	x.before = magic32
--	x.after = magic32
--	var j uint32
--	for mask := uint32(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.Or(mask)
--		j |= mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic32 || x.after != magic32 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic32, magic32)
--	}
--}
--
--func TestOrInt64(t *testing.T) {
--	var x struct {
--		before int64
--		i      int64
--		after  int64
--	}
--	magic64 := int64(magic64)
--	x.before = magic64
--	x.after = magic64
--	var j int64
--	for mask := int64(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := OrInt64(&x.i, mask)
--		j |= mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
--
--func TestOrInt64Method(t *testing.T) {
--	var x struct {
--		before int64
--		i      Int64
--		after  int64
--	}
--	magic64 := int64(magic64)
--	x.before = magic64
--	x.after = magic64
--	var j int64
--	for mask := int64(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.Or(mask)
--		j |= mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
--
--func TestOrUint64(t *testing.T) {
--	var x struct {
--		before uint64
--		i      uint64
--		after  uint64
--	}
--	magic64 := uint64(magic64)
--	x.before = magic64
--	x.after = magic64
--	var j uint64
--	for mask := uint64(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := OrUint64(&x.i, mask)
--		j |= mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
--
--func TestOrUint64Method(t *testing.T) {
--	var x struct {
--		before uint64
--		i      Uint64
--		after  uint64
--	}
--	magic64 := uint64(magic64)
--	x.before = magic64
--	x.after = magic64
--	var j uint64
--	for mask := uint64(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.Or(mask)
--		j |= mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magic64 || x.after != magic64 {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magic64, magic64)
--	}
--}
--
--func TestOrUintptr(t *testing.T) {
--	var x struct {
--		before uintptr
--		i      uintptr
--		after  uintptr
--	}
--	var m uint64 = magic64
--	magicptr := uintptr(m)
--	x.before = magicptr
--	x.after = magicptr
--	var j uintptr
--	for mask := uintptr(1); mask != 0; mask <<= 1 {
--		old := x.i
--		k := OrUintptr(&x.i, mask)
--		j |= mask
--		if x.i != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i, j, k, old)
--		}
--	}
--	if x.before != magicptr || x.after != magicptr {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magicptr, magicptr)
--	}
--}
--
--func TestOrUintptrMethod(t *testing.T) {
--	var x struct {
--		before uintptr
--		i      Uintptr
--		after  uintptr
--	}
--	var m uint64 = magic64
--	magicptr := uintptr(m)
--	x.before = magicptr
--	x.after = magicptr
--	var j uintptr
--	for mask := uintptr(1); mask != 0; mask <<= 1 {
--		old := x.i.Load()
--		k := x.i.Or(mask)
--		j |= mask
--		if x.i.Load() != j || k != old {
--			t.Fatalf("mask=%d i=%d j=%d k=%d old=%d", mask, x.i.Load(), j, k, old)
--		}
--	}
--	if x.before != magicptr || x.after != magicptr {
--		t.Fatalf("wrong magic: %#x _ %#x != %#x _ %#x", x.before, x.after, magicptr, magicptr)
--	}
--}
--
- func TestCompareAndSwapInt32(t *testing.T) {
- 	var x struct {
- 		before int32
-diff --git a/src/sync/atomic/doc.go b/src/sync/atomic/doc.go
-index 4e93404..8e3a4f4 100644
---- a/src/sync/atomic/doc.go
-+++ b/src/sync/atomic/doc.go
-@@ -128,48 +128,6 @@ func AddUint32(addr *uint32, delta uint32) (new uint32)
- //go:noescape
- func AddUintptr(addr *uintptr, delta uintptr) (new uintptr)
+ // CompareAndSwap
  
--// AndInt32 atomically performs a bitwise AND operation on *addr using the bitmask provided as mask
--// and returns the old value.
--// Consider using the more ergonomic and less error-prone [Int32.And] instead.
--//
--//go:noescape
--func AndInt32(addr *int32, mask int32) (old int32)
--
--// AndUint32 atomically performs a bitwise AND operation on *addr using the bitmask provided as mask
--// and returns the old value.
--// Consider using the more ergonomic and less error-prone [Uint32.And] instead.
--//
--//go:noescape
--func AndUint32(addr *uint32, mask uint32) (old uint32)
--
--// AndUintptr atomically performs a bitwise AND operation on *addr using the bitmask provided as mask
--// and returns the old value.
--// Consider using the more ergonomic and less error-prone [Uintptr.And] instead.
--//
--//go:noescape
--func AndUintptr(addr *uintptr, mask uintptr) (old uintptr)
--
--// OrInt32 atomically performs a bitwise OR operation on *addr using the bitmask provided as mask
--// and returns the old value.
--// Consider using the more ergonomic and less error-prone [Int32.Or] instead.
--//
--//go:noescape
--func OrInt32(addr *int32, mask int32) (old int32)
--
--// OrUint32 atomically performs a bitwise OR operation on *addr using the bitmask provided as mask
--// and returns the old value.
--// Consider using the more ergonomic and less error-prone [Uint32.Or] instead.
--//
--//go:noescape
--func OrUint32(addr *uint32, mask uint32) (old uint32)
--
--// OrUintptr atomically performs a bitwise OR operation on *addr using the bitmask provided as mask
--// and returns the old value.
--// Consider using the more ergonomic and less error-prone [Uintptr.Or] instead.
--//
--//go:noescape
--func OrUintptr(addr *uintptr, mask uintptr) (old uintptr)
--
- // LoadInt32 atomically loads *addr.
- // Consider using the more ergonomic and less error-prone [Int32.Load] instead.
- //
-diff --git a/src/sync/atomic/type.go b/src/sync/atomic/type.go
-index 4a74150..f950bc0 100644
---- a/src/sync/atomic/type.go
-+++ b/src/sync/atomic/type.go
-@@ -93,14 +93,6 @@ func (x *Int32) CompareAndSwap(old, new int32) (swapped bool) {
- // Add atomically adds delta to x and returns the new value.
- func (x *Int32) Add(delta int32) (new int32) { return AddInt32(&x.v, delta) }
- 
--// And atomically performs a bitwise AND operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Int32) And(mask int32) (old int32) { return AndInt32(&x.v, mask) }
--
--// Or atomically performs a bitwise OR operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Int32) Or(mask int32) (old int32) { return OrInt32(&x.v, mask) }
--
- // An Int64 is an atomic int64. The zero value is zero.
- //
- // Int64 must not be copied after first use.
-@@ -127,14 +119,6 @@ func (x *Int64) CompareAndSwap(old, new int64) (swapped bool) {
- // Add atomically adds delta to x and returns the new value.
- func (x *Int64) Add(delta int64) (new int64) { return AddInt64(&x.v, delta) }
- 
--// And atomically performs a bitwise AND operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Int64) And(mask int64) (old int64) { return AndInt64(&x.v, mask) }
--
--// Or atomically performs a bitwise OR operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Int64) Or(mask int64) (old int64) { return OrInt64(&x.v, mask) }
--
- // A Uint32 is an atomic uint32. The zero value is zero.
- //
- // Uint32 must not be copied after first use.
-@@ -160,14 +144,6 @@ func (x *Uint32) CompareAndSwap(old, new uint32) (swapped bool) {
- // Add atomically adds delta to x and returns the new value.
- func (x *Uint32) Add(delta uint32) (new uint32) { return AddUint32(&x.v, delta) }
- 
--// And atomically performs a bitwise AND operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Uint32) And(mask uint32) (old uint32) { return AndUint32(&x.v, mask) }
--
--// Or atomically performs a bitwise OR operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Uint32) Or(mask uint32) (old uint32) { return OrUint32(&x.v, mask) }
--
- // A Uint64 is an atomic uint64. The zero value is zero.
- //
- // Uint64 must not be copied after first use.
-@@ -194,14 +170,6 @@ func (x *Uint64) CompareAndSwap(old, new uint64) (swapped bool) {
- // Add atomically adds delta to x and returns the new value.
- func (x *Uint64) Add(delta uint64) (new uint64) { return AddUint64(&x.v, delta) }
- 
--// And atomically performs a bitwise AND operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Uint64) And(mask uint64) (old uint64) { return AndUint64(&x.v, mask) }
--
--// Or atomically performs a bitwise OR operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Uint64) Or(mask uint64) (old uint64) { return OrUint64(&x.v, mask) }
--
- // A Uintptr is an atomic uintptr. The zero value is zero.
- //
- // Uintptr must not be copied after first use.
-@@ -227,14 +195,6 @@ func (x *Uintptr) CompareAndSwap(old, new uintptr) (swapped bool) {
- // Add atomically adds delta to x and returns the new value.
- func (x *Uintptr) Add(delta uintptr) (new uintptr) { return AddUintptr(&x.v, delta) }
- 
--// And atomically performs a bitwise AND operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Uintptr) And(mask uintptr) (old uintptr) { return AndUintptr(&x.v, mask) }
--
--// Or atomically performs a bitwise OR operation on x using the bitmask
--// provided as mask and returns the old value.
--func (x *Uintptr) Or(mask uintptr) (old uintptr) { return OrUintptr(&x.v, mask) }
--
- // noCopy may be added to structs which must not be copied
- // after the first use.
- //
--- 
-2.47.3
-
+ TEXT	sync∕atomic·CompareAndSwapInt32(SB), NOSPLIT, $0-17
