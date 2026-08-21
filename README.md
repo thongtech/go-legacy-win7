@@ -34,6 +34,7 @@ Current release includes the following modifications:
 - Reverted to the previous `removeall_noat` variant for Windows (fixed [issue #2](https://github.com/thongtech/go-legacy-win7/issues/2))
 - Rolled back `race_windows.syso` to the previous compatible version (fixed [issue #3](https://github.com/thongtech/go-legacy-win7/issues/3))
 - Added `FindFirstFile`/`FindNextFile` fallback for old SMB shares (fixed [issue #9](https://github.com/thongtech/go-legacy-win7/issues/9))
+- Lowered PE `MajorOperatingSystemVersion` / `MajorSubsystemVersion` to 6.1 (reverted [341b5e2](https://github.com/golang/go/commit/341b5e2c0261cc059b157f1c7a2a2c4d1f417f0d))
 - Includes all improvements and bug fixes from the corresponding upstream Go release
 
 We now provide two build options for Windows amd64:

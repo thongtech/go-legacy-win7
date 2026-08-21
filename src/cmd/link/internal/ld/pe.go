@@ -282,8 +282,9 @@ type IMAGE_LOAD_CONFIG_DIRECTORY64 struct {
 }
 
 const (
-	PeMinimumTargetMajorVersion = 10
-	PeMinimumTargetMinorVersion = 0
+	// Windows 7 / Server 2008 R2 (NT 6.1).
+	PeMinimumTargetMajorVersion = 6
+	PeMinimumTargetMinorVersion = 1
 )
 
 // DOS stub that prints out
