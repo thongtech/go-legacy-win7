@@ -4177,6 +4177,9 @@ type MyBytesArray [4]byte
 type MyRunes []int32
 type MyFunc func()
 type MyByte byte
+type MyRune rune
+type MyBytes2 []MyByte
+type MyRunes2 []MyRune
 
 type IntChan chan int
 type IntChanRecv <-chan int
@@ -4480,6 +4483,38 @@ var convertTests = []struct {
 	{V(MyString("runes♝")), V(MyRunes("runes♝"))},
 	{V(MyRunes("runes♕")), V(MyString("runes♕"))},
 
+	// []namedByte
+	{V(string("namedByte1")), V([]MyByte("namedByte1"))},
+	{V(MyString("namedByte2")), V([]MyByte("namedByte2"))},
+	{V([]MyByte("namedByte3")), V(string("namedByte3"))},
+	{V([]MyByte("namedByte4")), V(MyString("namedByte4"))},
+
+	// []namedRune
+	{V(string("namedRune1")), V([]MyRune("namedRune1"))},
+	{V(MyString("namedRune2")), V([]MyRune("namedRune2"))},
+	{V([]MyRune("namedRune3")), V(string("namedRune3"))},
+	{V([]MyRune("namedRune4")), V(MyString("namedRune4"))},
+
+	// named []namedByte
+	{V(string("namedByte5")), V(MyBytes2("namedByte5"))},
+	{V(MyString("namedByte6")), V(MyBytes2("namedByte6"))},
+	{V(MyBytes2("namedByte7")), V(string("namedByte7"))},
+	{V(MyBytes2("namedByte8")), V(MyString("namedByte8"))},
+
+	// named []namedRune
+	{V(string("namedRune5")), V(MyRunes2("namedRune5"))},
+	{V(MyString("namedRune6")), V(MyRunes2("namedRune6"))},
+	{V(MyRunes2("namedRune7")), V(string("namedRune7"))},
+	{V(MyRunes2("namedRune8")), V(MyString("namedRune8"))},
+
+	// random ok conversions of the above types
+	{V(MyBytes2("")), V([0]MyByte{})},
+	{V(MyBytes2("AA")), V([2]MyByte{65, 65})},
+	{V(MyBytes2("")), V([]MyByte{})},
+	{V([]MyByte{}), V(MyBytes2(""))},
+	{V([]MyRune("namedRuneA")), V(MyRunes2("namedRuneA"))},
+	{V(MyRunes2("namedRuneB")), V([]MyRune("namedRuneB"))},
+
 	// slice to array
 	{V([]byte(nil)), V([0]byte{})},
 	{V([]byte{}), V([0]byte{})},
@@ -4758,6 +4793,60 @@ func TestConvertPanic(t *testing.T) {
 	}
 	shouldPanic("reflect: cannot convert slice with length 4 to array with length 8", func() {
 		_ = v.Convert(pt.Elem())
+	})
+}
+
+type issue80332ZeroLen struct {
+	Type
+}
+
+func (z issue80332ZeroLen) Len() int {
+	return 0
+}
+
+func TestIssue80332(t *testing.T) {
+	type helper struct {
+		x [1]int
+		y uintptr
+	}
+	var e helper
+	value := ValueOf(e.x[:])
+	fakeType := issue80332ZeroLen{TypeOf([2]int{})}
+
+	shouldPanic("reflect: cannot convert slice with length 1 to array with length 2", func() {
+		_ = value.Convert(fakeType)
+	})
+}
+
+type issue80332FakeChan struct {
+	Type
+}
+
+func (c issue80332FakeChan) Kind() Kind {
+	return Chan
+}
+
+func (c issue80332FakeChan) ChanDir() ChanDir {
+	return BothDir
+}
+
+type issue80332FakeMap struct {
+	Type
+}
+
+func (m issue80332FakeMap) Kind() Kind {
+	return Map
+}
+
+func TestIssue80332Others(t *testing.T) {
+	fakeChan := issue80332FakeChan{TypeOf(0)}
+	shouldPanic("reflect.MakeChan of non-chan type", func() {
+		_ = MakeChan(fakeChan, 0)
+	})
+
+	fakeMap := issue80332FakeMap{TypeOf(0)}
+	shouldPanic("reflect.MakeMapWithSize of non-map type", func() {
+		_ = MakeMapWithSize(fakeMap, 0)
 	})
 }
 

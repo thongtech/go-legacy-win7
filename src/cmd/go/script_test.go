@@ -38,6 +38,8 @@ var testSum = flag.String("testsum", "", `may be tidy, listm, or listall. If set
 
 // TestScript runs the tests in testdata/script/*.txt.
 func TestScript(t *testing.T) {
+	t.Parallel()
+
 	testenv.MustHaveGoBuild(t)
 	testenv.SkipIfShortAndSlow(t)
 
@@ -99,6 +101,7 @@ func TestScript(t *testing.T) {
 	}
 
 	t.Run("README", func(t *testing.T) {
+		t.Parallel()
 		checkScriptReadme(t, engine, env)
 	})
 
@@ -107,7 +110,6 @@ func TestScript(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, file := range files {
-		file := file
 		name := strings.TrimSuffix(filepath.Base(file), ".txt")
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -245,6 +247,7 @@ func scriptEnv(srv *vcstest.Server, srvCertFile string) ([]string, error) {
 		"TESTGO_VCSTEST_CERT=" + srvCertFile,
 		"TESTGONETWORK=panic", // cleared by the [net] condition
 		"GOSUMDB=" + testSumDBVerifierKey,
+		"TESTGO_SUMDB=" + testSumDBName,
 		"GONOPROXY=",
 		"GONOSUMDB=",
 		"GOVCS=*:all",

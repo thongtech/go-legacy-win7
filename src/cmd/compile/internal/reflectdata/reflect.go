@@ -184,6 +184,7 @@ func dimportpath(p *types.Pkg) {
 	ot := dnameData(s, 0, p.Path, "", nil, false, false)
 	objw.Global(s, int32(ot), obj.DUPOK|obj.RODATA)
 	s.Set(obj.AttrContentAddressable, true)
+	s.Align = 1
 	p.Pathsym = s
 }
 
@@ -308,6 +309,7 @@ func dname(name, tag string, pkg *types.Pkg, exported, embedded bool) *obj.LSym 
 	ot := dnameData(s, 0, name, tag, pkg, exported, embedded)
 	objw.Global(s, int32(ot), obj.DUPOK|obj.RODATA)
 	s.Set(obj.AttrContentAddressable, true)
+	s.Align = 1
 	return s
 }
 
@@ -756,6 +758,9 @@ func writeType(t *types.Type) *obj.LSym {
 	// | method list, if any            |   dextratype
 	// +--------------------------------+                            - E
 
+	// internal/abi.Type.DescriptorSize is aware of this type layout,
+	// and must be changed if the layout change.
+
 	// UncommonType section is included if we have a name or a method.
 	extra := t.Sym() != nil || len(methods(t)) != 0
 
@@ -960,6 +965,7 @@ func writeType(t *types.Type) *obj.LSym {
 		keep = false
 	}
 	lsym.Set(obj.AttrMakeTypelink, keep)
+	lsym.Align = int16(types.PtrSize)
 
 	return lsym
 }
@@ -1079,6 +1085,7 @@ func writeITab(lsym *obj.LSym, typ, iface *types.Type, allowNonImplement bool) {
 	// Nothing writes static itabs, so they are read only.
 	objw.Global(lsym, int32(rttype.ITab.Size()+delta), int16(obj.DUPOK|obj.RODATA))
 	lsym.Set(obj.AttrContentAddressable, true)
+	lsym.Align = int16(types.PtrSize)
 }
 
 func WritePluginTable() {
@@ -1274,6 +1281,9 @@ func dgcptrmask(t *types.Type, write bool) *obj.LSym {
 		}
 		objw.Global(lsym, int32(len(ptrmask)), obj.DUPOK|obj.RODATA|obj.LOCAL)
 		lsym.Set(obj.AttrContentAddressable, true)
+		// The runtime expects ptrmasks to be aligned
+		// as a uintptr.
+		lsym.Align = int16(types.PtrSize)
 	}
 	return lsym
 }
@@ -1304,8 +1314,8 @@ func dgcptrmaskOnDemand(t *types.Type, write bool) *obj.LSym {
 	if write && !lsym.OnList() {
 		// Note: contains a pointer, but a pointer to a
 		// persistentalloc allocation. Starts with nil.
-		objw.Uintptr(lsym, 0, 0)
-		objw.Global(lsym, int32(types.PtrSize), obj.DUPOK|obj.NOPTR|obj.LOCAL) // TODO:bss?
+		// Allocated in BSS.
+		objw.Global(lsym, int32(types.PtrSize), obj.DUPOK|obj.NOPTR|obj.LOCAL)
 	}
 	return lsym
 }

@@ -1,22 +1,9 @@
-From a6100b9ca51b3057934d5b0b60e5dafc89b34d80 Mon Sep 17 00:00:00 2001
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Thu, 12 Feb 2026 01:39:37 +0700
+Date: Fri, 21 Aug 2026 18:25:00 +1000
 Subject: [PATCH] Restore GOPATH-mode get
 
----
- src/cmd/go/alldocs.go             |  66 +++
- src/cmd/go/internal/get/get.go    | 642 ++++++++++++++++++++++++++++++
- src/cmd/go/internal/help/help.go  |   8 +
- src/cmd/go/internal/load/pkg.go   |  60 +++
- src/cmd/go/internal/modget/get.go |  17 +
- src/cmd/go/internal/vcs/vcs.go    | 362 ++++++++++++++++-
- src/cmd/go/main.go                |  11 +
- src/cmd/internal/par/work.go      |  38 ++
- 8 files changed, 1187 insertions(+), 17 deletions(-)
- create mode 100644 src/cmd/go/internal/get/get.go
-
 diff --git a/src/cmd/go/alldocs.go b/src/cmd/go/alldocs.go
-index 8c346da..8fe3da2 100644
+index 44cec1ae..5d0aff30 100644
 --- a/src/cmd/go/alldocs.go
 +++ b/src/cmd/go/alldocs.go
 @@ -47,9 +47,11 @@
@@ -31,9 +18,9 @@ index 8c346da..8fe3da2 100644
  //	module-auth     module authentication using go.sum
  //	packages        package lists and patterns
  //	private         configuration for downloading non-public code
-@@ -2885,6 +2887,70 @@
- //
- // See https://golang.org/s/go15vendor for details.
+@@ -2914,6 +2916,70 @@
+ // See https://go.dev/ref/mod#vendoring for details about vendoring in
+ // module mode.
  //
 +// # Legacy GOPATH go get
 +//
@@ -104,7 +91,7 @@ index 8c346da..8fe3da2 100644
  // A Go module proxy is any web server that can respond to GET requests for
 diff --git a/src/cmd/go/internal/get/get.go b/src/cmd/go/internal/get/get.go
 new file mode 100644
-index 0000000..c3aca82
+index 00000000..e9e98494
 --- /dev/null
 +++ b/src/cmd/go/internal/get/get.go
 @@ -0,0 +1,642 @@
@@ -230,7 +217,7 @@ index 0000000..c3aca82
 +		base.Fatalf("go: modules not implemented")
 +	}
 +
-+	moduleLoaderState := modload.NewState()
++	moduleLoaderState := modload.NewLoader()
 +
 +	work.BuildInit(moduleLoaderState)
 +
@@ -364,7 +351,7 @@ index 0000000..c3aca82
 +
 +// download runs the download half of the get command
 +// for the package or pattern named by the argument.
-+func download(moduleLoaderState *modload.State, ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
++func download(moduleLoaderState *modload.Loader, ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
 +	if mode&load.ResolveImport != 0 {
 +		// Caller is responsible for expanding vendor paths.
 +		panic("internal error: download mode has useVendor set")
@@ -751,7 +738,7 @@ index 0000000..c3aca82
 +	return nil
 +}
 diff --git a/src/cmd/go/internal/help/help.go b/src/cmd/go/internal/help/help.go
-index 4f2607f..cdb7350 100644
+index 4f2607fe..43312e45 100644
 --- a/src/cmd/go/internal/help/help.go
 +++ b/src/cmd/go/internal/help/help.go
 @@ -16,6 +16,7 @@ import (
@@ -766,7 +753,7 @@ index 4f2607f..cdb7350 100644
  		PrintUsage(buf, base.Go)
  		usage := &base.Command{Long: buf.String()}
  		cmds := []*base.Command{usage}
-+		s := modload.NewState()
++		s := modload.NewLoader()
  		for _, cmd := range base.Go.Commands {
 +			// Avoid duplication of the "get" documentation.
 +			if cmd.UsageLine == "module-get" && s.Enabled() {
@@ -778,10 +765,10 @@ index 4f2607f..cdb7350 100644
  			cmds = append(cmds, cmd.Commands...)
  		}
 diff --git a/src/cmd/go/internal/load/pkg.go b/src/cmd/go/internal/load/pkg.go
-index e2a77d7..cca3d00 100644
+index 2985cff6..5bf5e98c 100644
 --- a/src/cmd/go/internal/load/pkg.go
 +++ b/src/cmd/go/internal/load/pkg.go
-@@ -456,6 +456,7 @@ type PackageError struct {
+@@ -457,6 +457,7 @@ type PackageError struct {
  	Pos              string      // position of error
  	Err              error       // the error itself
  	IsImportCycle    bool        // the error is an import cycle
@@ -789,15 +776,18 @@ index e2a77d7..cca3d00 100644
  	alwaysPrintStack bool        // whether to always print the ImportStack
  }
  
-@@ -635,6 +636,51 @@ func (sp *ImportStack) shorterThan(t []string) bool {
- // we return the same pointer each time.
+@@ -639,11 +640,49 @@ func (sp *ImportStack) shorterThan(t []string) bool {
+ // different module loaders use different caches.
  var packageCache = map[string]*Package{}
  
+-// ClearPackageCache clears the package cache.
+-// It cannot be used concurrently with calls to LoadImport or other functions
+-// that use packageCache without synchronization.
 +// ClearPackageCache clears the in-memory package cache and the preload caches.
 +// It is only for use by GOPATH-based "go get".
 +// TODO(jayconrod): When GOPATH-based "go get" is removed, delete this function.
-+func ClearPackageCache() {
-+	clear(packageCache)
+ func ClearPackageCache() {
+ 	clear(packageCache)
 +	resolvedImportCache.Clear()
 +	packageDataCache.Clear()
 +}
@@ -835,14 +825,12 @@ index e2a77d7..cca3d00 100644
 +		})
 +		packageDataCache.Delete(p.ImportPath)
 +	}
-+	return LoadPackage(modload.NewState(), context.TODO(), PackageOpts{}, arg, base.Cwd(), stk, nil, 0)
-+}
-+
++	return LoadPackage(modload.NewLoader(), context.TODO(), PackageOpts{}, arg, base.Cwd(), stk, nil, 0)
+ }
+ 
  // dirToImportPath returns the pseudo-import path we use for a package
- // outside the Go path. It begins with _/ and then contains the full path
- // to the directory. If the package lives in c:\home\gopher\my\pkg then
-@@ -686,6 +732,20 @@ const (
- 	cmdlinePkgLiteral
+@@ -700,6 +739,20 @@ const (
+ 	allowSimdInternalBridge
  )
  
 +// LoadImport scans the directory named by path, which must be an import path,
@@ -855,21 +843,22 @@ index e2a77d7..cca3d00 100644
 +// The returned PackageError, if any, describes why parent is not allowed
 +// to import the named package, with the error referring to importPos.
 +// The PackageError can only be non-nil when parent is not nil.
-+func LoadImport(loaderstate *modload.State, ctx context.Context, opts PackageOpts, path, srcDir string, parent *Package, stk *ImportStack, importPos []token.Position, mode int) (*Package, *PackageError) {
-+	return loadImport(loaderstate, ctx, opts, nil, path, srcDir, parent, stk, importPos, mode)
++func LoadImport(ld *modload.Loader, ctx context.Context, opts PackageOpts, path, srcDir string, parent *Package, stk *ImportStack, importPos []token.Position, mode int) (*Package, *PackageError) {
++	return loadImport(ld, ctx, opts, nil, path, srcDir, parent, stk, importPos, mode)
 +}
 +
  // LoadPackage does Load import, but without a parent package load context
- func LoadPackage(loaderstate *modload.State, ctx context.Context, opts PackageOpts, path, srcDir string, stk *ImportStack, importPos []token.Position, mode int) *Package {
- 	p, err := loadImport(loaderstate, ctx, opts, nil, path, srcDir, nil, stk, importPos, mode)
+ func LoadPackage(ld *modload.Loader, ctx context.Context, opts PackageOpts, path, srcDir string, stk *ImportStack, importPos []token.Position, mode int) *Package {
+ 	p, err := loadImport(ld, ctx, opts, nil, path, srcDir, nil, stk, importPos, mode)
 diff --git a/src/cmd/go/internal/modget/get.go b/src/cmd/go/internal/modget/get.go
-index b731ccc..75ffac6 100644
+index 682c9016..df49050e 100644
 --- a/src/cmd/go/internal/modget/get.go
 +++ b/src/cmd/go/internal/modget/get.go
-@@ -129,6 +129,23 @@ See also: go build, go install, go clean, go mod.
+@@ -130,6 +130,24 @@ See also: go build, go install, go clean, go mod.
  	`,
  }
  
++
 +// Note that this help text is a stopgap to make the module-aware get help text
 +// available even in non-module settings. It should be deleted when the old get
 +// is deleted. It should NOT be considered to set a precedent of having hierarchical
@@ -891,10 +880,16 @@ index b731ccc..75ffac6 100644
  	UsageLine: "vcs",
  	Short:     "controlling version control with GOVCS",
 diff --git a/src/cmd/go/internal/vcs/vcs.go b/src/cmd/go/internal/vcs/vcs.go
-index 9e8efaf..d9eaaf2 100644
+index fd6e8780..17d32e29 100644
 --- a/src/cmd/go/internal/vcs/vcs.go
 +++ b/src/cmd/go/internal/vcs/vcs.go
-@@ -17,6 +17,7 @@ import (
+@@ -11,11 +11,13 @@ import (
+ 	"internal/godebug"
+ 	"internal/lazyregexp"
+ 	"internal/singleflight"
++	"io/fs"
+ 	"log"
+ 	urlpkg "net/url"
  	"os"
  	"os/exec"
  	"path/filepath"
@@ -902,9 +897,9 @@ index 9e8efaf..d9eaaf2 100644
  	"strconv"
  	"strings"
  	"sync"
-@@ -40,10 +41,20 @@ type Cmd struct {
- 	Env       []string   // any environment values to set/override
- 	RootNames []rootName // filename and mode indicating the root of a checkout directory
+@@ -40,10 +42,20 @@ type Cmd struct {
+ 	Env   []string    // any environment values to set/override
+ 	Roots []isVCSRoot // filters to identify repository root directories
  
 +	CreateCmd   []string // commands to download a fresh copy of a repository
 +	DownloadCmd []string // commands to download updates into an existing repository
@@ -924,8 +919,8 @@ index 9e8efaf..d9eaaf2 100644
  }
  
  // Status is the current state of a local repository.
-@@ -153,9 +164,33 @@ var vcsHg = &Cmd{
- 		{filename: ".hg", isDir: true},
+@@ -151,9 +163,33 @@ var vcsHg = &Cmd{
+ 		vcsDirRoot(".hg"),
  	},
  
 -	Scheme:  []string{"https", "http", "ssh"},
@@ -961,10 +956,11 @@ index 9e8efaf..d9eaaf2 100644
  }
  
  func hgStatus(vcsHg *Cmd, rootDir string) (Status, error) {
-@@ -218,6 +253,25 @@ var vcsGit = &Cmd{
- 		{filename: ".git", isDir: true},
+@@ -216,7 +252,26 @@ var vcsGit = &Cmd{
+ 		vcsGitRoot{},
  	},
  
+-	Scheme: []string{"git", "https", "http", "git+ssh", "ssh"},
 +	CreateCmd:   []string{"clone -- {repo} {dir}", "--go-internal-cd {dir} submodule update --init --recursive"},
 +	DownloadCmd: []string{"pull --ff-only", "submodule update --init --recursive"},
 +
@@ -984,10 +980,11 @@ index 9e8efaf..d9eaaf2 100644
 +	// See golang.org/issue/9032.
 +	TagSyncDefault: []string{"submodule update --init --recursive"},
 +
- 	Scheme: []string{"git", "https", "http", "git+ssh", "ssh"},
++		Scheme: []string{"git", "https", "http", "git+ssh", "ssh"},
  
  	// Leave out the '--' separator in the ls-remote command: git 2.7.4 does not
-@@ -226,7 +280,54 @@ var vcsGit = &Cmd{
+ 	// support such a separator for that command, and this use should be safe
+@@ -224,7 +279,54 @@ var vcsGit = &Cmd{
  	// See golang.org/issue/33836.
  	PingCmd: "ls-remote {scheme}://{repo}",
  
@@ -1043,74 +1040,8 @@ index 9e8efaf..d9eaaf2 100644
  }
  
  func gitStatus(vcsGit *Cmd, rootDir string) (Status, error) {
-@@ -266,9 +367,62 @@ var vcsBzr = &Cmd{
- 		{filename: ".bzr", isDir: true},
- 	},
- 
--	Scheme:  []string{"https", "http", "bzr", "bzr+ssh"},
--	PingCmd: "info -- {scheme}://{repo}",
--	Status:  bzrStatus,
-+	CreateCmd: []string{"branch -- {repo} {dir}"},
-+
-+	// Without --overwrite bzr will not pull tags that changed.
-+	// Replace by --overwrite-tags after http://pad.lv/681792 goes in.
-+	DownloadCmd: []string{"pull --overwrite"},
-+
-+	TagCmd:         []tagCmd{{"tags", `^(\S+)`}},
-+	TagSyncCmd:     []string{"update -r {tag}"},
-+	TagSyncDefault: []string{"update -r revno:-1"},
-+
-+	Scheme:      []string{"https", "http", "bzr", "bzr+ssh"},
-+	PingCmd:     "info -- {scheme}://{repo}",
-+	RemoteRepo:  bzrRemoteRepo,
-+	ResolveRepo: bzrResolveRepo,
-+	Status:      bzrStatus,
-+}
-+
-+func bzrRemoteRepo(vcsBzr *Cmd, rootDir string) (remoteRepo string, err error) {
-+	outb, err := vcsBzr.runOutput(rootDir, "config parent_location")
-+	if err != nil {
-+		return "", err
-+	}
-+	return strings.TrimSpace(string(outb)), nil
-+}
-+
-+func bzrResolveRepo(vcsBzr *Cmd, rootDir, remoteRepo string) (realRepo string, err error) {
-+	outb, err := vcsBzr.runOutput(rootDir, "info -- "+remoteRepo)
-+	if err != nil {
-+		return "", err
-+	}
-+	out := string(outb)
-+
-+	// Expect:
-+	// ...
-+	//   (branch root|repository branch): <URL>
-+	// ...
-+
-+	found := false
-+	for _, prefix := range []string{"\n  branch root: ", "\n  repository branch: "} {
-+		i := strings.Index(out, prefix)
-+		if i >= 0 {
-+			out = out[i+len(prefix):]
-+			found = true
-+			break
-+		}
-+	}
-+	if !found {
-+		return "", fmt.Errorf("unable to parse output of bzr info")
-+	}
-+
-+	i := strings.Index(out, "\n")
-+	if i < 0 {
-+		return "", fmt.Errorf("unable to parse output of bzr info")
-+	}
-+	out = out[:i]
-+	return strings.TrimSpace(out), nil
- }
- 
- func bzrStatus(vcsBzr *Cmd, rootDir string) (Status, error) {
-@@ -336,12 +490,46 @@ var vcsSvn = &Cmd{
- 		{filename: ".svn", isDir: true},
+@@ -264,12 +366,46 @@ var vcsSvn = &Cmd{
+ 		vcsDirRoot(".svn"),
  	},
  
 +	CreateCmd:   []string{"checkout -- {repo} {dir}"},
@@ -1137,9 +1068,9 @@ index 9e8efaf..d9eaaf2 100644
 +
 +	// Expect:
 +	//
-+	//       ...
-+	//      URL: <URL>
-+	//      ...
++	//	...
++	//	URL: <URL>
++	//	...
 +	//
 +	// Note that we're not using the Repository Root line,
 +	// because svn allows checking out subtrees.
@@ -1159,8 +1090,8 @@ index 9e8efaf..d9eaaf2 100644
  }
  
  func svnStatus(vcsSvn *Cmd, rootDir string) (Status, error) {
-@@ -386,8 +574,24 @@ var vcsFossil = &Cmd{
- 		{filename: "_FOSSIL_", isDir: false},
+@@ -314,8 +450,24 @@ var vcsFossil = &Cmd{
+ 		vcsFileRoot("_FOSSIL_"),
  	},
  
 -	Scheme: []string{"https", "http"},
@@ -1186,7 +1117,36 @@ index 9e8efaf..d9eaaf2 100644
  }
  
  var errFossilInfo = errors.New("unable to parse output of fossil info")
-@@ -562,6 +766,99 @@ func (v *Cmd) Ping(scheme, repo string) error {
+@@ -416,6 +568,28 @@ func (v *Cmd) run1(dir string, cmdline string, keyval []string, verbose bool) ([
+ 		args[i] = expand(m, arg)
+ 	}
+ 
++	if len(args) >= 2 && args[0] == "--go-internal-mkdir" {
++		var err error
++		if filepath.IsAbs(args[1]) {
++			err = os.Mkdir(args[1], fs.ModePerm)
++		} else {
++			err = os.Mkdir(filepath.Join(dir, args[1]), fs.ModePerm)
++		}
++		if err != nil {
++			return nil, err
++		}
++		args = args[2:]
++	}
++
++	if len(args) >= 2 && args[0] == "--go-internal-cd" {
++		if filepath.IsAbs(args[1]) {
++			dir = args[1]
++		} else {
++			dir = filepath.Join(dir, args[1])
++		}
++		args = args[2:]
++	}
++
+ 	_, err := pathcache.LookPath(v.Cmd)
+ 	if err != nil {
+ 		fmt.Fprintf(os.Stderr,
+@@ -468,6 +642,100 @@ func (v *Cmd) Ping(scheme, repo string) error {
  	return v.runVerboseOnly(dir, v.PingCmd, "scheme", scheme, "repo", repo)
  }
  
@@ -1283,10 +1243,11 @@ index 9e8efaf..d9eaaf2 100644
 +	return nil
 +}
 +
++
  // A vcsPath describes how to convert an import path into a
  // version control system and repository name.
  type vcsPath struct {
-@@ -764,11 +1061,11 @@ var defaultGOVCS = govcsConfig{
+@@ -719,11 +987,11 @@ var defaultGOVCS = govcsConfig{
  	{"public", []string{"git", "hg"}},
  }
  
@@ -1300,10 +1261,11 @@ index 9e8efaf..d9eaaf2 100644
  	if vcs == vcsMod {
  		// Direct module (proxy protocol) fetches don't
  		// involve an external version control system
-@@ -796,6 +1093,37 @@ func checkGOVCS(vcs *Cmd, root string) error {
+@@ -751,6 +1019,38 @@ func checkGOVCS(vcs *Cmd, root string) error {
  	return nil
  }
  
++
 +// CheckNested checks for an incorrectly-nested VCS-inside-VCS
 +// situation for dir, checking parents up until srcRoot.
 +func CheckNested(vcs *Cmd, dir, srcRoot string) error {
@@ -1314,7 +1276,7 @@ index 9e8efaf..d9eaaf2 100644
 +	otherDir := dir
 +	for len(otherDir) > len(srcRoot) {
 +		for _, otherVCS := range vcsList {
-+			if isVCSRoot(otherDir, otherVCS.RootNames) {
++			if isVCSRootDir(otherDir, otherVCS.Roots) {
 +				// Allow expected vcs in original dir.
 +				if otherDir == dir && otherVCS == vcs {
 +					continue
@@ -1338,7 +1300,7 @@ index 9e8efaf..d9eaaf2 100644
  // RepoRoot describes the repository root for a tree of source code.
  type RepoRoot struct {
  	Repo     string // repository URL, including scheme
-@@ -912,7 +1240,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
+@@ -870,7 +1170,7 @@ func repoRootFromVCSPaths(importPath string, security web.SecurityMode, vcsPaths
  		if vcs == nil {
  			return nil, fmt.Errorf("unknown version control system %q", match["vcs"])
  		}
@@ -1347,7 +1309,7 @@ index 9e8efaf..d9eaaf2 100644
  			return nil, err
  		}
  		var repoURL string
-@@ -1105,7 +1433,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
+@@ -1063,7 +1363,7 @@ func repoRootForImportDynamic(importPath string, mod ModuleMode, security web.Se
  		}
  	}
  
@@ -1357,7 +1319,7 @@ index 9e8efaf..d9eaaf2 100644
  	}
  
 diff --git a/src/cmd/go/main.go b/src/cmd/go/main.go
-index 8cdfd91..e9b1149 100644
+index bba11a2f..ae0ba94e 100644
 --- a/src/cmd/go/main.go
 +++ b/src/cmd/go/main.go
 @@ -26,6 +26,7 @@ import (
@@ -1385,7 +1347,7 @@ index 8cdfd91..e9b1149 100644
  	}
  
 +	if args[0] == "get" || args[0] == "help" {
-+		s := modload.NewState()
++		s := modload.NewLoader()
 +		if !s.WillBeEnabled() {
 +			// Replace module-aware get with GOPATH get if appropriate.
 +			*modget.CmdGet = *get.CmdGet
@@ -1396,7 +1358,7 @@ index 8cdfd91..e9b1149 100644
  	if args[0] == "help" {
  		counter.Inc("go/subcommand:" + strings.Join(append([]string{"help"}, args[1:]...), "-"))
 diff --git a/src/cmd/internal/par/work.go b/src/cmd/internal/par/work.go
-index 881b51b..3f1e69a 100644
+index 881b51be..3f1e69ad 100644
 --- a/src/cmd/internal/par/work.go
 +++ b/src/cmd/internal/par/work.go
 @@ -180,3 +180,41 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
@@ -1441,6 +1403,3 @@ index 881b51b..3f1e69a 100644
 +		return true
 +	})
 +}
--- 
-2.47.3
-

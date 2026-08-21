@@ -321,6 +321,15 @@ func privateKeyBytes[P ecdsa.Point[P]](c *ecdsa.Curve[P], priv *PrivateKey) ([]b
 // function used to produce digest and priv.Curve must be one of
 // [elliptic.P224], [elliptic.P256], [elliptic.P384], or [elliptic.P521].
 func (priv *PrivateKey) Sign(random io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+	if opts != nil {
+		h := opts.HashFunc()
+		if h == 0 {
+			return nil, errors.New("ecdsa: Sign must be called with a hash, not with crypto.Hash(0)")
+		}
+		if h.Size() != len(digest) {
+			return nil, errors.New("ecdsa: hash length does not match hash function")
+		}
+	}
 	if random == nil {
 		return signRFC6979(priv, digest, opts)
 	}
@@ -380,6 +389,10 @@ func generateFIPS[P ecdsa.Point[P]](curve elliptic.Curve, c *ecdsa.Curve[P], ran
 // is set. This setting will be removed in a future Go release. Instead, use
 // [testing/cryptotest.SetGlobalRandom].
 func SignASN1(r io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
+	if len(hash) == 0 {
+		return nil, errors.New("ecdsa: hash cannot be empty")
+	}
+
 	if boring.Enabled && rand.IsDefaultReader(r) {
 		b, err := boringPrivateKey(priv)
 		if err != nil {
@@ -425,12 +438,9 @@ func signFIPS[P ecdsa.Point[P]](c *ecdsa.Curve[P], priv *PrivateKey, rand io.Rea
 
 func signRFC6979(priv *PrivateKey, hash []byte, opts crypto.SignerOpts) ([]byte, error) {
 	if opts == nil {
-		return nil, errors.New("ecdsa: Sign called with nil opts")
+		return nil, errors.New("ecdsa: Sign called with nil random and nil opts")
 	}
 	h := opts.HashFunc()
-	if h.Size() != len(hash) {
-		return nil, errors.New("ecdsa: hash length does not match hash function")
-	}
 	switch priv.Curve.Params() {
 	case elliptic.P224().Params():
 		return signFIPSDeterministic(ecdsa.P224(), h, priv, hash)
@@ -449,6 +459,9 @@ func signFIPSDeterministic[P ecdsa.Point[P]](c *ecdsa.Curve[P], hashFunc crypto.
 	k, err := privateKeyToFIPS(c, priv)
 	if err != nil {
 		return nil, err
+	}
+	if !hashFunc.Available() {
+		return nil, errors.New("ecdsa: requested hash function unavailable: " + hashFunc.String())
 	}
 	h := fips140hash.UnwrapNew(hashFunc.New)
 	if fips140only.Enforced() && !fips140only.ApprovedHash(h()) {
@@ -494,6 +507,10 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
 // The inputs are not considered confidential, and may leak through timing side
 // channels, or if an attacker has control of part of the inputs.
 func VerifyASN1(pub *PublicKey, hash, sig []byte) bool {
+	if len(hash) == 0 {
+		return false
+	}
+
 	if boring.Enabled {
 		key, err := boringPublicKey(pub)
 		if err != nil {

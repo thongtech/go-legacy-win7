@@ -23,7 +23,6 @@ import (
 	"bytes"
 	"crypto/elliptic"
 	"crypto/internal/cryptotest"
-	entropy "crypto/internal/entropy/v1.0.0"
 	"crypto/internal/fips140"
 	"crypto/internal/fips140/aes"
 	"crypto/internal/fips140/aes/gcm"
@@ -59,6 +58,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	entropy "crypto/internal/entropy/v1.0.0"
 )
 
 var noPAAPAI = os.Getenv("GONOPAAPAI") == "1"
@@ -720,7 +721,7 @@ func cmdCShakeMct(hFn func(N, S []byte) *sha3.SHAKE) command {
 				rightmostOutput := digest[outputLenBytes-2:]
 				// IMPORTANT: the specification says:
 				//   NOTE: For the "Rightmost_Output_bits % Range" operation, the Rightmost_Output_bits bit string
-				//   should be interpretted as a little endian-encoded number.
+				//   should be interpreted as a little endian-encoded number.
 				// This is **a lie**! It has to be interpreted as a big-endian number.
 				rightmostOutputBE := binary.BigEndian.Uint16(rightmostOutput)
 
@@ -1799,7 +1800,7 @@ func cmdKdfCounterAft() command {
 			}
 			// The spec doesn't describe the "deferred" property for a KDF counterMode test case.
 			// BoringSSL's acvptool sends an empty key when deferred=true, but with the capabilities
-			// we register all test cases ahve deferred=false and provide a key from the populated
+			// we register all test cases have deferred=false and provide a key from the populated
 			// keyIn property.
 			if len(key) == 0 {
 				return nil, errors.New("deferred test cases are not supported")
@@ -2107,9 +2108,9 @@ func TestACVP(t *testing.T) {
 
 	const (
 		bsslModule    = "boringssl.googlesource.com/boringssl.git"
-		bsslVersion   = "v0.0.0-20251111011041-baaf868e6e8f"
+		bsslVersion   = "v0.0.0-20260422110153-4ccbe2adaf4f"
 		goAcvpModule  = "github.com/geomys/acvp-testdata"
-		goAcvpVersion = "v0.0.0-20251201200548-d893de8b8b1c"
+		goAcvpVersion = "v0.0.0-20260526143807-16992c4b1561"
 	)
 
 	// In crypto/tls/bogo_shim_test.go the test is skipped if run on a builder with runtime.GOOS == "windows"

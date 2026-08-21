@@ -295,7 +295,6 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
 		&IO_STATUS_BLOCK{},
 		unsafe.Pointer(&FILE_DISPOSITION_INFORMATION_EX{
 			Flags: FILE_DISPOSITION_DELETE |
-				FILE_DISPOSITION_FORCE_IMAGE_SECTION_CHECK |
 				FILE_DISPOSITION_POSIX_SEMANTICS |
 				// This differs from DeleteFileW, but matches os.Remove's
 				// behavior on Unix platforms of permitting deletion of
@@ -355,7 +354,7 @@ func deleteatFallback(h syscall.Handle) error {
 		h,
 		FileDispositionInfo,
 		unsafe.Pointer(&FILE_DISPOSITION_INFO{
-			DeleteFile: true,
+			DeleteFile: 1,
 		}),
 		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
 	)
@@ -416,7 +415,7 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, 
 	//
 	// Try again.
 	renameInfo := FILE_RENAME_INFORMATION{
-		ReplaceIfExists: true,
+		ReplaceIfExists: 1,
 		RootDirectory:   newdirfd,
 	}
 	copy(renameInfo.FileName[:], p16)
@@ -585,6 +584,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
 	namebuf := rdbbuf[bufferSize:]
 	copy(namebuf, unsafe.String((*byte)(unsafe.Pointer(&oldnameu16[0])), 2*len(oldnameu16)))
 
+	var bytesReturned uint32
 	err = syscall.DeviceIoControl(
 		h,
 		FSCTL_SET_REPARSE_POINT,
@@ -592,7 +592,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
 		uint32(len(rdbbuf)),
 		nil,
 		0,
-		nil,
+		&bytesReturned,
 		nil)
 	if err != nil {
 		// Creating the symlink has failed, so try to remove the file.
@@ -601,7 +601,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
 			h,
 			&IO_STATUS_BLOCK{},
 			unsafe.Pointer(&FILE_DISPOSITION_INFORMATION{
-				DeleteFile: true,
+				DeleteFile: 1,
 			}),
 			uint32(unsafe.Sizeof(FILE_DISPOSITION_INFORMATION{})),
 			FileDispositionInformation,

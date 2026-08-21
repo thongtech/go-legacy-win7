@@ -301,8 +301,6 @@ func setMNoWB(mp **m, new *m) {
 }
 
 type gobuf struct {
-	// The offsets of sp, pc, and g are known to (hard-coded in) libmach.
-	//
 	// ctxt is unusual with respect to GC: it may be a
 	// heap-allocated funcval, so GC needs to track it, but it
 	// needs to be set and cleared from assembly, where it's
@@ -479,12 +477,12 @@ type g struct {
 	// It is stack.lo+StackGuard on g0 and gsignal stacks.
 	// It is ~0 on other goroutine stacks, to trigger a call to morestackc (and crash).
 	stack       stack   // offset known to runtime/cgo
-	stackguard0 uintptr // offset known to liblink
-	stackguard1 uintptr // offset known to liblink
+	stackguard0 uintptr // offset known to cmd/internal/obj/*
+	stackguard1 uintptr // offset known to cmd/internal/obj/*
 
-	_panic    *_panic // innermost panic - offset known to liblink
+	_panic    *_panic // innermost panic
 	_defer    *_defer // innermost defer
-	m         *m      // current m; offset known to arm liblink
+	m         *m      // current m
 	sched     gobuf
 	syscallsp uintptr // if status==Gsyscall, syscallsp = sched.sp to use during gc
 	syscallpc uintptr // if status==Gsyscall, syscallpc = sched.pc to use during gc
@@ -622,15 +620,18 @@ type m struct {
 
 	// Fields whose offsets are not known to debuggers.
 
-	procid       uint64            // for debuggers, but offset not hard-coded
-	gsignal      *g                // signal-handling g
-	goSigStack   gsignalStack      // Go-allocated signal handling stack
-	sigmask      sigset            // storage for saved signal mask
-	tls          [tlsSlots]uintptr // thread-local storage (for x86 extern register)
-	mstartfn     func()
-	curg         *g       // current running goroutine
-	caughtsig    guintptr // goroutine running during fatal signal
-	signalSecret uint32   // whether we have secret information in our signal stack
+	procid     uint64            // for debuggers, but offset not hard-coded
+	gsignal    *g                // signal-handling g
+	goSigStack gsignalStack      // Go-allocated signal handling stack
+	sigmask    sigset            // storage for saved signal mask
+	tls        [tlsSlots]uintptr // thread-local storage (for x86 extern register)
+	mstartfn   func()
+	curg       *g       // current running goroutine
+	caughtsig  guintptr // goroutine running during fatal signal
+
+	// Indicates whether we've received a signal while
+	// running in secret mode.
+	signalSecret bool
 
 	// p is the currently attached P for executing Go code, nil if not executing user Go code.
 	//
@@ -715,8 +716,9 @@ type m struct {
 
 	mOS
 
-	chacha8   chacha8rand.State
-	cheaprand uint64
+	chacha8     chacha8rand.State
+	cheaprand   uint32
+	cheaprand64 uint64
 
 	// Up to 10 locks held by this m, maintained by the lock ranking code.
 	locksHeldLen int
@@ -783,7 +785,7 @@ type p struct {
 
 	// oldm is the previous m this p ran on.
 	//
-	// We are not assosciated with this m, so we have no control over its
+	// We are not associated with this m, so we have no control over its
 	// lifecycle. This value is an m.self object which points to the m
 	// until the m exits.
 	//
@@ -1175,16 +1177,17 @@ type _panic struct {
 	link *_panic // link to earlier panic
 
 	// startPC and startSP track where _panic.start was called.
+	// (These are the SP and PC of the gopanic frame itself.)
 	startPC uintptr
 	startSP unsafe.Pointer
 
 	// The current stack frame that we're running deferred calls for.
+	pc uintptr
 	sp unsafe.Pointer
-	lr uintptr
 	fp unsafe.Pointer
 
 	// retpc stores the PC where the panic should jump back to, if the
-	// function last returned by _panic.next() recovers the panic.
+	// function last returned by _panic.nextDefer() recovers the panic.
 	retpc uintptr
 
 	// Extra state for handling open-coded defers.
@@ -1195,8 +1198,6 @@ type _panic struct {
 	repanicked  bool // whether this panic repanicked
 	goexit      bool
 	deferreturn bool
-
-	gopanicFP unsafe.Pointer // frame pointer of the gopanic frame
 }
 
 // savedOpenDeferState tracks the extra state from _panic that's

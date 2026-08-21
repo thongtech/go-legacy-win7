@@ -2,18 +2,25 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build goexperiment.simd && amd64
+//go:build goexperiment.simd
 
 package simd_test
 
 import (
+	"fmt"
 	"math"
+	"reflect"
 	"simd/archsimd/internal/test_helpers"
 	"testing"
+	"unsafe"
 )
 
 type signed interface {
 	~int | ~int8 | ~int16 | ~int32 | ~int64
+}
+
+type unsigned interface {
+	~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
 }
 
 type integer interface {
@@ -167,6 +174,23 @@ func nOf[T any](n int, s []T) []T {
 	return r
 }
 
+// grouped2 takes a function that applies to a 128-bit group and returns a
+// function that applies to arbitrary length vectors.
+func grouped2[T any](fg func(xg, yg []T) (zg []T)) func(x, y []T) []T {
+	return func(x, y []T) []T {
+		z := make([]T, len(x))
+		groupElems := 128 / int(8*unsafe.Sizeof(*new(T)))
+		for i := 0; i < len(z); i += groupElems {
+			zg := fg(x[i:][:groupElems], y[i:][:groupElems])
+			if len(zg) != groupElems {
+				panic(fmt.Sprintf("got %d elements, want %d", len(zg), groupElems))
+			}
+			copy(z[i:], zg)
+		}
+		return z
+	}
+}
+
 const (
 	PN22  = 1.0 / 1024 / 1024 / 4
 	PN24  = 1.0 / 1024 / 1024 / 16
@@ -239,6 +263,17 @@ func forSliceTriple[T number](t *testing.T, s []T, n int, f func(a, b, c []T) bo
 	}
 }
 
+func forSliceMixed[D, S number](t *testing.T, d []D, s []S, n int, f func(a []D, b []S) bool) {
+	t.Helper()
+	for i := 0; i < len(d)-n; i++ {
+		for j := 0; j < len(s)-n; j++ {
+			if !f(d[i:i+n], s[j:j+n]) {
+				return
+			}
+		}
+	}
+}
+
 func forSlicePairMasked[T number](t *testing.T, s []T, n int, f func(a, b []T, m []bool) bool) {
 	t.Helper()
 	m := bools
@@ -252,4 +287,78 @@ func forSlicePairMasked[T number](t *testing.T, s []T, n int, f func(a, b []T, m
 			}
 		}
 	}
+}
+
+//go:noinline
+func hideConst[T number](x T) T {
+	return x
+}
+
+func testStorePartRV[T number, V any](t *testing.T, name string, n int, val V, storePart func(v V, s []T) int) {
+	t.Helper()
+	// empty slice
+	{
+		s := make([]T, 0)
+		rv := storePart(val, s)
+		if rv != 0 {
+			t.Errorf("%s: StorePart on empty slice returned %d, expected 0", name, rv)
+		}
+	}
+
+	// single-element slice
+	{
+		s := make([]T, 1)
+		rv := storePart(val, s)
+		if rv != 1 {
+			t.Errorf("%s: StorePart on 1-element slice returned %d, expected 1", name, rv)
+		}
+	}
+
+	// longer-than-vector slice
+	{
+		s := make([]T, n+5)
+		rv := storePart(val, s)
+		if rv != n {
+			t.Errorf("%s: StorePart on %d-element slice (longer than %d) returned %d, expected %d", name, n+5, n, rv, n)
+		}
+	}
+}
+
+type HasLenAndStorePart[T number] interface {
+	StorePart(s []T) int
+	Len() int
+}
+
+func testStorePartReturnValue[T number, V HasLenAndStorePart[T]](t *testing.T) {
+	t.Helper()
+	var v V
+	n := v.Len()
+	name := reflect.TypeOf(v).Name()
+	// empty slice
+	{
+		s := make([]T, 0)
+		rv := v.StorePart(s)
+		if rv != 0 {
+			t.Errorf("%s: StorePart on empty slice returned %d, expected 0", name, rv)
+		}
+	}
+
+	// single-element slice
+	{
+		s := make([]T, 1)
+		rv := v.StorePart(s)
+		if rv != 1 {
+			t.Errorf("%s: StorePart on 1-element slice returned %d, expected 1", name, rv)
+		}
+	}
+
+	// longer-than-vector slice
+	{
+		s := make([]T, n+5)
+		rv := v.StorePart(s)
+		if rv != n {
+			t.Errorf("%s: StorePart on %d-element slice (longer than %d) returned %d, expected %d", name, n+5, n, rv, n)
+		}
+	}
+	t.Logf("tested %s", name)
 }

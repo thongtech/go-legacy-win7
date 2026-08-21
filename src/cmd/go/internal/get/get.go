@@ -120,7 +120,7 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 		base.Fatalf("go: modules not implemented")
 	}
 
-	moduleLoaderState := modload.NewState()
+	moduleLoaderState := modload.NewLoader()
 
 	work.BuildInit(moduleLoaderState)
 
@@ -254,7 +254,7 @@ var downloadRootCache = map[string]bool{}
 
 // download runs the download half of the get command
 // for the package or pattern named by the argument.
-func download(moduleLoaderState *modload.State, ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
+func download(moduleLoaderState *modload.Loader, ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
 	if mode&load.ResolveImport != 0 {
 		// Caller is responsible for expanding vendor paths.
 		panic("internal error: download mode has useVendor set")

@@ -43,7 +43,7 @@ Integer:
 	%d	base 10
 	%o	base 8
 	%O	base 8 with 0o prefix
-	%q	a single-quoted character literal safely escaped with Go syntax.
+	%q	a single-quoted rune literal safely escaped with Go syntax.
 	%x	base 16, with lower-case letters for a-f
 	%X	base 16, with upper-case letters for A-F
 	%U	Unicode format: U+1234; same as "U+%04X"
@@ -298,6 +298,16 @@ The %!s just shows the print verb in use when the failure
 occurred. If the panic is caused by a nil receiver to an Error,
 String, or GoString method, however, the output is the undecorated
 string, "<nil>".
+
+Many packages whose APIs involve string formatting expose a trio of
+functions similar to [Print], [Printf], and [Println].
+For example, the [log.Print], [log.Printf] and [log.Println] functions
+forward their arguments to the corresponding functions in this package.
+To avoid confusion, other wrapper functions should follow the naming
+and behavioral conventions established by this package.
+In particular, a single function should not choose between literal
+printing (like [Print]) and formatted printing (like [Printf])
+based on the number of arguments; instead, provide separate functions.
 
 # Scanning
 

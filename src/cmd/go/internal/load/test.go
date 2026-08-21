@@ -48,8 +48,8 @@ type TestCover struct {
 // the package containing an error if the test packages or
 // their dependencies have errors.
 // Only test packages without errors are returned.
-func TestPackagesFor(loaderstate *modload.State, ctx context.Context, opts PackageOpts, p *Package, cover *TestCover) (pmain, ptest, pxtest, perr *Package) {
-	pmain, ptest, pxtest = TestPackagesAndErrors(loaderstate, ctx, nil, opts, p, cover)
+func TestPackagesFor(ld *modload.Loader, ctx context.Context, opts PackageOpts, p *Package, cover *TestCover) (pmain, ptest, pxtest, perr *Package) {
+	pmain, ptest, pxtest = TestPackagesAndErrors(ld, ctx, nil, opts, p, cover)
 	for _, p1 := range []*Package{ptest, pxtest, pmain} {
 		if p1 == nil {
 			// pxtest may be nil
@@ -99,7 +99,7 @@ func TestPackagesFor(loaderstate *modload.State, ctx context.Context, opts Packa
 //
 // The caller is expected to have checked that len(p.TestGoFiles)+len(p.XTestGoFiles) > 0,
 // or else there's no point in any of this.
-func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done func(), opts PackageOpts, p *Package, cover *TestCover) (pmain, ptest, pxtest *Package) {
+func TestPackagesAndErrors(ld *modload.Loader, ctx context.Context, done func(), opts PackageOpts, p *Package, cover *TestCover) (pmain, ptest, pxtest *Package) {
 	ctx, span := trace.StartSpan(ctx, "load.TestPackagesAndErrors")
 	defer span.Done()
 
@@ -107,7 +107,7 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 	defer pre.flush()
 	allImports := append([]string{}, p.TestImports...)
 	allImports = append(allImports, p.XTestImports...)
-	pre.preloadImports(loaderstate, ctx, opts, allImports, p.Internal.Build)
+	pre.preloadImports(ld, ctx, opts, allImports, p.Internal.Build)
 
 	var ptestErr, pxtestErr *PackageError
 	var imports, ximports []*Package
@@ -116,8 +116,9 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 	var incomplete bool
 	stk.Push(ImportInfo{Pkg: p.ImportPath + " (test)"})
 	rawTestImports := str.StringList(p.TestImports)
+
 	for i, path := range p.TestImports {
-		p1, err := loadImport(loaderstate, ctx, opts, pre, path, p.Dir, p, &stk, p.Internal.Build.TestImportPos[path], ResolveImport)
+		p1, err := loadImport(ld, ctx, opts, pre, path, p.Dir, p, &stk, p.Internal.Build.TestImportPos[path], ResolveImport)
 		if err != nil && ptestErr == nil {
 			ptestErr = err
 			incomplete = true
@@ -127,6 +128,20 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 		}
 		p.TestImports[i] = p1.ImportPath
 		imports = append(imports, p1)
+	}
+
+	var ptestCompiledImports []string
+	if hasSimd := hasSimd(p.TestImports); hasSimd {
+		p1, err := loadImport(ld, ctx, opts, pre, SimdBridgePkg, p.Dir, p, &stk, nil, ResolveImport|allowSimdInternalBridge)
+		if err != nil && ptestErr == nil {
+			ptestErr = err
+			incomplete = true
+		}
+		if p1.Incomplete {
+			incomplete = true
+		}
+		imports = append(imports, p1)
+		ptestCompiledImports = append(ptestCompiledImports, p1.ImportPath)
 	}
 	var err error
 	p.TestEmbedFiles, testEmbed, err = resolveEmbed(p.Dir, p.TestEmbedPatterns)
@@ -145,8 +160,9 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 	pxtestNeedsPtest := false
 	var pxtestIncomplete bool
 	rawXTestImports := str.StringList(p.XTestImports)
+
 	for i, path := range p.XTestImports {
-		p1, err := loadImport(loaderstate, ctx, opts, pre, path, p.Dir, p, &stk, p.Internal.Build.XTestImportPos[path], ResolveImport)
+		p1, err := loadImport(ld, ctx, opts, pre, path, p.Dir, p, &stk, p.Internal.Build.XTestImportPos[path], ResolveImport)
 		if err != nil && pxtestErr == nil {
 			pxtestErr = err
 		}
@@ -159,6 +175,19 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 			ximports = append(ximports, p1)
 		}
 		p.XTestImports[i] = p1.ImportPath
+	}
+
+	var pxtestCompiledImports []string
+	if hasSimd := hasSimd(p.XTestImports); hasSimd {
+		p1, err := loadImport(ld, ctx, opts, pre, SimdBridgePkg, p.Dir, p, &stk, nil, ResolveImport|allowSimdInternalBridge)
+		if err != nil && pxtestErr == nil {
+			pxtestErr = err
+		}
+		if p1.Incomplete {
+			pxtestIncomplete = true
+		}
+		ximports = append(ximports, p1)
+		pxtestCompiledImports = append(pxtestCompiledImports, p1.ImportPath)
 	}
 	p.XTestEmbedFiles, xtestEmbed, err = resolveEmbed(p.Dir, p.XTestEmbedPatterns)
 	if err != nil && pxtestErr == nil {
@@ -200,6 +229,12 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 		ptest.Imports = str.StringList(p.TestImports, p.Imports)
 		ptest.Internal.Imports = append(imports, p.Internal.Imports...)
 		ptest.Internal.RawImports = str.StringList(rawTestImports, p.Internal.RawImports)
+		ptest.Internal.CompiledImports = slices.Clone(p.Internal.CompiledImports)
+		for _, path := range ptestCompiledImports {
+			if !slices.Contains(ptest.Internal.CompiledImports, path) {
+				ptest.Internal.CompiledImports = append(ptest.Internal.CompiledImports, path)
+			}
+		}
 		ptest.Internal.ForceLibrary = true
 		ptest.Internal.BuildInfo = nil
 		ptest.Internal.Build = new(build.Package)
@@ -248,8 +283,9 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 					ImportPos:  p.Internal.Build.XTestImportPos,
 					Directives: p.Internal.Build.XTestDirectives,
 				},
-				Imports:    ximports,
-				RawImports: rawXTestImports,
+				Imports:         ximports,
+				RawImports:      rawXTestImports,
+				CompiledImports: pxtestCompiledImports,
 
 				Asmflags:       p.Internal.Asmflags,
 				Gcflags:        p.Internal.Gcflags,
@@ -293,16 +329,7 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 	}
 
 	pb := p.Internal.Build
-	pmain.DefaultGODEBUG = defaultGODEBUG(loaderstate, pmain, pb.Directives, pb.TestDirectives, pb.XTestDirectives)
-	if pmain.Internal.BuildInfo == nil || pmain.DefaultGODEBUG != p.DefaultGODEBUG {
-		// Either we didn't generate build info for the package under test (because it wasn't package main), or
-		// the DefaultGODEBUG used to build the test main package is different from the DefaultGODEBUG
-		// used to build the package under test. If we didn't set build info for the package under test
-		// pmain won't have buildinfo set (since we copy it from the package under test). If the default GODEBUG
-		// used for the package under test is different from that of the test main, the BuildInfo assigned above from the package
-		// under test incorrect for the test main package. Either set or correct pmain's build info.
-		pmain.setBuildInfo(ctx, loaderstate.Fetcher(), opts.AutoVCS)
-	}
+	pmain.DefaultGODEBUG = defaultGODEBUG(ld, pmain, pb.Directives, pb.TestDirectives, pb.XTestDirectives)
 
 	// The generated main also imports testing, regexp, and os.
 	// Also the linker introduces implicit dependencies reported by LinkerDeps.
@@ -311,7 +338,7 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 	if cover != nil {
 		deps = append(deps, "internal/coverage/cfile")
 	}
-	ldDeps, err := LinkerDeps(loaderstate, p)
+	ldDeps, err := LinkerDeps(ld, p)
 	if err != nil && pmain.Error == nil {
 		pmain.Error = &PackageError{Err: err}
 	}
@@ -322,7 +349,7 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 		if dep == ptest.ImportPath {
 			pmain.Internal.Imports = append(pmain.Internal.Imports, ptest)
 		} else {
-			p1, err := loadImport(loaderstate, ctx, opts, pre, dep, "", nil, &stk, nil, 0)
+			p1, err := loadImport(ld, ctx, opts, pre, dep, "", nil, &stk, nil, 0)
 			if err != nil && pmain.Error == nil {
 				pmain.Error = err
 				pmain.Incomplete = true
@@ -333,12 +360,6 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 	stk.Pop()
 
 	parallelizablePart := func() {
-		allTestImports := make([]*Package, 0, len(pmain.Internal.Imports)+len(imports)+len(ximports))
-		allTestImports = append(allTestImports, pmain.Internal.Imports...)
-		allTestImports = append(allTestImports, imports...)
-		allTestImports = append(allTestImports, ximports...)
-		setToolFlags(loaderstate, allTestImports...)
-
 		// Do initial scan for metadata needed for writing _testmain.go
 		// Use that metadata to update the list of imports for package main.
 		// The list of imports is used by recompileForTest and by the loop
@@ -377,6 +398,15 @@ func TestPackagesAndErrors(loaderstate *modload.State, ctx context.Context, done
 		if cycleErr != nil {
 			ptest.Error = cycleErr
 			ptest.Incomplete = true
+		}
+
+		if !opts.SuppressBuildInfo {
+			// Now that pmain.Internal.Imports includes the test dependencies,
+			// regenerate build info for the test binary. We can't reuse p's
+			// build info because the test variants of packages can add
+			// packages from modules that don't already have transitive
+			// imports from p.
+			pmain.setBuildInfo(ctx, ld.Fetcher(), opts.AutoVCS)
 		}
 
 		if cover != nil {

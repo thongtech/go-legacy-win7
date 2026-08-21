@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"reflect"
 
 	"encoding/json/jsontext"
 	jsonv2 "encoding/json/v2"
@@ -24,6 +25,10 @@ type Decoder struct {
 	// hadPeeked reports whether [Decoder.More] was called.
 	// It is reset by [Decoder.Decode] and [Decoder.Token].
 	hadPeeked bool
+
+	// hadEOF reports whether [Decoder.Token] had hit [io.EOF].
+	// It is reset by [Decoder.Decode] and [Decoder.Token].
+	hadEOF bool
 }
 
 // NewDecoder returns a new decoder that reads from r.
@@ -32,7 +37,7 @@ type Decoder struct {
 // read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader) *Decoder {
 	// Hide bytes.Buffer from jsontext since it implements optimizations that
-	// also limits certain ways it could be used. For example, one cannot write
+	// also limit certain ways it could be used. For example, one cannot write
 	// to the bytes.Buffer while it is in use by jsontext.Decoder.
 	if _, ok := r.(*bytes.Buffer); ok {
 		r = struct{ io.Reader }{r}
@@ -81,11 +86,24 @@ func (dec *Decoder) Decode(v any) error {
 		return dec.err
 	}
 	dec.hadPeeked = false
+	dec.hadEOF = false
 	return jsonv2.Unmarshal(b, v, dec.opts)
 }
 
-// Buffered returns a reader of the data remaining in the Decoder's
-// buffer. The reader is valid until the next call to [Decoder.Decode].
+// Buffered returns a reader of the data remaining in the unread buffer,
+// which may contain zero or more bytes.
+// This is the data already consumed from the input [io.Reader],
+// but not yet read by a [Decoder.Decode] or [Decoder.Token] call.
+// It may contain bytes that do not form valid JSON as it has not yet
+// been validated according to the JSON grammar.
+// The exact amount of buffered data is an implementation detail
+// of the Decoder and may change over time.
+//
+// It is the caller's responsibility to concatenate this buffer with
+// the remainder of the input Reader to obtain the full sequence
+// of bytes after the last decoded JSON value.
+//
+// The reader is valid until the next call to [Decoder.Decode] or [Decoder.Token].
 func (dec *Decoder) Buffered() io.Reader {
 	return bytes.NewReader(dec.dec.UnreadBuffer())
 }
@@ -96,7 +114,6 @@ type Encoder struct {
 	opts jsonv2.Options
 	err  error
 
-	buf       bytes.Buffer
 	indentBuf bytes.Buffer
 
 	indentPrefix string
@@ -121,21 +138,22 @@ func (enc *Encoder) Encode(v any) error {
 		return enc.err
 	}
 
-	buf := &enc.buf
-	buf.Reset()
-	if err := jsonv2.MarshalWrite(buf, v, enc.opts); err != nil {
+	e := export.GetBufferedEncoder(enc.opts)
+	defer export.PutBufferedEncoder(e)
+	if err := jsonv2.MarshalEncode(e, v); err != nil {
 		return err
 	}
+	b := export.Encoder(e).Buf // b must not leak current scope
 	if len(enc.indentPrefix)+len(enc.indentValue) > 0 {
 		enc.indentBuf.Reset()
-		if err := Indent(&enc.indentBuf, buf.Bytes(), enc.indentPrefix, enc.indentValue); err != nil {
+		if err := Indent(&enc.indentBuf, b, enc.indentPrefix, enc.indentValue); err != nil {
 			return err
 		}
-		buf = &enc.indentBuf
+		b = enc.indentBuf.Bytes()
 	}
-	buf.WriteByte('\n')
+	b = append(b, '\n')
 
-	if _, err := enc.w.Write(buf.Bytes()); err != nil {
+	if _, err := enc.w.Write(b); err != nil {
 		enc.err = err
 		return err
 	}
@@ -146,6 +164,9 @@ func (enc *Encoder) Encode(v any) error {
 // value as if indented by the package-level function Indent(dst, src, prefix, indent).
 // Calling SetIndent("", "") disables indentation.
 func (enc *Encoder) SetIndent(prefix, indent string) {
+	// NOTE: Do not rely on the newer [jsontext.WithIndent] option since
+	// the v1 [Indent] behavior has historical bugs that cannot be changed
+	// for backward compatibility reasons.
 	enc.indentPrefix = prefix
 	enc.indentValue = indent
 }
@@ -208,6 +229,7 @@ func (dec *Decoder) Token() (Token, error) {
 		// truncated within a JSON token such as a literal, number, or string.
 		if errors.Is(err, io.ErrUnexpectedEOF) {
 			if len(bytes.Trim(dec.dec.UnreadBuffer(), " \r\n\t,:")) == 0 {
+				dec.hadEOF = true
 				return nil, io.EOF
 			}
 			return nil, io.ErrUnexpectedEOF
@@ -215,6 +237,7 @@ func (dec *Decoder) Token() (Token, error) {
 		return nil, transformSyntacticError(err)
 	}
 	dec.hadPeeked = false
+	dec.hadEOF = false
 	switch k := tok.Kind(); k {
 	case 'n':
 		return nil, nil
@@ -228,7 +251,11 @@ func (dec *Decoder) Token() (Token, error) {
 		if useNumber, _ := jsonv2.GetOption(dec.opts, unmarshalAnyWithRawNumber); useNumber {
 			return Number(tok.String()), nil
 		}
-		return tok.Float(), nil
+		v, err := tok.Float()
+		if err != nil {
+			return nil, &UnmarshalTypeError{Value: "number " + tok.String(), Type: reflect.TypeFor[float64](), Offset: dec.InputOffset()}
+		}
+		return v, nil
 	case '{', '}', '[', ']':
 		return Delim(k), nil
 	default:
@@ -262,7 +289,7 @@ func (dec *Decoder) More() bool {
 // and the beginning of the next token.
 func (dec *Decoder) InputOffset() int64 {
 	offset := dec.dec.InputOffset()
-	if dec.hadPeeked {
+	if dec.hadPeeked || dec.hadEOF {
 		// Historically, InputOffset reported the location of
 		// the end of the most recently returned token
 		// unless [Decoder.More] is called, in which case, it reported
@@ -272,6 +299,12 @@ func (dec *Decoder) InputOffset() int64 {
 		if len(trailingTokens) > 0 {
 			leadingWhitespace := len(unreadBuffer) - len(trailingTokens)
 			offset += int64(leadingWhitespace)
+
+			// If [Decoder.Token] had encountered [io.EOF],
+			// then it also includes the upcoming comma or colon.
+			if dec.hadEOF && (trailingTokens[0] == ',' || trailingTokens[0] == ':') {
+				offset++
+			}
 		}
 	}
 	return offset

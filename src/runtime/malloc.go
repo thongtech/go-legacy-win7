@@ -1076,9 +1076,12 @@ func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 		return unsafe.Pointer(&zerobase)
 	}
 
-	if sizeSpecializedMallocEnabled && heapBitsInSpan(size) {
+	if sizeSpecializedMallocEnabled && size < uintptr(len(mallocNoScanTable)) {
 		if typ == nil || !typ.Pointers() {
-			return mallocNoScanTable[size](size, typ, needzero)
+			if size >= maxTinySize {
+				return mallocNoScanTable[size](size, typ, needzero)
+			}
+			return mallocgcTinySC2(size, typ, needzero)
 		} else {
 			if !needzero {
 				throw("objects with pointers must be zeroed")
@@ -1117,7 +1120,6 @@ func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 	var x unsafe.Pointer
 	var elemsize uintptr
 	if sizeSpecializedMallocEnabled {
-		// we know that heapBitsInSpan is false.
 		if size <= maxSmallSize-gc.MallocHeaderSize {
 			if typ == nil || !typ.Pointers() {
 				x, elemsize = mallocgcSmallNoscan(size, typ, needzero)
@@ -1125,7 +1127,11 @@ func mallocgc(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 				if !needzero {
 					throw("objects with pointers must be zeroed")
 				}
-				x, elemsize = mallocgcSmallScanHeader(size, typ)
+				if heapBitsInSpan(size) {
+					x, elemsize = mallocgcSmallScanNoHeader(size, typ)
+				} else {
+					x, elemsize = mallocgcSmallScanHeader(size, typ)
+				}
 			}
 		} else {
 			x, elemsize = mallocgcLarge(size, typ, needzero)
@@ -1837,28 +1843,6 @@ func postMallocgcDebug(x unsafe.Pointer, elemsize uintptr, typ *_type) {
 	// mark the block as a tiny block.
 	if debug.checkfinalizers != 0 && elemsize == 0 {
 		setTinyBlockContext(unsafe.Pointer(alignDown(uintptr(x), maxTinySize)))
-	}
-}
-
-// deductAssistCredit reduces the current G's assist credit
-// by size bytes, and assists the GC if necessary.
-//
-// Caller must be preemptible.
-func deductAssistCredit(size uintptr) {
-	// Charge the current user G for this allocation.
-	assistG := getg()
-	if assistG.m.curg != nil {
-		assistG = assistG.m.curg
-	}
-	// Charge the allocation against the G. We'll account
-	// for internal fragmentation at the end of mallocgc.
-	assistG.gcAssistBytes -= int64(size)
-
-	if assistG.gcAssistBytes < 0 {
-		// This G is in debt. Assist the GC to correct
-		// this before allocating. This must happen
-		// before disabling preemption.
-		gcAssistAlloc(assistG)
 	}
 }
 

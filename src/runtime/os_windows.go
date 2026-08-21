@@ -39,6 +39,7 @@ const (
 //go:cgo_import_dynamic runtime._GetSystemDirectoryA GetSystemDirectoryA%2 "kernel32.dll"
 //go:cgo_import_dynamic runtime._GetSystemInfo GetSystemInfo%1 "kernel32.dll"
 //go:cgo_import_dynamic runtime._GetThreadContext GetThreadContext%2 "kernel32.dll"
+//go:cgo_import_dynamic runtime._IsProcessorFeaturePresent IsProcessorFeaturePresent%1 "kernel32.dll"
 //go:cgo_import_dynamic runtime._SetThreadContext SetThreadContext%2 "kernel32.dll"
 //go:cgo_import_dynamic runtime._LoadLibraryExW LoadLibraryExW%3 "kernel32.dll"
 //go:cgo_import_dynamic runtime._LoadLibraryA LoadLibraryA%1 "kernel32.dll"
@@ -98,6 +99,7 @@ var (
 	_GetSystemDirectoryA,
 	_GetSystemInfo,
 	_GetThreadContext,
+	_IsProcessorFeaturePresent,
 	_SetThreadContext,
 	_LoadLibraryExW,
 	_LoadLibraryA,
@@ -158,7 +160,7 @@ var (
 	advapi32dll = [...]uint16{'a', 'd', 'v', 'a', 'p', 'i', '3', '2', '.', 'd', 'l', 'l', 0}
 	ntdlldll    = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
 	powrprofdll = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
-	winmmdll    = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
+	winmmdll = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
 )
 
 // Function to be called by windows CreateThread
@@ -298,6 +300,12 @@ func windows_QueryPerformanceFrequency() int64 {
 	var frequency int64
 	stdcall(_QueryPerformanceFrequency, uintptr(unsafe.Pointer(&frequency)))
 	return frequency
+}
+
+//go:linknamestd cpu_isProcessorFeaturePresent internal/cpu.isProcessorFeaturePresent
+func cpu_isProcessorFeaturePresent(processorFeature uint32) bool {
+	ret := stdcall(_IsProcessorFeaturePresent, uintptr(processorFeature))
+	return ret != 0
 }
 
 func loadOptionalSyscalls() {
@@ -793,18 +801,11 @@ func semacreate(mp *m) {
 	}
 }
 
-// May run with m.p==nil, so write barriers are not allowed. This
-// function is called by newosproc0, so it is also required to
-// operate without stack guards.
+// May run with m.p==nil, so write barriers are not allowed.
 //
 //go:nowritebarrierrec
-//go:nosplit
 func newosproc(mp *m) {
-	// We pass 0 for the stack size to use the default for this binary.
-	thandle := stdcall(_CreateThread, 0, 0,
-		abi.FuncPCABI0(tstart_stdcall), uintptr(unsafe.Pointer(mp)),
-		0, 0)
-
+	thandle, err := createThread(0, unsafe.Pointer(abi.FuncPCABI0(tstart_stdcall)), unsafe.Pointer(mp))
 	if thandle == 0 {
 		if atomic.Load(&exiting) != 0 {
 			// CreateThread may fail if called
@@ -814,7 +815,7 @@ func newosproc(mp *m) {
 			lock(&deadlock)
 			lock(&deadlock)
 		}
-		print("runtime: failed to create new OS thread (have ", mcount(), " already; errno=", getlasterror(), ")\n")
+		print("runtime: failed to create new OS thread (have ", mcount(), " already; errno=", err, ")\n")
 		throw("runtime.newosproc")
 	}
 
@@ -828,8 +829,34 @@ func newosproc(mp *m) {
 //
 //go:nowritebarrierrec
 //go:nosplit
-func newosproc0(stacksize uintptr, fn uintptr) {
-	throw("bad newosproc0")
+func newosproc0(stacksize uintptr, fn unsafe.Pointer) {
+	thandle, err := createThread(stacksize, fn, nil)
+	if thandle == 0 {
+		print("runtime: failed to create new OS thread (errno=", err, ")\n")
+		throw("runtime: failed to create new OS thread\n")
+	}
+	stdcall_no_g(_CloseHandle, thandle)
+}
+
+// createThread calls CreateThread to create a new thread.
+//
+//go:nowritebarrierrec
+//go:nosplit
+func createThread(stackSize uintptr, fn unsafe.Pointer, arg unsafe.Pointer) (handle uintptr, err uint32) {
+	for tries := range 20 {
+		// We pass 0 for the stack size to use the default for this binary.
+		handle = stdcall_no_g(_CreateThread, 0, stackSize, uintptr(fn), uintptr(arg), 0, 0)
+		if handle == 0 {
+			err = getlasterror()
+		}
+		if handle == 0 && err == windows.ERROR_ACCESS_DENIED {
+			// "Insufficient resources". Yield, then back off a bit before retrying.
+			usleep_no_g(uint32(tries) * 1000)
+			continue
+		}
+		break
+	}
+	return handle, err
 }
 
 //go:nosplit

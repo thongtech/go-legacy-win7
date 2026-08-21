@@ -124,6 +124,11 @@ func Funcs(all []*ir.Func) {
 	for _, fn := range all {
 		analyze(fn)
 	}
+	for _, fn := range all {
+		if ir.MatchAstDump(fn, "slice") {
+			ir.AstDump(fn, "slice, "+ir.FuncName(fn))
+		}
+	}
 }
 
 func analyze(fn *ir.Func) {
@@ -356,10 +361,11 @@ func analyze(fn *ir.Func) {
 				}
 			}
 		case ir.ORANGE:
-			// Range over slice is ok.
 			n := n.(*ir.RangeStmt)
 			if i := tracking(n.X); i != nil {
 				i.okUses++
+				// Range over slice keeps a pointer to the backing store, see #79909.
+				addTransition(i, n)
 			}
 		case ir.OAS:
 			n := n.(*ir.AssignStmt)

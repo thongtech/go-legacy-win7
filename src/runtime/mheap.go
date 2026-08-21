@@ -519,15 +519,6 @@ func (s *mspan) base() uintptr {
 	return s.startAddr
 }
 
-func (s *mspan) layout() (size, n, total uintptr) {
-	total = s.npages << gc.PageShift
-	size = s.elemsize
-	if size > 0 {
-		n = total / size
-	}
-	return
-}
-
 // recordspan adds a newly allocated span to h.allspans.
 //
 // This only happens the first time a span is allocated from
@@ -2799,7 +2790,7 @@ func freeSpecial(s *special, p unsafe.Pointer, size uintptr) {
 		unlock(&mheap_.speciallock)
 	case _KindSpecialProfile:
 		sp := (*specialprofile)(unsafe.Pointer(s))
-		mProf_Free(sp.b, size)
+		mProf_Free(sp.b)
 		lock(&mheap_.speciallock)
 		mheap_.specialprofilealloc.free(unsafe.Pointer(sp))
 		unlock(&mheap_.speciallock)

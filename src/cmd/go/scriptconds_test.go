@@ -10,14 +10,13 @@ import (
 	"cmd/internal/script/scripttest"
 	"errors"
 	"fmt"
-	"internal/testenv"
+	"internal/buildcfg"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
-	"sync"
 	"testing"
 
 	"golang.org/x/mod/semver"
@@ -40,13 +39,12 @@ func scriptConditions(t *testing.T) map[string]script.Cond {
 	}
 
 	add("abscc", script.Condition("default $CC path is absolute and exists", defaultCCIsAbsolute))
-	add("bzr", lazyBool("the 'bzr' executable exists and provides the standard CLI", hasWorkingBzr))
 	add("case-sensitive", script.OnceCondition("$WORK filesystem is case-sensitive", isCaseSensitive))
 	add("cc", script.PrefixCondition("go env CC = <suffix> (ignoring the go/env file)", ccIs))
 	add("git", lazyBool("the 'git' executable exists and provides the standard CLI", hasWorkingGit))
 	add("git-sha256", script.OnceCondition("the local 'git' version is recent enough to support sha256 object/commit hashes", gitSupportsSHA256))
-	add("net", script.PrefixCondition("can connect to external network host <suffix>", hasNet))
 	add("trimpath", script.OnceCondition("test binary was built with -trimpath", isTrimpath))
+	add("default-cgo", lazyBool("when CGO_ENABLED=1|0 was set in make.bash", defaultCgo))
 
 	return conds
 }
@@ -71,42 +69,6 @@ func ccIs(s *script.State, want string) (bool, error) {
 	GOOS, _ := s.LookupEnv("GOOS")
 	GOARCH, _ := s.LookupEnv("GOARCH")
 	return cfg.DefaultCC(GOOS, GOARCH) == want, nil
-}
-
-var scriptNetEnabled sync.Map // testing.TB → already enabled
-
-func hasNet(s *script.State, host string) (bool, error) {
-	if !testenv.HasExternalNetwork() {
-		return false, nil
-	}
-
-	// TODO(bcmills): Add a flag or environment variable to allow skipping tests
-	// for specific hosts and/or skipping all net tests except for specific hosts.
-
-	t, ok := tbFromContext(s.Context())
-	if !ok {
-		return false, errors.New("script Context unexpectedly missing testing.TB key")
-	}
-
-	if netTestSem != nil {
-		// When the number of external network connections is limited, we limit the
-		// number of net tests that can run concurrently so that the overall number
-		// of network connections won't exceed the limit.
-		_, dup := scriptNetEnabled.LoadOrStore(t, true)
-		if !dup {
-			// Acquire a net token for this test until the test completes.
-			netTestSem <- struct{}{}
-			t.Cleanup(func() {
-				<-netTestSem
-				scriptNetEnabled.Delete(t)
-			})
-		}
-	}
-
-	// Since we have confirmed that the network is available,
-	// allow cmd/go to use it.
-	s.Setenv("TESTGONETWORK", "")
-	return true, nil
 }
 
 func isCaseSensitive() (bool, error) {
@@ -184,13 +146,6 @@ func gitSupportsSHA256() (bool, error) {
 	return hasAtLeastGitVersion("v2.29")
 }
 
-func hasWorkingBzr() bool {
-	bzr, err := exec.LookPath("bzr")
-	if err != nil {
-		return false
-	}
-	// Check that 'bzr help' exits with code 0.
-	// See go.dev/issue/71504 for an example where 'bzr' exists in PATH but doesn't work.
-	err = exec.Command(bzr, "help").Run()
-	return err == nil
+func defaultCgo() bool {
+	return buildcfg.DefaultCGO_ENABLED == "1" || buildcfg.DefaultCGO_ENABLED == "0"
 }

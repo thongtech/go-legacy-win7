@@ -406,6 +406,7 @@
 (ClosureCall ...) => (CALLclosure ...)
 (InterCall ...) => (CALLinter ...)
 (TailCall ...) => (CALLtail ...)
+(TailCallInter ...) => (CALLtailinter ...)
 
 // atomic intrinsics
 (AtomicLoad(8|32|64) ...) => (LoweredAtomicLoad(8|32|64) ...)
@@ -434,7 +435,7 @@
 		(OR <typ.UInt64> (SLLV <typ.UInt32> (ZeroExt8to32 val)
 			(SLLVconst <typ.UInt64> [3]
 				(ANDconst  <typ.UInt64> [3] ptr)))
-		(NORconst [0] <typ.UInt64> (SLLV <typ.UInt64>
+		(NOR (MOVVconst [0]) <typ.UInt64> (SLLV <typ.UInt64>
 			(MOVVconst [0xff]) (SLLVconst <typ.UInt64> [3]
 				(ANDconst <typ.UInt64> [3] ptr))))) mem)
 
@@ -453,7 +454,7 @@
 			(SLLVconst <typ.UInt64> [3]
 				(ANDconst  <typ.UInt64> [3]
 					(XORconst <typ.UInt64> [3] ptr))))
-		(NORconst [0] <typ.UInt64> (SLLV <typ.UInt64>
+		(NOR (MOVVconst [0]) <typ.UInt64> (SLLV <typ.UInt64>
 			(MOVVconst [0xff]) (SLLVconst <typ.UInt64> [3]
 				(ANDconst <typ.UInt64> [3]
 					(XORconst <typ.UInt64> [3] ptr)))))) mem)
@@ -669,7 +670,6 @@
 (AND x (MOVVconst [c])) && is32Bit(c) => (ANDconst [c] x)
 (OR  x (MOVVconst [c])) && is32Bit(c) => (ORconst  [c] x)
 (XOR x (MOVVconst [c])) && is32Bit(c) => (XORconst [c] x)
-(NOR x (MOVVconst [c])) && is32Bit(c) => (NORconst [c] x)
 
 (SLLV _ (MOVVconst [c])) && uint64(c)>=64 => (MOVVconst [0])
 (SRLV _ (MOVVconst [c])) && uint64(c)>=64 => (MOVVconst [0])
@@ -693,6 +693,9 @@
 (Select0 (DIVVU _ (MOVVconst [1]))) => (MOVVconst [0])                       // mod
 (Select0 (DIVVU x (MOVVconst [c]))) && isPowerOfTwo(c) => (ANDconst [c-1] x) // mod
 
+// Absorb conversion between 32 bit and 64 bit if both src and dst are 32 bit.
+(MOVDF ((ABS|SQRT)D (MOVFD x))) => ((ABS|SQRT)F x)
+
 // generic simplifications
 (ADDV x (NEGV y)) => (SUBV x y)
 (SUBV x (NEGV y)) => (ADDV x y)
@@ -712,7 +715,6 @@
 (ORconst  [0]  x) => x
 (ORconst  [-1] _) => (MOVVconst [-1])
 (XORconst [0]  x) => x
-(XORconst [-1] x) => (NORconst [0] x)
 
 // generic constant folding
 (ADDVconst [c] (MOVVconst [d]))  => (MOVVconst [c+d])
@@ -735,7 +737,6 @@
 (ORconst [c] (ORconst [d] x)) && is32Bit(c|d) => (ORconst [c|d] x)
 (XORconst [c] (MOVVconst [d])) => (MOVVconst [c^d])
 (XORconst [c] (XORconst [d] x)) && is32Bit(c^d) => (XORconst [c^d] x)
-(NORconst [c] (MOVVconst [d])) => (MOVVconst [^(c|d)])
 (NEGV (MOVVconst [c])) => (MOVVconst [-c])
 (MOVBreg  (MOVVconst [c])) => (MOVVconst [int64(int8(c))])
 (MOVBUreg (MOVVconst [c])) => (MOVVconst [int64(uint8(c))])

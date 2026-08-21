@@ -399,8 +399,9 @@ func (*Var) isDependency() {} // a variable may be a dependency of an initializa
 // An abstract method may belong to many interfaces due to embedding.
 type Func struct {
 	object
-	hasPtrRecv_ bool  // only valid for methods that don't have a type yet; use hasPtrRecv() to read
 	origin      *Func // if non-nil, the Func from which this one was instantiated
+	hasPtrRecv_ bool  // only valid for methods that don't have a type yet; use hasPtrRecv() to read
+	nointerface bool
 }
 
 // NewFunc returns a new function with the given signature, representing
@@ -415,7 +416,7 @@ func NewFunc(pos token.Pos, pkg *Package, name string, sig *Signature) *Func {
 		// as this would violate object.{Type,color} invariants.
 		// TODO(adonovan): propose to disallow NewFunc with nil *Signature.
 	}
-	return &Func{object{nil, pos, pkg, name, typ, 0, nopos}, false, nil}
+	return &Func{object{nil, pos, pkg, name, typ, 0, nopos}, nil, false, false}
 }
 
 // Signature returns the signature (type) of the function or method.
@@ -594,7 +595,7 @@ func writeObject(buf *bytes.Buffer, obj Object, qf Qualifier) {
 		}
 		if tname.IsAlias() {
 			buf.WriteString(" =")
-			if alias, ok := typ.(*Alias); ok { // materialized? (gotypesalias=1)
+			if alias, ok := typ.(*Alias); ok { // materialized? TODO(gri) Do we still need this (e.g. for byte, rune)?
 				typ = alias.fromRHS
 			}
 		} else if t, _ := typ.(*TypeParam); t != nil {

@@ -37,7 +37,7 @@ func Help(w io.Writer, args []string) {
 		PrintUsage(buf, base.Go)
 		usage := &base.Command{Long: buf.String()}
 		cmds := []*base.Command{usage}
-		s := modload.NewState()
+		s := modload.NewLoader()
 		for _, cmd := range base.Go.Commands {
 			// Avoid duplication of the "get" documentation.
 			if cmd.UsageLine == "module-get" && s.Enabled() {

@@ -27,9 +27,15 @@ type Signature struct {
 	tparams  *TypeParamList // type parameters from left to right, or nil
 	scope    *Scope         // function scope for package-local and non-instantiated signatures; nil otherwise
 	recv     *Var           // nil if not a method
+	recvold  *Var           // receiver dropped via method selection; or nil
 	params   *Tuple         // (incoming) parameters from left to right; or nil
 	results  *Tuple         // (outgoing) results from left to right; or nil
 	variadic bool           // true if the last parameter's type is of the form ...T
+
+	// If recvold is the sentinel value [methExpr], then recvold should
+	// instead be sourced from params[0]. Otherwise, recvold points to
+	// the receiver of the original method signature from which this
+	// function signature was cloned via a selector expression.
 
 	// If variadic, the last element of params ordinarily has an
 	// unnamed Slice type. As a special case, in a call to append,
@@ -37,6 +43,9 @@ type Signature struct {
 	// It may even be a named []byte type if a client instantiates
 	// T at such a type.
 }
+
+// sentinel value for detecting method expressions
+var methodExprSentinel = &Var{}
 
 // NewSignature returns a new function type for the given receiver, parameters,
 // and results, either of which may be nil. If variadic is set, the function
@@ -63,8 +72,7 @@ func NewSignature(recv *Var, params, results *Tuple, variadic bool) *Signature {
 // type set. It may even be a named []byte slice type resulting from
 // instantiation of such a type parameter.
 //
-// If recv is non-nil, typeParams must be empty. If recvTypeParams is
-// non-empty, recv must be non-nil.
+// If recvTypeParams is non-empty, recv must be non-nil.
 func NewSignatureType(recv *Var, recvTypeParams, typeParams []*TypeParam, params, results *Tuple, variadic bool) *Signature {
 	if variadic {
 		n := params.Len()
@@ -114,9 +122,6 @@ func NewSignatureType(recv *Var, recvTypeParams, typeParams []*TypeParam, params
 		sig.rparams = bindTParams(recvTypeParams)
 	}
 	if len(typeParams) != 0 {
-		if recv != nil {
-			panic("function with type parameters cannot have a receiver")
-		}
 		sig.tparams = bindTParams(typeParams)
 	}
 	return sig
@@ -176,12 +181,6 @@ func (check *Checker) funcType(sig *Signature, recvPar *ast.FieldList, ftyp *ast
 
 	// collect and declare function type parameters
 	if ftyp.TypeParams != nil {
-		// Always type-check method type parameters but complain that they are not allowed.
-		// (A separate check is needed when type-checking interface method signatures because
-		// they don't have a receiver specification.)
-		if recvPar != nil {
-			check.error(ftyp.TypeParams, InvalidMethodTypeParams, "methods cannot have type parameters")
-		}
 		check.collectTypeParams(&sig.tparams, ftyp.TypeParams)
 	}
 

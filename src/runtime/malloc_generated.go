@@ -11,32 +11,36 @@ import (
 )
 
 func mallocgcSmallScanNoHeaderSC1(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(1<<1) | spanClass(0)
+		const elemsize = uintptr(8)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 1
-
 	const elemsize = 8
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -45,31 +49,36 @@ func mallocgcSmallScanNoHeaderSC1(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					8 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -84,15 +93,18 @@ func mallocgcSmallScanNoHeaderSC1(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 8
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -104,9 +116,9 @@ func mallocgcSmallScanNoHeaderSC1(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -133,13 +145,7 @@ func mallocgcSmallScanNoHeaderSC1(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -153,55 +159,41 @@ func mallocgcSmallScanNoHeaderSC1(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallScanNoHeaderSC2(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(2<<1) | spanClass(0)
+		const elemsize = uintptr(16)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 2
-
 	const elemsize = 16
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -210,31 +202,36 @@ func mallocgcSmallScanNoHeaderSC2(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -249,15 +246,18 @@ func mallocgcSmallScanNoHeaderSC2(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 16
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -269,9 +269,9 @@ func mallocgcSmallScanNoHeaderSC2(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -298,13 +298,7 @@ func mallocgcSmallScanNoHeaderSC2(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -318,55 +312,41 @@ func mallocgcSmallScanNoHeaderSC2(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallScanNoHeaderSC3(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(3<<1) | spanClass(0)
+		const elemsize = uintptr(24)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 3
-
 	const elemsize = 24
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -375,31 +355,36 @@ func mallocgcSmallScanNoHeaderSC3(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					24 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -414,15 +399,18 @@ func mallocgcSmallScanNoHeaderSC3(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 24
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -434,9 +422,9 @@ func mallocgcSmallScanNoHeaderSC3(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -463,13 +451,7 @@ func mallocgcSmallScanNoHeaderSC3(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -483,55 +465,41 @@ func mallocgcSmallScanNoHeaderSC3(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallScanNoHeaderSC4(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(4<<1) | spanClass(0)
+		const elemsize = uintptr(32)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 4
-
 	const elemsize = 32
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -540,31 +508,36 @@ func mallocgcSmallScanNoHeaderSC4(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					32 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -579,15 +552,18 @@ func mallocgcSmallScanNoHeaderSC4(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 32
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -599,9 +575,9 @@ func mallocgcSmallScanNoHeaderSC4(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -628,13 +604,7 @@ func mallocgcSmallScanNoHeaderSC4(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -648,55 +618,41 @@ func mallocgcSmallScanNoHeaderSC4(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallScanNoHeaderSC5(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(5<<1) | spanClass(0)
+		const elemsize = uintptr(48)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 5
-
 	const elemsize = 48
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -705,31 +661,36 @@ func mallocgcSmallScanNoHeaderSC5(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					48 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -744,15 +705,18 @@ func mallocgcSmallScanNoHeaderSC5(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 48
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -764,9 +728,9 @@ func mallocgcSmallScanNoHeaderSC5(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -793,13 +757,7 @@ func mallocgcSmallScanNoHeaderSC5(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -813,55 +771,41 @@ func mallocgcSmallScanNoHeaderSC5(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallScanNoHeaderSC6(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(6<<1) | spanClass(0)
+		const elemsize = uintptr(64)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 6
-
 	const elemsize = 64
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -870,31 +814,36 @@ func mallocgcSmallScanNoHeaderSC6(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					64 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -909,15 +858,18 @@ func mallocgcSmallScanNoHeaderSC6(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 64
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -929,9 +881,9 @@ func mallocgcSmallScanNoHeaderSC6(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -958,13 +910,7 @@ func mallocgcSmallScanNoHeaderSC6(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -978,55 +924,41 @@ func mallocgcSmallScanNoHeaderSC6(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallScanNoHeaderSC7(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(7<<1) | spanClass(0)
+		const elemsize = uintptr(80)
+		return mallocgcSmallScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 7
-
 	const elemsize = 80
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -1035,31 +967,36 @@ func mallocgcSmallScanNoHeaderSC7(size uintptr, typ *_type, needzero bool) unsaf
 	const spc = spanClass(sizeclass<<1) | spanClass(0)
 	span := c.alloc[spc]
 
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					80 +
-					span.base())
+	var v gclinkptr
+	var x unsafe.Pointer
+
+	{
+
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
+				}
 			}
 		}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
+		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
+	if goarch.PtrSize == 8 && elemsize == 8 {
 
 		c.scanAlloc += 8
 	} else {
@@ -1074,15 +1011,18 @@ func mallocgcSmallScanNoHeaderSC7(size uintptr, typ *_type, needzero bool) unsaf
 
 		const elemsize = 80
 
-		scanSize := typ.PtrBytes
+		var scanSize uintptr
 		src := src0
 		if typ.Size_ == goarch.PtrSize {
 			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
 		} else {
 
 			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
 				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
 			}
+			scanSize = typ.PtrBytes
 			for i := typ.Size_; i < dataSize; i += typ.Size_ {
 				src |= src0 << (i / goarch.PtrSize)
 				scanSize += typ.Size_
@@ -1094,9 +1034,9 @@ func mallocgcSmallScanNoHeaderSC7(size uintptr, typ *_type, needzero bool) unsaf
 		o := (x - span.base()) / goarch.PtrSize
 		i := o / ptrBits
 		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
+		var bits uintptr = elemsize / goarch.PtrSize
 
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
 		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
 
 			bits0 := ptrBits - j
@@ -1123,13 +1063,7 @@ func mallocgcSmallScanNoHeaderSC7(size uintptr, typ *_type, needzero bool) unsaf
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -1143,3246 +1077,69 @@ func mallocgcSmallScanNoHeaderSC7(size uintptr, typ *_type, needzero bool) unsaf
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
-func mallocgcSmallScanNoHeaderSC8(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
+func mallocgcTinySC2(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
-	lockRankMayQueueFinalizer()
+	var mp *m
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
+	mp = acquirem()
 
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
 
-	const sizeclass = 8
+	if forceSlowPath {
+		releasem(mp)
 
-	const elemsize = 96
+		return mallocgcTinySlowPath(size, typ, needzero)
 
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					96 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(96)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 96
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC9(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
 	}
 
 	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 9
-
-	const elemsize = 112
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					112 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(112)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 112
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC10(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 10
-
-	const elemsize = 128
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					128 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(128)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 128
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC11(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 11
-
-	const elemsize = 144
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					144 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(144)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 144
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC12(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 12
-
-	const elemsize = 160
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					160 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(160)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 160
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC13(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 13
-
-	const elemsize = 176
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					176 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(176)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 176
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC14(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 14
-
-	const elemsize = 192
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					192 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(192)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 192
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC15(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 15
-
-	const elemsize = 208
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					208 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(208)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 208
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC16(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 16
-
-	const elemsize = 224
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					224 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(224)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 224
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC17(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 17
-
-	const elemsize = 240
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					240 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(240)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 240
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC18(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 18
-
-	const elemsize = 256
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					256 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(256)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 256
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC19(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 19
-
-	const elemsize = 288
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					288 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(288)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 288
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC20(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 20
-
-	const elemsize = 320
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					320 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(320)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 320
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC21(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 21
-
-	const elemsize = 352
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					352 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(352)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 352
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC22(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 22
-
-	const elemsize = 384
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					384 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(384)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 384
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC23(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 23
-
-	const elemsize = 416
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					416 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(416)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 416
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC24(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 24
-
-	const elemsize = 448
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					448 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(448)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 448
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC25(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 25
-
-	const elemsize = 480
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					480 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(480)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 480
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallScanNoHeaderSC26(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 26
-
-	const elemsize = 512
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallScanNoHeader(size, typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(0)
-	span := c.alloc[spc]
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					512 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-	if goarch.PtrSize == 8 && sizeclass == 1 {
-
-		c.scanAlloc += 8
-	} else {
-		dataSize := size
-		x := uintptr(x)
-
-		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(512)) {
-			throw("tried to write heap bits, but no heap bits in span")
-		}
-
-		src0 := readUintptr(getGCMask(typ))
-
-		const elemsize = 512
-
-		scanSize := typ.PtrBytes
-		src := src0
-		if typ.Size_ == goarch.PtrSize {
-			src = (1 << (dataSize / goarch.PtrSize)) - 1
-		} else {
-
-			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
-				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
-			}
-			for i := typ.Size_; i < dataSize; i += typ.Size_ {
-				src |= src0 << (i / goarch.PtrSize)
-				scanSize += typ.Size_
-			}
-		}
-
-		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
-		dst := unsafe.Pointer(dstBase)
-		o := (x - span.base()) / goarch.PtrSize
-		i := o / ptrBits
-		j := o % ptrBits
-		const bits uintptr = elemsize / goarch.PtrSize
-
-		const bitsIsPowerOfTwo = bits&(bits-1) == 0
-		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
-
-			bits0 := ptrBits - j
-			bits1 := bits - bits0
-			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
-			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
-			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
-			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
-		} else {
-
-			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
-			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
-		}
-
-		const doubleCheck = false
-		if doubleCheck {
-			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
-		}
-		if doubleCheckHeapSetType {
-			doubleCheckHeapType(x, dataSize, typ, nil, span)
-		}
-		c.scanAlloc += scanSize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize1(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 1
 
 	const elemsize = 16
 
-	mp := acquirem()
 	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
+		doubleCheckTiny(size, typ, mp)
 	}
 	mp.mallocing = 1
 
 	c := getMCache(mp)
 	off := c.tinyoffset
 
-	if constsize&7 == 0 {
+	if size&7 == 0 {
 		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
+	} else if goarch.PtrSize == 4 && size == 12 {
 
 		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
+	} else if size&3 == 0 {
 		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
+	} else if size&1 == 0 {
 		off = alignUp(off, 2)
 	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
+	if off+size <= maxTinySize && c.tiny != 0 {
 
 		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
+		c.tinyoffset = off + size
 		c.tinyAllocs++
 		mp.mallocing = 0
 		releasem(mp)
 		const elemsize = 0
-		{
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
+		return x
 	}
 
 	checkGCTrigger := false
 	span := c.alloc[tinySpanClass]
 
 	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
+	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) / 16)
 	var nextFreeFastResult gclinkptr
 	if span.allocCache != 0 {
 		theBit := sys.TrailingZeros64(span.allocCache)
@@ -4393,9 +1150,7 @@ func mallocgcTinySize1(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 				span.allocCache >>= uint(theBit + 1)
 				span.freeindex = freeidx
 				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
+				nextFreeFastResult = gclinkptr(uintptr(result)*16 + span.base())
 			}
 		}
 	}
@@ -4407,21 +1162,15 @@ func mallocgcTinySize1(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 	(*[2]uint64)(x)[0] = 0
 	(*[2]uint64)(x)[1] = 0
 
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
+	if !raceenabled && (size < c.tinyoffset || c.tiny == 0) {
 
 		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
+		c.tinyoffset = size
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -4436,2237 +1185,40 @@ func mallocgcTinySize1(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 		}
 	}
 
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize2(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 2
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize3(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 3
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize4(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 4
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize5(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 5
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize6(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 6
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize7(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 7
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize8(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 8
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize9(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 9
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize10(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 10
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize11(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 11
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize12(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 12
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize13(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 13
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize14(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 14
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcTinySize15(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-		return mallocgcSmallNoScanSC2(size, typ, needzero)
-	}
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const constsize = 15
-
-	const elemsize = 16
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckTiny(constsize, typ, mp)
-	}
-	mp.mallocing = 1
-
-	c := getMCache(mp)
-	off := c.tinyoffset
-
-	if constsize&7 == 0 {
-		off = alignUp(off, 8)
-	} else if goarch.PtrSize == 4 && constsize == 12 {
-
-		off = alignUp(off, 8)
-	} else if constsize&3 == 0 {
-		off = alignUp(off, 4)
-	} else if constsize&1 == 0 {
-		off = alignUp(off, 2)
-	}
-	if off+constsize <= maxTinySize && c.tiny != 0 {
-
-		x := unsafe.Pointer(c.tiny + off)
-		c.tinyoffset = off + constsize
-		c.tinyAllocs++
-		mp.mallocing = 0
-		releasem(mp)
-		const elemsize = 0
-		{
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	checkGCTrigger := false
-	span := c.alloc[tinySpanClass]
-
-	const nbytes = 8192
-	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) /
-		16,
-	)
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
-	}
-	x := unsafe.Pointer(v)
-	(*[2]uint64)(x)[0] = 0
-	(*[2]uint64)(x)[1] = 0
-
-	if !raceenabled && (constsize < c.tinyoffset || c.tiny == 0) {
-
-		c.tiny = uintptr(x)
-		c.tinyoffset = constsize
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-
-	if raceenabled {
-
-		x = add(x, elemsize-constsize)
-	}
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallNoScanSC2(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(2<<1) | spanClass(1)
+		const elemsize = uintptr(16)
+		return mallocgcSmallNoScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 2
-
 	const elemsize = 16
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -6675,72 +1227,49 @@ func mallocgcSmallNoScanSC2(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	const spc = spanClass(sizeclass<<1) | spanClass(1)
 	span := c.alloc[spc]
 
+	var v gclinkptr
+	var x unsafe.Pointer
+
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return x
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					16 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -6754,55 +1283,41 @@ func mallocgcSmallNoScanSC2(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallNoScanSC3(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(3<<1) | spanClass(1)
+		const elemsize = uintptr(24)
+		return mallocgcSmallNoScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 3
-
 	const elemsize = 24
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -6811,72 +1326,49 @@ func mallocgcSmallNoScanSC3(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	const spc = spanClass(sizeclass<<1) | spanClass(1)
 	span := c.alloc[spc]
 
+	var v gclinkptr
+	var x unsafe.Pointer
+
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return x
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					24 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -6890,55 +1382,41 @@ func mallocgcSmallNoScanSC3(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallNoScanSC4(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(4<<1) | spanClass(1)
+		const elemsize = uintptr(32)
+		return mallocgcSmallNoScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 4
-
 	const elemsize = 32
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -6947,72 +1425,49 @@ func mallocgcSmallNoScanSC4(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	const spc = spanClass(sizeclass<<1) | spanClass(1)
 	span := c.alloc[spc]
 
+	var v gclinkptr
+	var x unsafe.Pointer
+
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return x
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					32 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -7026,55 +1481,41 @@ func mallocgcSmallNoScanSC4(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallNoScanSC5(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(5<<1) | spanClass(1)
+		const elemsize = uintptr(48)
+		return mallocgcSmallNoScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 5
-
 	const elemsize = 48
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -7083,72 +1524,49 @@ func mallocgcSmallNoScanSC5(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	const spc = spanClass(sizeclass<<1) | spanClass(1)
 	span := c.alloc[spc]
 
+	var v gclinkptr
+	var x unsafe.Pointer
+
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return x
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					48 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -7162,55 +1580,41 @@ func mallocgcSmallNoScanSC5(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallNoScanSC6(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(6<<1) | spanClass(1)
+		const elemsize = uintptr(64)
+		return mallocgcSmallNoScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
 
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
 	const sizeclass = 6
-
 	const elemsize = 64
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -7219,72 +1623,49 @@ func mallocgcSmallNoScanSC6(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	const spc = spanClass(sizeclass<<1) | spanClass(1)
 	span := c.alloc[spc]
 
+	var v gclinkptr
+	var x unsafe.Pointer
+
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return x
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					64 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -7298,55 +1679,41 @@ func mallocgcSmallNoScanSC6(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
 func mallocgcSmallNoScanSC7(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
 
+	var mp *m
+
+	mp = acquirem()
+
+	forceSlowPath := debug.malloc || gcBlackenEnabled != 0 || (goexperiment.RuntimeSecret && getg().secret > 0)
+
+	if forceSlowPath {
+		releasem(mp)
+
+		const spc = spanClass(7<<1) | spanClass(1)
+		const elemsize = uintptr(80)
+		return mallocgcSmallNoScanSlowPath(size, typ, needzero, spc, elemsize)
+
+	}
+
 	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
 
 	const sizeclass = 7
-
 	const elemsize = 80
 
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
@@ -7355,72 +1722,49 @@ func mallocgcSmallNoScanSC7(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	const spc = spanClass(sizeclass<<1) | spanClass(1)
 	span := c.alloc[spc]
 
+	var v gclinkptr
+	var x unsafe.Pointer
+
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return x
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					80 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
 
 	publicationBarrier()
 
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
+	span.freeIndexForScan = span.freeindex
 
 	c.nextSample -= int64(elemsize)
 	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
@@ -7434,34 +1778,22 @@ func mallocgcSmallNoScanSC7(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }
 
-func mallocgcSmallNoScanSC8(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
+func mallocgcTinySlowPath(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
+	}
+
+	var mp *m
+
+	gp := getg()
+	if goexperiment.RuntimeSecret && gp.secret > 0 {
+		return mallocgcSmallNoScanSC2(size, typ, needzero)
 	}
 
 	lockRankMayQueueFinalizer()
@@ -7473,79 +1805,91 @@ func mallocgcSmallNoScanSC8(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	}
 
 	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
+
+		assistG := getg()
+		if assistG.m.curg != nil {
+			assistG = assistG.m.curg
+		}
+		assistG.gcAssistBytes -= int64(size)
+		if assistG.gcAssistBytes < 0 {
+			gcAssistAlloc(assistG)
+		}
 	}
 
-	const sizeclass = 8
+	mp = acquirem()
 
-	const elemsize = 96
+	const elemsize = 16
 
-	mp := acquirem()
 	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
+		doubleCheckTiny(size, typ, mp)
 	}
 	mp.mallocing = 1
 
-	checkGCTrigger := false
 	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
+	off := c.tinyoffset
 
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
+	if size&7 == 0 {
+		off = alignUp(off, 8)
+	} else if goarch.PtrSize == 4 && size == 12 {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		off = alignUp(off, 8)
+	} else if size&3 == 0 {
+		off = alignUp(off, 4)
+	} else if size&1 == 0 {
+		off = alignUp(off, 2)
+	}
+	if off+size <= maxTinySize && c.tiny != 0 {
+
+		x := unsafe.Pointer(c.tiny + off)
+		c.tinyoffset = off + size
+		c.tinyAllocs++
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
+		const elemsize = 0
+		if gcBlackenEnabled != 0 && elemsize != 0 {
+			if assistG := getg().m.curg; assistG != nil {
+				assistG.gcAssistBytes -= int64(elemsize - size)
 			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
 
+		if debug.malloc {
+			postMallocgcDebug(x, elemsize, typ)
+		}
+
+		return x
 	}
 
+	checkGCTrigger := false
+	span := c.alloc[tinySpanClass]
+
+	const nbytes = 8192
+	const nelems = uint16((nbytes - unsafe.Sizeof(spanInlineMarkBits{})) / 16)
 	var nextFreeFastResult gclinkptr
 	if span.allocCache != 0 {
 		theBit := sys.TrailingZeros64(span.allocCache)
 		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
+		if result < nelems {
 			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
+			if !(freeidx%64 == 0 && freeidx != nelems) {
 				span.allocCache >>= uint(theBit + 1)
 				span.freeindex = freeidx
 				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					96 +
-					span.base())
+				nextFreeFastResult = gclinkptr(uintptr(result)*16 + span.base())
 			}
 		}
 	}
 	v := nextFreeFastResult
 	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
+		v, span, checkGCTrigger = c.nextFree(tinySpanClass)
 	}
 	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
+	(*[2]uint64)(x)[0] = 0
+	(*[2]uint64)(x)[1] = 0
+
+	if !raceenabled && (size < c.tinyoffset || c.tiny == 0) {
+
+		c.tiny = uintptr(x)
+		c.tinyoffset = size
 	}
 
 	publicationBarrier()
@@ -7570,16 +1914,6 @@ func mallocgcSmallNoScanSC8(size uintptr, typ *_type, needzero bool) unsafe.Poin
 			gcStart(t)
 		}
 	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
 	if gcBlackenEnabled != 0 && elemsize != 0 {
 		if assistG := getg().m.curg; assistG != nil {
 			assistG.gcAssistBytes -= int64(elemsize - size)
@@ -7589,16 +1923,19 @@ func mallocgcSmallNoScanSC8(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	if debug.malloc {
 		postMallocgcDebug(x, elemsize, typ)
 	}
+
 	return x
 }
 
-func mallocgcSmallNoScanSC9(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
+func mallocgcSmallScanSlowPath(size uintptr, typ *_type, needzero bool, spc spanClass, elemsize uintptr) unsafe.Pointer {
 
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
+
+	var mp *m
 
 	lockRankMayQueueFinalizer()
 
@@ -7609,79 +1946,121 @@ func mallocgcSmallNoScanSC9(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	}
 
 	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
+
+		assistG := getg()
+		if assistG.m.curg != nil {
+			assistG = assistG.m.curg
+		}
+		assistG.gcAssistBytes -= int64(size)
+		if assistG.gcAssistBytes < 0 {
+			gcAssistAlloc(assistG)
+		}
 	}
 
-	const sizeclass = 9
+	mp = acquirem()
 
-	const elemsize = 112
-
-	mp := acquirem()
 	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
+
+		doubleCheckSmallScanNoHeader(size, typ, mp)
+
 	}
 	mp.mallocing = 1
 
 	checkGCTrigger := false
 	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
+
 	span := c.alloc[spc]
 
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
+	var v gclinkptr
+	var x unsafe.Pointer
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
+	{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					112 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
+
+	if span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
+	}
+	if goarch.PtrSize == 8 && elemsize == 8 {
+
+		c.scanAlloc += 8
+	} else {
+		dataSize := size
+		x := uintptr(x)
+
+		if doubleCheckHeapSetType && (!heapBitsInSpan(dataSize) || !heapBitsInSpan(elemsize_)) {
+			throw("tried to write heap bits, but no heap bits in span")
+		}
+
+		src0 := readUintptr(getGCMask(typ))
+
+		var scanSize uintptr
+		src := src0
+		if typ.Size_ == goarch.PtrSize {
+			src = (1 << (dataSize / goarch.PtrSize)) - 1
+
+			scanSize = dataSize
+		} else {
+
+			if doubleCheckHeapSetType && !asanenabled && dataSize%typ.Size_ != 0 {
+				throw("runtime: (*mspan).writeHeapBitsSmall: dataSize is not a multiple of typ.Size_")
+			}
+			scanSize = typ.PtrBytes
+			for i := typ.Size_; i < dataSize; i += typ.Size_ {
+				src |= src0 << (i / goarch.PtrSize)
+				scanSize += typ.Size_
+			}
+		}
+
+		dstBase, _ := spanHeapBitsRange(span.base(), pageSize, elemsize)
+		dst := unsafe.Pointer(dstBase)
+		o := (x - span.base()) / goarch.PtrSize
+		i := o / ptrBits
+		j := o % ptrBits
+		var bits uintptr = elemsize / goarch.PtrSize
+
+		var bitsIsPowerOfTwo = bits&(bits-1) == 0
+		if bits > ptrBits || (!bitsIsPowerOfTwo && j+bits > ptrBits) {
+
+			bits0 := ptrBits - j
+			bits1 := bits - bits0
+			dst0 := (*uintptr)(add(dst, (i+0)*goarch.PtrSize))
+			dst1 := (*uintptr)(add(dst, (i+1)*goarch.PtrSize))
+			*dst0 = (*dst0)&(^uintptr(0)>>bits0) | (src << j)
+			*dst1 = (*dst1)&^((1<<bits1)-1) | (src >> bits0)
+		} else {
+
+			dst := (*uintptr)(add(dst, i*goarch.PtrSize))
+			*dst = (*dst)&^(((1<<(min(bits, ptrBits)))-1)<<j) | (src << j)
+		}
+
+		const doubleCheck = false
+		if doubleCheck {
+			writeHeapBitsDoubleCheck(span, x, dataSize, src, src0, i, j, bits, typ)
+		}
+		if doubleCheckHeapSetType {
+			doubleCheckHeapType(x, dataSize, typ, nil, span)
+		}
+		c.scanAlloc += scanSize
 	}
 
 	publicationBarrier()
@@ -7712,10 +2091,6 @@ func mallocgcSmallNoScanSC9(size uintptr, typ *_type, needzero bool) unsafe.Poin
 		addSecret(x, size)
 	}
 
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
 	if gcBlackenEnabled != 0 && elemsize != 0 {
 		if assistG := getg().m.curg; assistG != nil {
 			assistG.gcAssistBytes -= int64(elemsize - size)
@@ -7725,16 +2100,19 @@ func mallocgcSmallNoScanSC9(size uintptr, typ *_type, needzero bool) unsafe.Poin
 	if debug.malloc {
 		postMallocgcDebug(x, elemsize, typ)
 	}
+
 	return x
 }
 
-func mallocgcSmallNoScanSC10(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
+func mallocgcSmallNoScanSlowPath(size uintptr, typ *_type, needzero bool, spc spanClass, elemsize uintptr) unsafe.Pointer {
 
 	if doubleCheckMalloc {
 		if gcphase == _GCmarktermination {
 			throw("mallocgc called with gcphase == _GCmarktermination")
 		}
 	}
+
+	var mp *m
 
 	lockRankMayQueueFinalizer()
 
@@ -7745,77 +2123,67 @@ func mallocgcSmallNoScanSC10(size uintptr, typ *_type, needzero bool) unsafe.Poi
 	}
 
 	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
+
+		assistG := getg()
+		if assistG.m.curg != nil {
+			assistG = assistG.m.curg
+		}
+		assistG.gcAssistBytes -= int64(size)
+		if assistG.gcAssistBytes < 0 {
+			gcAssistAlloc(assistG)
+		}
 	}
 
-	const sizeclass = 10
+	mp = acquirem()
 
-	const elemsize = 128
-
-	mp := acquirem()
 	if doubleCheckMalloc {
+
 		doubleCheckSmallNoScan(typ, mp)
+
 	}
 	mp.mallocing = 1
 
 	checkGCTrigger := false
 	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
+
 	span := c.alloc[spc]
+
+	var v gclinkptr
+	var x unsafe.Pointer
 
 	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
 
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
+		x = mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
 		mp.mallocing = 0
 		releasem(mp)
-		x := v
-		{
 
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
+		goto post
 
-				addSecret(x, size)
-			}
+	}
 
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
+	{
 
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
+		var nextFreeFastResult gclinkptr
+		if span.allocCache != 0 {
+			theBit := sys.TrailingZeros64(span.allocCache)
+			result := span.freeindex + uint16(theBit)
+			if result < span.nelems {
+				freeidx := result + 1
+				if !(freeidx%64 == 0 && freeidx != span.nelems) {
+					span.allocCache >>= uint(theBit + 1)
+					span.freeindex = freeidx
+					span.allocCount++
+					nextFreeFastResult = gclinkptr(uintptr(result)*elemsize + span.base())
 				}
 			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
 		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					128 +
-					span.base())
-			}
+		v = nextFreeFastResult
+		if v == 0 {
+			v, span, checkGCTrigger = c.nextFree(spc)
 		}
+		x = unsafe.Pointer(v)
 	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
+
 	if needzero && span.needzero != 0 {
 		memclrNoHeapPointers(x, elemsize)
 	}
@@ -7842,14 +2210,12 @@ func mallocgcSmallNoScanSC10(size uintptr, typ *_type, needzero bool) unsafe.Poi
 			gcStart(t)
 		}
 	}
+
+post:
 	gp := getg()
 	if goexperiment.RuntimeSecret && gp.secret > 0 {
 
 		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
 	}
 
 	if gcBlackenEnabled != 0 && elemsize != 0 {
@@ -7861,2181 +2227,6 @@ func mallocgcSmallNoScanSC10(size uintptr, typ *_type, needzero bool) unsafe.Poi
 	if debug.malloc {
 		postMallocgcDebug(x, elemsize, typ)
 	}
-	return x
-}
 
-func mallocgcSmallNoScanSC11(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 11
-
-	const elemsize = 144
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					144 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC12(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 12
-
-	const elemsize = 160
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					160 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC13(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 13
-
-	const elemsize = 176
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					176 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC14(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 14
-
-	const elemsize = 192
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					192 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC15(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 15
-
-	const elemsize = 208
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					208 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC16(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 16
-
-	const elemsize = 224
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					224 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC17(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 17
-
-	const elemsize = 240
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					240 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC18(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 18
-
-	const elemsize = 256
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					256 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC19(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 19
-
-	const elemsize = 288
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					288 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC20(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 20
-
-	const elemsize = 320
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					320 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC21(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 21
-
-	const elemsize = 352
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					352 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC22(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 22
-
-	const elemsize = 384
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					384 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC23(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 23
-
-	const elemsize = 416
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					416 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC24(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 24
-
-	const elemsize = 448
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					448 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC25(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 25
-
-	const elemsize = 480
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					480 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
-	return x
-}
-
-func mallocgcSmallNoScanSC26(size uintptr, typ *_type, needzero bool) unsafe.Pointer {
-
-	if doubleCheckMalloc {
-		if gcphase == _GCmarktermination {
-			throw("mallocgc called with gcphase == _GCmarktermination")
-		}
-	}
-
-	lockRankMayQueueFinalizer()
-
-	if debug.malloc {
-		if x := preMallocgcDebug(size, typ); x != nil {
-			return x
-		}
-	}
-
-	if gcBlackenEnabled != 0 {
-		deductAssistCredit(size)
-	}
-
-	const sizeclass = 26
-
-	const elemsize = 512
-
-	mp := acquirem()
-	if doubleCheckMalloc {
-		doubleCheckSmallNoScan(typ, mp)
-	}
-	mp.mallocing = 1
-
-	checkGCTrigger := false
-	c := getMCache(mp)
-	const spc = spanClass(sizeclass<<1) | spanClass(1)
-	span := c.alloc[spc]
-
-	if runtimeFreegcEnabled && c.hasReusableNoscan(spc) {
-
-		v := mallocgcSmallNoscanReuse(c, span, spc, elemsize, needzero)
-		mp.mallocing = 0
-		releasem(mp)
-		x := v
-		{
-
-			gp := getg()
-			if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-				addSecret(x, size)
-			}
-
-			if valgrindenabled {
-				valgrindMalloc(x, size)
-			}
-
-			if gcBlackenEnabled != 0 && elemsize != 0 {
-				if assistG := getg().m.curg; assistG != nil {
-					assistG.gcAssistBytes -= int64(elemsize - size)
-				}
-			}
-
-			if debug.malloc {
-				postMallocgcDebug(x, elemsize, typ)
-			}
-			return x
-		}
-
-	}
-
-	var nextFreeFastResult gclinkptr
-	if span.allocCache != 0 {
-		theBit := sys.TrailingZeros64(span.allocCache)
-		result := span.freeindex + uint16(theBit)
-		if result < span.nelems {
-			freeidx := result + 1
-			if !(freeidx%64 == 0 && freeidx != span.nelems) {
-				span.allocCache >>= uint(theBit + 1)
-				span.freeindex = freeidx
-				span.allocCount++
-				nextFreeFastResult = gclinkptr(uintptr(result)*
-					512 +
-					span.base())
-			}
-		}
-	}
-	v := nextFreeFastResult
-	if v == 0 {
-		v, span, checkGCTrigger = c.nextFree(spc)
-	}
-	x := unsafe.Pointer(v)
-	if needzero && span.needzero != 0 {
-		memclrNoHeapPointers(x, elemsize)
-	}
-
-	publicationBarrier()
-
-	if writeBarrier.enabled {
-
-		gcmarknewobject(span, uintptr(x))
-	} else {
-
-		span.freeIndexForScan = span.freeindex
-	}
-
-	c.nextSample -= int64(elemsize)
-	if c.nextSample < 0 || MemProfileRate != c.memProfRate {
-		profilealloc(mp, x, elemsize)
-	}
-	mp.mallocing = 0
-	releasem(mp)
-
-	if checkGCTrigger {
-		if t := (gcTrigger{kind: gcTriggerHeap}); t.test() {
-			gcStart(t)
-		}
-	}
-	gp := getg()
-	if goexperiment.RuntimeSecret && gp.secret > 0 {
-
-		addSecret(x, size)
-	}
-
-	if valgrindenabled {
-		valgrindMalloc(x, size)
-	}
-
-	if gcBlackenEnabled != 0 && elemsize != 0 {
-		if assistG := getg().m.curg; assistG != nil {
-			assistG.gcAssistBytes -= int64(elemsize - size)
-		}
-	}
-
-	if debug.malloc {
-		postMallocgcDebug(x, elemsize, typ)
-	}
 	return x
 }

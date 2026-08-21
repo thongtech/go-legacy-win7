@@ -115,7 +115,8 @@ var builtinTypesLower = map[string]string{
 	".vtt":   "text/vtt; charset=utf-8",
 	".wasm":  "application/wasm",
 	".wav":   "audio/wav",
-	".webm":  "audio/webm",
+	".weba":  "audio/webm",
+	".webm":  "video/webm",
 	".webp":  "image/webp",
 	".xbl":   "text/xml; charset=utf-8",
 	".xbm":   "image/x-xbitmap",
@@ -245,7 +246,7 @@ func setExtensionType(extension, mimeType string) error {
 	}
 	if strings.HasPrefix(mimeType, "text/") && param["charset"] == "" {
 		param["charset"] = "utf-8"
-		mimeType = FormatMediaType(mimeType, param)
+		mimeType = FormatMediaType(justType, param)
 	}
 	extLower := strings.ToLower(extension)
 

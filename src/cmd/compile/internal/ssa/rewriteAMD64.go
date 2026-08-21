@@ -222,6 +222,8 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64CMPXCHGLlock(v)
 	case OpAMD64CMPXCHGQlock:
 		return rewriteValueAMD64_OpAMD64CMPXCHGQlock(v)
+	case OpAMD64CVTSD2SS:
+		return rewriteValueAMD64_OpAMD64CVTSD2SS(v)
 	case OpAMD64DIVSD:
 		return rewriteValueAMD64_OpAMD64DIVSD(v)
 	case OpAMD64DIVSDload:
@@ -238,6 +240,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64HMULQ(v)
 	case OpAMD64HMULQU:
 		return rewriteValueAMD64_OpAMD64HMULQU(v)
+	case OpAMD64KANDB:
+		return rewriteValueAMD64_OpAMD64KANDB(v)
+	case OpAMD64KANDW:
+		return rewriteValueAMD64_OpAMD64KANDW(v)
 	case OpAMD64KMOVBk:
 		return rewriteValueAMD64_OpAMD64KMOVBk(v)
 	case OpAMD64KMOVDk:
@@ -558,6 +564,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64TESTW(v)
 	case OpAMD64TESTWconst:
 		return rewriteValueAMD64_OpAMD64TESTWconst(v)
+	case OpAMD64VADDPD128:
+		return rewriteValueAMD64_OpAMD64VADDPD128(v)
+	case OpAMD64VADDPD256:
+		return rewriteValueAMD64_OpAMD64VADDPD256(v)
 	case OpAMD64VADDPD512:
 		return rewriteValueAMD64_OpAMD64VADDPD512(v)
 	case OpAMD64VADDPDMasked128:
@@ -566,6 +576,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VADDPDMasked256(v)
 	case OpAMD64VADDPDMasked512:
 		return rewriteValueAMD64_OpAMD64VADDPDMasked512(v)
+	case OpAMD64VADDPS128:
+		return rewriteValueAMD64_OpAMD64VADDPS128(v)
+	case OpAMD64VADDPS256:
+		return rewriteValueAMD64_OpAMD64VADDPS256(v)
 	case OpAMD64VADDPS512:
 		return rewriteValueAMD64_OpAMD64VADDPS512(v)
 	case OpAMD64VADDPSMasked128:
@@ -574,6 +588,58 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VADDPSMasked256(v)
 	case OpAMD64VADDPSMasked512:
 		return rewriteValueAMD64_OpAMD64VADDPSMasked512(v)
+	case OpAMD64VADDSUBPD128:
+		return rewriteValueAMD64_OpAMD64VADDSUBPD128(v)
+	case OpAMD64VADDSUBPD256:
+		return rewriteValueAMD64_OpAMD64VADDSUBPD256(v)
+	case OpAMD64VADDSUBPS128:
+		return rewriteValueAMD64_OpAMD64VADDSUBPS128(v)
+	case OpAMD64VADDSUBPS256:
+		return rewriteValueAMD64_OpAMD64VADDSUBPS256(v)
+	case OpAMD64VAESDEC128:
+		return rewriteValueAMD64_OpAMD64VAESDEC128(v)
+	case OpAMD64VAESDEC256:
+		return rewriteValueAMD64_OpAMD64VAESDEC256(v)
+	case OpAMD64VAESDECLAST128:
+		return rewriteValueAMD64_OpAMD64VAESDECLAST128(v)
+	case OpAMD64VAESDECLAST256:
+		return rewriteValueAMD64_OpAMD64VAESDECLAST256(v)
+	case OpAMD64VAESENC128:
+		return rewriteValueAMD64_OpAMD64VAESENC128(v)
+	case OpAMD64VAESENC256:
+		return rewriteValueAMD64_OpAMD64VAESENC256(v)
+	case OpAMD64VAESENCLAST128:
+		return rewriteValueAMD64_OpAMD64VAESENCLAST128(v)
+	case OpAMD64VAESENCLAST256:
+		return rewriteValueAMD64_OpAMD64VAESENCLAST256(v)
+	case OpAMD64VAESIMC128:
+		return rewriteValueAMD64_OpAMD64VAESIMC128(v)
+	case OpAMD64VAESKEYGENASSIST128:
+		return rewriteValueAMD64_OpAMD64VAESKEYGENASSIST128(v)
+	case OpAMD64VBROADCASTSD256:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSD256(v)
+	case OpAMD64VBROADCASTSD512:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSD512(v)
+	case OpAMD64VBROADCASTSDMasked256:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSDMasked256(v)
+	case OpAMD64VBROADCASTSDMasked512:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSDMasked512(v)
+	case OpAMD64VBROADCASTSS128:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSS128(v)
+	case OpAMD64VBROADCASTSS256:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSS256(v)
+	case OpAMD64VBROADCASTSS512:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSS512(v)
+	case OpAMD64VBROADCASTSSMasked128:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSSMasked128(v)
+	case OpAMD64VBROADCASTSSMasked256:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSSMasked256(v)
+	case OpAMD64VBROADCASTSSMasked512:
+		return rewriteValueAMD64_OpAMD64VBROADCASTSSMasked512(v)
+	case OpAMD64VCMPPD128:
+		return rewriteValueAMD64_OpAMD64VCMPPD128(v)
+	case OpAMD64VCMPPD256:
+		return rewriteValueAMD64_OpAMD64VCMPPD256(v)
 	case OpAMD64VCMPPD512:
 		return rewriteValueAMD64_OpAMD64VCMPPD512(v)
 	case OpAMD64VCMPPDMasked128:
@@ -582,6 +648,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VCMPPDMasked256(v)
 	case OpAMD64VCMPPDMasked512:
 		return rewriteValueAMD64_OpAMD64VCMPPDMasked512(v)
+	case OpAMD64VCMPPS128:
+		return rewriteValueAMD64_OpAMD64VCMPPS128(v)
+	case OpAMD64VCMPPS256:
+		return rewriteValueAMD64_OpAMD64VCMPPS256(v)
 	case OpAMD64VCMPPS512:
 		return rewriteValueAMD64_OpAMD64VCMPPS512(v)
 	case OpAMD64VCMPPSMasked128:
@@ -590,12 +660,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VCMPPSMasked256(v)
 	case OpAMD64VCMPPSMasked512:
 		return rewriteValueAMD64_OpAMD64VCMPPSMasked512(v)
+	case OpAMD64VCVTDQ2PD256:
+		return rewriteValueAMD64_OpAMD64VCVTDQ2PD256(v)
 	case OpAMD64VCVTDQ2PD512:
 		return rewriteValueAMD64_OpAMD64VCVTDQ2PD512(v)
 	case OpAMD64VCVTDQ2PDMasked256:
 		return rewriteValueAMD64_OpAMD64VCVTDQ2PDMasked256(v)
 	case OpAMD64VCVTDQ2PDMasked512:
 		return rewriteValueAMD64_OpAMD64VCVTDQ2PDMasked512(v)
+	case OpAMD64VCVTDQ2PS128:
+		return rewriteValueAMD64_OpAMD64VCVTDQ2PS128(v)
+	case OpAMD64VCVTDQ2PS256:
+		return rewriteValueAMD64_OpAMD64VCVTDQ2PS256(v)
 	case OpAMD64VCVTDQ2PS512:
 		return rewriteValueAMD64_OpAMD64VCVTDQ2PS512(v)
 	case OpAMD64VCVTDQ2PSMasked128:
@@ -608,10 +684,16 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VCVTPD2PS256(v)
 	case OpAMD64VCVTPD2PSMasked256:
 		return rewriteValueAMD64_OpAMD64VCVTPD2PSMasked256(v)
+	case OpAMD64VCVTPD2PSX128:
+		return rewriteValueAMD64_OpAMD64VCVTPD2PSX128(v)
 	case OpAMD64VCVTPD2PSXMasked128:
 		return rewriteValueAMD64_OpAMD64VCVTPD2PSXMasked128(v)
+	case OpAMD64VCVTPD2PSY128:
+		return rewriteValueAMD64_OpAMD64VCVTPD2PSY128(v)
 	case OpAMD64VCVTPD2PSYMasked128:
 		return rewriteValueAMD64_OpAMD64VCVTPD2PSYMasked128(v)
+	case OpAMD64VCVTPS2PD256:
+		return rewriteValueAMD64_OpAMD64VCVTPS2PD256(v)
 	case OpAMD64VCVTPS2PD512:
 		return rewriteValueAMD64_OpAMD64VCVTPS2PD512(v)
 	case OpAMD64VCVTPS2PDMasked256:
@@ -646,8 +728,12 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VCVTTPD2DQ256(v)
 	case OpAMD64VCVTTPD2DQMasked256:
 		return rewriteValueAMD64_OpAMD64VCVTTPD2DQMasked256(v)
+	case OpAMD64VCVTTPD2DQX128:
+		return rewriteValueAMD64_OpAMD64VCVTTPD2DQX128(v)
 	case OpAMD64VCVTTPD2DQXMasked128:
 		return rewriteValueAMD64_OpAMD64VCVTTPD2DQXMasked128(v)
+	case OpAMD64VCVTTPD2DQY128:
+		return rewriteValueAMD64_OpAMD64VCVTTPD2DQY128(v)
 	case OpAMD64VCVTTPD2DQYMasked128:
 		return rewriteValueAMD64_OpAMD64VCVTTPD2DQYMasked128(v)
 	case OpAMD64VCVTTPD2QQ128:
@@ -686,6 +772,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VCVTTPD2UQQMasked256(v)
 	case OpAMD64VCVTTPD2UQQMasked512:
 		return rewriteValueAMD64_OpAMD64VCVTTPD2UQQMasked512(v)
+	case OpAMD64VCVTTPS2DQ128:
+		return rewriteValueAMD64_OpAMD64VCVTTPS2DQ128(v)
+	case OpAMD64VCVTTPS2DQ256:
+		return rewriteValueAMD64_OpAMD64VCVTTPS2DQ256(v)
 	case OpAMD64VCVTTPS2DQ512:
 		return rewriteValueAMD64_OpAMD64VCVTTPS2DQ512(v)
 	case OpAMD64VCVTTPS2DQMasked128:
@@ -766,6 +856,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VCVTUQQ2PSY128(v)
 	case OpAMD64VCVTUQQ2PSYMasked128:
 		return rewriteValueAMD64_OpAMD64VCVTUQQ2PSYMasked128(v)
+	case OpAMD64VDIVPD128:
+		return rewriteValueAMD64_OpAMD64VDIVPD128(v)
+	case OpAMD64VDIVPD256:
+		return rewriteValueAMD64_OpAMD64VDIVPD256(v)
 	case OpAMD64VDIVPD512:
 		return rewriteValueAMD64_OpAMD64VDIVPD512(v)
 	case OpAMD64VDIVPDMasked128:
@@ -774,6 +868,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VDIVPDMasked256(v)
 	case OpAMD64VDIVPDMasked512:
 		return rewriteValueAMD64_OpAMD64VDIVPDMasked512(v)
+	case OpAMD64VDIVPS128:
+		return rewriteValueAMD64_OpAMD64VDIVPS128(v)
+	case OpAMD64VDIVPS256:
+		return rewriteValueAMD64_OpAMD64VDIVPS256(v)
 	case OpAMD64VDIVPS512:
 		return rewriteValueAMD64_OpAMD64VDIVPS512(v)
 	case OpAMD64VDIVPSMasked128:
@@ -782,6 +880,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VDIVPSMasked256(v)
 	case OpAMD64VDIVPSMasked512:
 		return rewriteValueAMD64_OpAMD64VDIVPSMasked512(v)
+	case OpAMD64VEXPANDPDMasked128:
+		return rewriteValueAMD64_OpAMD64VEXPANDPDMasked128(v)
+	case OpAMD64VEXPANDPDMasked256:
+		return rewriteValueAMD64_OpAMD64VEXPANDPDMasked256(v)
+	case OpAMD64VEXPANDPSMasked128:
+		return rewriteValueAMD64_OpAMD64VEXPANDPSMasked128(v)
+	case OpAMD64VEXPANDPSMasked256:
+		return rewriteValueAMD64_OpAMD64VEXPANDPSMasked256(v)
+	case OpAMD64VFMADD213PD128:
+		return rewriteValueAMD64_OpAMD64VFMADD213PD128(v)
+	case OpAMD64VFMADD213PD256:
+		return rewriteValueAMD64_OpAMD64VFMADD213PD256(v)
 	case OpAMD64VFMADD213PD512:
 		return rewriteValueAMD64_OpAMD64VFMADD213PD512(v)
 	case OpAMD64VFMADD213PDMasked128:
@@ -790,6 +900,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VFMADD213PDMasked256(v)
 	case OpAMD64VFMADD213PDMasked512:
 		return rewriteValueAMD64_OpAMD64VFMADD213PDMasked512(v)
+	case OpAMD64VFMADD213PS128:
+		return rewriteValueAMD64_OpAMD64VFMADD213PS128(v)
+	case OpAMD64VFMADD213PS256:
+		return rewriteValueAMD64_OpAMD64VFMADD213PS256(v)
 	case OpAMD64VFMADD213PS512:
 		return rewriteValueAMD64_OpAMD64VFMADD213PS512(v)
 	case OpAMD64VFMADD213PSMasked128:
@@ -798,6 +912,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VFMADD213PSMasked256(v)
 	case OpAMD64VFMADD213PSMasked512:
 		return rewriteValueAMD64_OpAMD64VFMADD213PSMasked512(v)
+	case OpAMD64VFMADDSUB213PD128:
+		return rewriteValueAMD64_OpAMD64VFMADDSUB213PD128(v)
+	case OpAMD64VFMADDSUB213PD256:
+		return rewriteValueAMD64_OpAMD64VFMADDSUB213PD256(v)
 	case OpAMD64VFMADDSUB213PD512:
 		return rewriteValueAMD64_OpAMD64VFMADDSUB213PD512(v)
 	case OpAMD64VFMADDSUB213PDMasked128:
@@ -806,6 +924,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VFMADDSUB213PDMasked256(v)
 	case OpAMD64VFMADDSUB213PDMasked512:
 		return rewriteValueAMD64_OpAMD64VFMADDSUB213PDMasked512(v)
+	case OpAMD64VFMADDSUB213PS128:
+		return rewriteValueAMD64_OpAMD64VFMADDSUB213PS128(v)
+	case OpAMD64VFMADDSUB213PS256:
+		return rewriteValueAMD64_OpAMD64VFMADDSUB213PS256(v)
 	case OpAMD64VFMADDSUB213PS512:
 		return rewriteValueAMD64_OpAMD64VFMADDSUB213PS512(v)
 	case OpAMD64VFMADDSUB213PSMasked128:
@@ -814,6 +936,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VFMADDSUB213PSMasked256(v)
 	case OpAMD64VFMADDSUB213PSMasked512:
 		return rewriteValueAMD64_OpAMD64VFMADDSUB213PSMasked512(v)
+	case OpAMD64VFMSUBADD213PD128:
+		return rewriteValueAMD64_OpAMD64VFMSUBADD213PD128(v)
+	case OpAMD64VFMSUBADD213PD256:
+		return rewriteValueAMD64_OpAMD64VFMSUBADD213PD256(v)
 	case OpAMD64VFMSUBADD213PD512:
 		return rewriteValueAMD64_OpAMD64VFMSUBADD213PD512(v)
 	case OpAMD64VFMSUBADD213PDMasked128:
@@ -822,6 +948,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VFMSUBADD213PDMasked256(v)
 	case OpAMD64VFMSUBADD213PDMasked512:
 		return rewriteValueAMD64_OpAMD64VFMSUBADD213PDMasked512(v)
+	case OpAMD64VFMSUBADD213PS128:
+		return rewriteValueAMD64_OpAMD64VFMSUBADD213PS128(v)
+	case OpAMD64VFMSUBADD213PS256:
+		return rewriteValueAMD64_OpAMD64VFMSUBADD213PS256(v)
 	case OpAMD64VFMSUBADD213PS512:
 		return rewriteValueAMD64_OpAMD64VFMSUBADD213PS512(v)
 	case OpAMD64VFMSUBADD213PSMasked128:
@@ -854,6 +984,42 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VGF2P8AFFINEQBMasked256(v)
 	case OpAMD64VGF2P8AFFINEQBMasked512:
 		return rewriteValueAMD64_OpAMD64VGF2P8AFFINEQBMasked512(v)
+	case OpAMD64VGF2P8MULB128:
+		return rewriteValueAMD64_OpAMD64VGF2P8MULB128(v)
+	case OpAMD64VGF2P8MULB256:
+		return rewriteValueAMD64_OpAMD64VGF2P8MULB256(v)
+	case OpAMD64VGF2P8MULBMasked128:
+		return rewriteValueAMD64_OpAMD64VGF2P8MULBMasked128(v)
+	case OpAMD64VGF2P8MULBMasked256:
+		return rewriteValueAMD64_OpAMD64VGF2P8MULBMasked256(v)
+	case OpAMD64VHADDPD128:
+		return rewriteValueAMD64_OpAMD64VHADDPD128(v)
+	case OpAMD64VHADDPD256:
+		return rewriteValueAMD64_OpAMD64VHADDPD256(v)
+	case OpAMD64VHADDPS128:
+		return rewriteValueAMD64_OpAMD64VHADDPS128(v)
+	case OpAMD64VHADDPS256:
+		return rewriteValueAMD64_OpAMD64VHADDPS256(v)
+	case OpAMD64VHSUBPD128:
+		return rewriteValueAMD64_OpAMD64VHSUBPD128(v)
+	case OpAMD64VHSUBPD256:
+		return rewriteValueAMD64_OpAMD64VHSUBPD256(v)
+	case OpAMD64VHSUBPS128:
+		return rewriteValueAMD64_OpAMD64VHSUBPS128(v)
+	case OpAMD64VHSUBPS256:
+		return rewriteValueAMD64_OpAMD64VHSUBPS256(v)
+	case OpAMD64VINSERTF128256:
+		return rewriteValueAMD64_OpAMD64VINSERTF128256(v)
+	case OpAMD64VINSERTF64X4512:
+		return rewriteValueAMD64_OpAMD64VINSERTF64X4512(v)
+	case OpAMD64VINSERTI128256:
+		return rewriteValueAMD64_OpAMD64VINSERTI128256(v)
+	case OpAMD64VINSERTI64X4512:
+		return rewriteValueAMD64_OpAMD64VINSERTI64X4512(v)
+	case OpAMD64VMAXPD128:
+		return rewriteValueAMD64_OpAMD64VMAXPD128(v)
+	case OpAMD64VMAXPD256:
+		return rewriteValueAMD64_OpAMD64VMAXPD256(v)
 	case OpAMD64VMAXPD512:
 		return rewriteValueAMD64_OpAMD64VMAXPD512(v)
 	case OpAMD64VMAXPDMasked128:
@@ -862,6 +1028,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VMAXPDMasked256(v)
 	case OpAMD64VMAXPDMasked512:
 		return rewriteValueAMD64_OpAMD64VMAXPDMasked512(v)
+	case OpAMD64VMAXPS128:
+		return rewriteValueAMD64_OpAMD64VMAXPS128(v)
+	case OpAMD64VMAXPS256:
+		return rewriteValueAMD64_OpAMD64VMAXPS256(v)
 	case OpAMD64VMAXPS512:
 		return rewriteValueAMD64_OpAMD64VMAXPS512(v)
 	case OpAMD64VMAXPSMasked128:
@@ -870,6 +1040,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VMAXPSMasked256(v)
 	case OpAMD64VMAXPSMasked512:
 		return rewriteValueAMD64_OpAMD64VMAXPSMasked512(v)
+	case OpAMD64VMINPD128:
+		return rewriteValueAMD64_OpAMD64VMINPD128(v)
+	case OpAMD64VMINPD256:
+		return rewriteValueAMD64_OpAMD64VMINPD256(v)
 	case OpAMD64VMINPD512:
 		return rewriteValueAMD64_OpAMD64VMINPD512(v)
 	case OpAMD64VMINPDMasked128:
@@ -878,6 +1052,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VMINPDMasked256(v)
 	case OpAMD64VMINPDMasked512:
 		return rewriteValueAMD64_OpAMD64VMINPDMasked512(v)
+	case OpAMD64VMINPS128:
+		return rewriteValueAMD64_OpAMD64VMINPS128(v)
+	case OpAMD64VMINPS256:
+		return rewriteValueAMD64_OpAMD64VMINPS256(v)
 	case OpAMD64VMINPS512:
 		return rewriteValueAMD64_OpAMD64VMINPS512(v)
 	case OpAMD64VMINPSMasked128:
@@ -930,6 +1108,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VMOVSDf2v(v)
 	case OpAMD64VMOVSSf2v:
 		return rewriteValueAMD64_OpAMD64VMOVSSf2v(v)
+	case OpAMD64VMULPD128:
+		return rewriteValueAMD64_OpAMD64VMULPD128(v)
+	case OpAMD64VMULPD256:
+		return rewriteValueAMD64_OpAMD64VMULPD256(v)
 	case OpAMD64VMULPD512:
 		return rewriteValueAMD64_OpAMD64VMULPD512(v)
 	case OpAMD64VMULPDMasked128:
@@ -938,6 +1120,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VMULPDMasked256(v)
 	case OpAMD64VMULPDMasked512:
 		return rewriteValueAMD64_OpAMD64VMULPDMasked512(v)
+	case OpAMD64VMULPS128:
+		return rewriteValueAMD64_OpAMD64VMULPS128(v)
+	case OpAMD64VMULPS256:
+		return rewriteValueAMD64_OpAMD64VMULPS256(v)
 	case OpAMD64VMULPS512:
 		return rewriteValueAMD64_OpAMD64VMULPS512(v)
 	case OpAMD64VMULPSMasked128:
@@ -946,6 +1132,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VMULPSMasked256(v)
 	case OpAMD64VMULPSMasked512:
 		return rewriteValueAMD64_OpAMD64VMULPSMasked512(v)
+	case OpAMD64VPABSB128:
+		return rewriteValueAMD64_OpAMD64VPABSB128(v)
+	case OpAMD64VPABSB256:
+		return rewriteValueAMD64_OpAMD64VPABSB256(v)
+	case OpAMD64VPABSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPABSBMasked128(v)
+	case OpAMD64VPABSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPABSBMasked256(v)
+	case OpAMD64VPABSD128:
+		return rewriteValueAMD64_OpAMD64VPABSD128(v)
+	case OpAMD64VPABSD256:
+		return rewriteValueAMD64_OpAMD64VPABSD256(v)
 	case OpAMD64VPABSD512:
 		return rewriteValueAMD64_OpAMD64VPABSD512(v)
 	case OpAMD64VPABSDMasked128:
@@ -966,6 +1164,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPABSQMasked256(v)
 	case OpAMD64VPABSQMasked512:
 		return rewriteValueAMD64_OpAMD64VPABSQMasked512(v)
+	case OpAMD64VPABSW128:
+		return rewriteValueAMD64_OpAMD64VPABSW128(v)
+	case OpAMD64VPABSW256:
+		return rewriteValueAMD64_OpAMD64VPABSW256(v)
+	case OpAMD64VPABSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPABSWMasked128(v)
+	case OpAMD64VPABSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPABSWMasked256(v)
+	case OpAMD64VPACKSSDW128:
+		return rewriteValueAMD64_OpAMD64VPACKSSDW128(v)
+	case OpAMD64VPACKSSDW256:
+		return rewriteValueAMD64_OpAMD64VPACKSSDW256(v)
 	case OpAMD64VPACKSSDW512:
 		return rewriteValueAMD64_OpAMD64VPACKSSDW512(v)
 	case OpAMD64VPACKSSDWMasked128:
@@ -974,6 +1184,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPACKSSDWMasked256(v)
 	case OpAMD64VPACKSSDWMasked512:
 		return rewriteValueAMD64_OpAMD64VPACKSSDWMasked512(v)
+	case OpAMD64VPACKUSDW128:
+		return rewriteValueAMD64_OpAMD64VPACKUSDW128(v)
+	case OpAMD64VPACKUSDW256:
+		return rewriteValueAMD64_OpAMD64VPACKUSDW256(v)
 	case OpAMD64VPACKUSDW512:
 		return rewriteValueAMD64_OpAMD64VPACKUSDW512(v)
 	case OpAMD64VPACKUSDWMasked128:
@@ -982,6 +1196,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPACKUSDWMasked256(v)
 	case OpAMD64VPACKUSDWMasked512:
 		return rewriteValueAMD64_OpAMD64VPACKUSDWMasked512(v)
+	case OpAMD64VPADDB128:
+		return rewriteValueAMD64_OpAMD64VPADDB128(v)
+	case OpAMD64VPADDB256:
+		return rewriteValueAMD64_OpAMD64VPADDB256(v)
+	case OpAMD64VPADDBMasked128:
+		return rewriteValueAMD64_OpAMD64VPADDBMasked128(v)
+	case OpAMD64VPADDBMasked256:
+		return rewriteValueAMD64_OpAMD64VPADDBMasked256(v)
+	case OpAMD64VPADDD128:
+		return rewriteValueAMD64_OpAMD64VPADDD128(v)
+	case OpAMD64VPADDD256:
+		return rewriteValueAMD64_OpAMD64VPADDD256(v)
 	case OpAMD64VPADDD512:
 		return rewriteValueAMD64_OpAMD64VPADDD512(v)
 	case OpAMD64VPADDDMasked128:
@@ -990,6 +1216,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPADDDMasked256(v)
 	case OpAMD64VPADDDMasked512:
 		return rewriteValueAMD64_OpAMD64VPADDDMasked512(v)
+	case OpAMD64VPADDQ128:
+		return rewriteValueAMD64_OpAMD64VPADDQ128(v)
+	case OpAMD64VPADDQ256:
+		return rewriteValueAMD64_OpAMD64VPADDQ256(v)
 	case OpAMD64VPADDQ512:
 		return rewriteValueAMD64_OpAMD64VPADDQ512(v)
 	case OpAMD64VPADDQMasked128:
@@ -998,6 +1228,54 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPADDQMasked256(v)
 	case OpAMD64VPADDQMasked512:
 		return rewriteValueAMD64_OpAMD64VPADDQMasked512(v)
+	case OpAMD64VPADDSB128:
+		return rewriteValueAMD64_OpAMD64VPADDSB128(v)
+	case OpAMD64VPADDSB256:
+		return rewriteValueAMD64_OpAMD64VPADDSB256(v)
+	case OpAMD64VPADDSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPADDSBMasked128(v)
+	case OpAMD64VPADDSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPADDSBMasked256(v)
+	case OpAMD64VPADDSW128:
+		return rewriteValueAMD64_OpAMD64VPADDSW128(v)
+	case OpAMD64VPADDSW256:
+		return rewriteValueAMD64_OpAMD64VPADDSW256(v)
+	case OpAMD64VPADDSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPADDSWMasked128(v)
+	case OpAMD64VPADDSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPADDSWMasked256(v)
+	case OpAMD64VPADDUSB128:
+		return rewriteValueAMD64_OpAMD64VPADDUSB128(v)
+	case OpAMD64VPADDUSB256:
+		return rewriteValueAMD64_OpAMD64VPADDUSB256(v)
+	case OpAMD64VPADDUSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPADDUSBMasked128(v)
+	case OpAMD64VPADDUSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPADDUSBMasked256(v)
+	case OpAMD64VPADDUSW128:
+		return rewriteValueAMD64_OpAMD64VPADDUSW128(v)
+	case OpAMD64VPADDUSW256:
+		return rewriteValueAMD64_OpAMD64VPADDUSW256(v)
+	case OpAMD64VPADDUSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPADDUSWMasked128(v)
+	case OpAMD64VPADDUSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPADDUSWMasked256(v)
+	case OpAMD64VPADDW128:
+		return rewriteValueAMD64_OpAMD64VPADDW128(v)
+	case OpAMD64VPADDW256:
+		return rewriteValueAMD64_OpAMD64VPADDW256(v)
+	case OpAMD64VPADDWMasked128:
+		return rewriteValueAMD64_OpAMD64VPADDWMasked128(v)
+	case OpAMD64VPADDWMasked256:
+		return rewriteValueAMD64_OpAMD64VPADDWMasked256(v)
+	case OpAMD64VPALIGNR128:
+		return rewriteValueAMD64_OpAMD64VPALIGNR128(v)
+	case OpAMD64VPALIGNR256:
+		return rewriteValueAMD64_OpAMD64VPALIGNR256(v)
+	case OpAMD64VPALIGNRMasked128:
+		return rewriteValueAMD64_OpAMD64VPALIGNRMasked128(v)
+	case OpAMD64VPALIGNRMasked256:
+		return rewriteValueAMD64_OpAMD64VPALIGNRMasked256(v)
 	case OpAMD64VPAND128:
 		return rewriteValueAMD64_OpAMD64VPAND128(v)
 	case OpAMD64VPAND256:
@@ -1010,6 +1288,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPANDDMasked256(v)
 	case OpAMD64VPANDDMasked512:
 		return rewriteValueAMD64_OpAMD64VPANDDMasked512(v)
+	case OpAMD64VPANDN128:
+		return rewriteValueAMD64_OpAMD64VPANDN128(v)
+	case OpAMD64VPANDN256:
+		return rewriteValueAMD64_OpAMD64VPANDN256(v)
 	case OpAMD64VPANDND512:
 		return rewriteValueAMD64_OpAMD64VPANDND512(v)
 	case OpAMD64VPANDNDMasked128:
@@ -1034,6 +1316,22 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPANDQMasked256(v)
 	case OpAMD64VPANDQMasked512:
 		return rewriteValueAMD64_OpAMD64VPANDQMasked512(v)
+	case OpAMD64VPAVGB128:
+		return rewriteValueAMD64_OpAMD64VPAVGB128(v)
+	case OpAMD64VPAVGB256:
+		return rewriteValueAMD64_OpAMD64VPAVGB256(v)
+	case OpAMD64VPAVGBMasked128:
+		return rewriteValueAMD64_OpAMD64VPAVGBMasked128(v)
+	case OpAMD64VPAVGBMasked256:
+		return rewriteValueAMD64_OpAMD64VPAVGBMasked256(v)
+	case OpAMD64VPAVGW128:
+		return rewriteValueAMD64_OpAMD64VPAVGW128(v)
+	case OpAMD64VPAVGW256:
+		return rewriteValueAMD64_OpAMD64VPAVGW256(v)
+	case OpAMD64VPAVGWMasked128:
+		return rewriteValueAMD64_OpAMD64VPAVGWMasked128(v)
+	case OpAMD64VPAVGWMasked256:
+		return rewriteValueAMD64_OpAMD64VPAVGWMasked256(v)
 	case OpAMD64VPBLENDMBMasked512:
 		return rewriteValueAMD64_OpAMD64VPBLENDMBMasked512(v)
 	case OpAMD64VPBLENDMDMasked512:
@@ -1052,12 +1350,50 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPBROADCASTB256(v)
 	case OpAMD64VPBROADCASTB512:
 		return rewriteValueAMD64_OpAMD64VPBROADCASTB512(v)
+	case OpAMD64VPBROADCASTBMasked128:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTBMasked128(v)
+	case OpAMD64VPBROADCASTBMasked256:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTBMasked256(v)
+	case OpAMD64VPBROADCASTBMasked512:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTBMasked512(v)
+	case OpAMD64VPBROADCASTD128:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTD128(v)
+	case OpAMD64VPBROADCASTD256:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTD256(v)
+	case OpAMD64VPBROADCASTD512:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTD512(v)
+	case OpAMD64VPBROADCASTDMasked128:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTDMasked128(v)
+	case OpAMD64VPBROADCASTDMasked256:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTDMasked256(v)
+	case OpAMD64VPBROADCASTDMasked512:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTDMasked512(v)
+	case OpAMD64VPBROADCASTQ128:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTQ128(v)
+	case OpAMD64VPBROADCASTQ256:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTQ256(v)
+	case OpAMD64VPBROADCASTQ512:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTQ512(v)
+	case OpAMD64VPBROADCASTQMasked128:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTQMasked128(v)
+	case OpAMD64VPBROADCASTQMasked256:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTQMasked256(v)
+	case OpAMD64VPBROADCASTQMasked512:
+		return rewriteValueAMD64_OpAMD64VPBROADCASTQMasked512(v)
 	case OpAMD64VPBROADCASTW128:
 		return rewriteValueAMD64_OpAMD64VPBROADCASTW128(v)
 	case OpAMD64VPBROADCASTW256:
 		return rewriteValueAMD64_OpAMD64VPBROADCASTW256(v)
 	case OpAMD64VPBROADCASTW512:
 		return rewriteValueAMD64_OpAMD64VPBROADCASTW512(v)
+	case OpAMD64VPCLMULQDQ128:
+		return rewriteValueAMD64_OpAMD64VPCLMULQDQ128(v)
+	case OpAMD64VPCLMULQDQ256:
+		return rewriteValueAMD64_OpAMD64VPCLMULQDQ256(v)
+	case OpAMD64VPCMPBMasked128:
+		return rewriteValueAMD64_OpAMD64VPCMPBMasked128(v)
+	case OpAMD64VPCMPBMasked256:
+		return rewriteValueAMD64_OpAMD64VPCMPBMasked256(v)
 	case OpAMD64VPCMPD512:
 		return rewriteValueAMD64_OpAMD64VPCMPD512(v)
 	case OpAMD64VPCMPDMasked128:
@@ -1066,14 +1402,46 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPCMPDMasked256(v)
 	case OpAMD64VPCMPDMasked512:
 		return rewriteValueAMD64_OpAMD64VPCMPDMasked512(v)
+	case OpAMD64VPCMPEQB128:
+		return rewriteValueAMD64_OpAMD64VPCMPEQB128(v)
+	case OpAMD64VPCMPEQB256:
+		return rewriteValueAMD64_OpAMD64VPCMPEQB256(v)
+	case OpAMD64VPCMPEQD128:
+		return rewriteValueAMD64_OpAMD64VPCMPEQD128(v)
+	case OpAMD64VPCMPEQD256:
+		return rewriteValueAMD64_OpAMD64VPCMPEQD256(v)
 	case OpAMD64VPCMPEQD512:
 		return rewriteValueAMD64_OpAMD64VPCMPEQD512(v)
+	case OpAMD64VPCMPEQQ128:
+		return rewriteValueAMD64_OpAMD64VPCMPEQQ128(v)
+	case OpAMD64VPCMPEQQ256:
+		return rewriteValueAMD64_OpAMD64VPCMPEQQ256(v)
 	case OpAMD64VPCMPEQQ512:
 		return rewriteValueAMD64_OpAMD64VPCMPEQQ512(v)
+	case OpAMD64VPCMPEQW128:
+		return rewriteValueAMD64_OpAMD64VPCMPEQW128(v)
+	case OpAMD64VPCMPEQW256:
+		return rewriteValueAMD64_OpAMD64VPCMPEQW256(v)
+	case OpAMD64VPCMPGTB128:
+		return rewriteValueAMD64_OpAMD64VPCMPGTB128(v)
+	case OpAMD64VPCMPGTB256:
+		return rewriteValueAMD64_OpAMD64VPCMPGTB256(v)
+	case OpAMD64VPCMPGTD128:
+		return rewriteValueAMD64_OpAMD64VPCMPGTD128(v)
+	case OpAMD64VPCMPGTD256:
+		return rewriteValueAMD64_OpAMD64VPCMPGTD256(v)
 	case OpAMD64VPCMPGTD512:
 		return rewriteValueAMD64_OpAMD64VPCMPGTD512(v)
+	case OpAMD64VPCMPGTQ128:
+		return rewriteValueAMD64_OpAMD64VPCMPGTQ128(v)
+	case OpAMD64VPCMPGTQ256:
+		return rewriteValueAMD64_OpAMD64VPCMPGTQ256(v)
 	case OpAMD64VPCMPGTQ512:
 		return rewriteValueAMD64_OpAMD64VPCMPGTQ512(v)
+	case OpAMD64VPCMPGTW128:
+		return rewriteValueAMD64_OpAMD64VPCMPGTW128(v)
+	case OpAMD64VPCMPGTW256:
+		return rewriteValueAMD64_OpAMD64VPCMPGTW256(v)
 	case OpAMD64VPCMPQ512:
 		return rewriteValueAMD64_OpAMD64VPCMPQ512(v)
 	case OpAMD64VPCMPQMasked128:
@@ -1082,6 +1450,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPCMPQMasked256(v)
 	case OpAMD64VPCMPQMasked512:
 		return rewriteValueAMD64_OpAMD64VPCMPQMasked512(v)
+	case OpAMD64VPCMPUBMasked128:
+		return rewriteValueAMD64_OpAMD64VPCMPUBMasked128(v)
+	case OpAMD64VPCMPUBMasked256:
+		return rewriteValueAMD64_OpAMD64VPCMPUBMasked256(v)
 	case OpAMD64VPCMPUD512:
 		return rewriteValueAMD64_OpAMD64VPCMPUD512(v)
 	case OpAMD64VPCMPUDMasked128:
@@ -1098,6 +1470,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPCMPUQMasked256(v)
 	case OpAMD64VPCMPUQMasked512:
 		return rewriteValueAMD64_OpAMD64VPCMPUQMasked512(v)
+	case OpAMD64VPCMPUWMasked128:
+		return rewriteValueAMD64_OpAMD64VPCMPUWMasked128(v)
+	case OpAMD64VPCMPUWMasked256:
+		return rewriteValueAMD64_OpAMD64VPCMPUWMasked256(v)
+	case OpAMD64VPCMPWMasked128:
+		return rewriteValueAMD64_OpAMD64VPCMPWMasked128(v)
+	case OpAMD64VPCMPWMasked256:
+		return rewriteValueAMD64_OpAMD64VPCMPWMasked256(v)
+	case OpAMD64VPDPWSSD128:
+		return rewriteValueAMD64_OpAMD64VPDPWSSD128(v)
+	case OpAMD64VPDPWSSD256:
+		return rewriteValueAMD64_OpAMD64VPDPWSSD256(v)
 	case OpAMD64VPDPWSSD512:
 		return rewriteValueAMD64_OpAMD64VPDPWSSD512(v)
 	case OpAMD64VPDPWSSDMasked128:
@@ -1106,12 +1490,34 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPDPWSSDMasked256(v)
 	case OpAMD64VPDPWSSDMasked512:
 		return rewriteValueAMD64_OpAMD64VPDPWSSDMasked512(v)
+	case OpAMD64VPERM2F128256:
+		return rewriteValueAMD64_OpAMD64VPERM2F128256(v)
+	case OpAMD64VPERM2I128256:
+		return rewriteValueAMD64_OpAMD64VPERM2I128256(v)
+	case OpAMD64VPERMB128:
+		return rewriteValueAMD64_OpAMD64VPERMB128(v)
+	case OpAMD64VPERMB256:
+		return rewriteValueAMD64_OpAMD64VPERMB256(v)
+	case OpAMD64VPERMBMasked128:
+		return rewriteValueAMD64_OpAMD64VPERMBMasked128(v)
+	case OpAMD64VPERMBMasked256:
+		return rewriteValueAMD64_OpAMD64VPERMBMasked256(v)
+	case OpAMD64VPERMD256:
+		return rewriteValueAMD64_OpAMD64VPERMD256(v)
 	case OpAMD64VPERMD512:
 		return rewriteValueAMD64_OpAMD64VPERMD512(v)
 	case OpAMD64VPERMDMasked256:
 		return rewriteValueAMD64_OpAMD64VPERMDMasked256(v)
 	case OpAMD64VPERMDMasked512:
 		return rewriteValueAMD64_OpAMD64VPERMDMasked512(v)
+	case OpAMD64VPERMI2B128:
+		return rewriteValueAMD64_OpAMD64VPERMI2B128(v)
+	case OpAMD64VPERMI2B256:
+		return rewriteValueAMD64_OpAMD64VPERMI2B256(v)
+	case OpAMD64VPERMI2BMasked128:
+		return rewriteValueAMD64_OpAMD64VPERMI2BMasked128(v)
+	case OpAMD64VPERMI2BMasked256:
+		return rewriteValueAMD64_OpAMD64VPERMI2BMasked256(v)
 	case OpAMD64VPERMI2D128:
 		return rewriteValueAMD64_OpAMD64VPERMI2D128(v)
 	case OpAMD64VPERMI2D256:
@@ -1160,6 +1566,14 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPERMI2QMasked256(v)
 	case OpAMD64VPERMI2QMasked512:
 		return rewriteValueAMD64_OpAMD64VPERMI2QMasked512(v)
+	case OpAMD64VPERMI2W128:
+		return rewriteValueAMD64_OpAMD64VPERMI2W128(v)
+	case OpAMD64VPERMI2W256:
+		return rewriteValueAMD64_OpAMD64VPERMI2W256(v)
+	case OpAMD64VPERMI2WMasked128:
+		return rewriteValueAMD64_OpAMD64VPERMI2WMasked128(v)
+	case OpAMD64VPERMI2WMasked256:
+		return rewriteValueAMD64_OpAMD64VPERMI2WMasked256(v)
 	case OpAMD64VPERMPD256:
 		return rewriteValueAMD64_OpAMD64VPERMPD256(v)
 	case OpAMD64VPERMPD512:
@@ -1168,6 +1582,8 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPERMPDMasked256(v)
 	case OpAMD64VPERMPDMasked512:
 		return rewriteValueAMD64_OpAMD64VPERMPDMasked512(v)
+	case OpAMD64VPERMPS256:
+		return rewriteValueAMD64_OpAMD64VPERMPS256(v)
 	case OpAMD64VPERMPS512:
 		return rewriteValueAMD64_OpAMD64VPERMPS512(v)
 	case OpAMD64VPERMPSMasked256:
@@ -1182,6 +1598,54 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPERMQMasked256(v)
 	case OpAMD64VPERMQMasked512:
 		return rewriteValueAMD64_OpAMD64VPERMQMasked512(v)
+	case OpAMD64VPERMW128:
+		return rewriteValueAMD64_OpAMD64VPERMW128(v)
+	case OpAMD64VPERMW256:
+		return rewriteValueAMD64_OpAMD64VPERMW256(v)
+	case OpAMD64VPERMWMasked128:
+		return rewriteValueAMD64_OpAMD64VPERMWMasked128(v)
+	case OpAMD64VPERMWMasked256:
+		return rewriteValueAMD64_OpAMD64VPERMWMasked256(v)
+	case OpAMD64VPEXPANDBMasked128:
+		return rewriteValueAMD64_OpAMD64VPEXPANDBMasked128(v)
+	case OpAMD64VPEXPANDBMasked256:
+		return rewriteValueAMD64_OpAMD64VPEXPANDBMasked256(v)
+	case OpAMD64VPEXPANDDMasked128:
+		return rewriteValueAMD64_OpAMD64VPEXPANDDMasked128(v)
+	case OpAMD64VPEXPANDDMasked256:
+		return rewriteValueAMD64_OpAMD64VPEXPANDDMasked256(v)
+	case OpAMD64VPEXPANDQMasked128:
+		return rewriteValueAMD64_OpAMD64VPEXPANDQMasked128(v)
+	case OpAMD64VPEXPANDQMasked256:
+		return rewriteValueAMD64_OpAMD64VPEXPANDQMasked256(v)
+	case OpAMD64VPEXPANDWMasked128:
+		return rewriteValueAMD64_OpAMD64VPEXPANDWMasked128(v)
+	case OpAMD64VPEXPANDWMasked256:
+		return rewriteValueAMD64_OpAMD64VPEXPANDWMasked256(v)
+	case OpAMD64VPHADDD128:
+		return rewriteValueAMD64_OpAMD64VPHADDD128(v)
+	case OpAMD64VPHADDD256:
+		return rewriteValueAMD64_OpAMD64VPHADDD256(v)
+	case OpAMD64VPHADDSW128:
+		return rewriteValueAMD64_OpAMD64VPHADDSW128(v)
+	case OpAMD64VPHADDSW256:
+		return rewriteValueAMD64_OpAMD64VPHADDSW256(v)
+	case OpAMD64VPHADDW128:
+		return rewriteValueAMD64_OpAMD64VPHADDW128(v)
+	case OpAMD64VPHADDW256:
+		return rewriteValueAMD64_OpAMD64VPHADDW256(v)
+	case OpAMD64VPHSUBD128:
+		return rewriteValueAMD64_OpAMD64VPHSUBD128(v)
+	case OpAMD64VPHSUBD256:
+		return rewriteValueAMD64_OpAMD64VPHSUBD256(v)
+	case OpAMD64VPHSUBSW128:
+		return rewriteValueAMD64_OpAMD64VPHSUBSW128(v)
+	case OpAMD64VPHSUBSW256:
+		return rewriteValueAMD64_OpAMD64VPHSUBSW256(v)
+	case OpAMD64VPHSUBW128:
+		return rewriteValueAMD64_OpAMD64VPHSUBW128(v)
+	case OpAMD64VPHSUBW256:
+		return rewriteValueAMD64_OpAMD64VPHSUBW256(v)
 	case OpAMD64VPINSRD128:
 		return rewriteValueAMD64_OpAMD64VPINSRD128(v)
 	case OpAMD64VPINSRQ128:
@@ -1210,6 +1674,34 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPLZCNTQMasked256(v)
 	case OpAMD64VPLZCNTQMasked512:
 		return rewriteValueAMD64_OpAMD64VPLZCNTQMasked512(v)
+	case OpAMD64VPMADDUBSW128:
+		return rewriteValueAMD64_OpAMD64VPMADDUBSW128(v)
+	case OpAMD64VPMADDUBSW256:
+		return rewriteValueAMD64_OpAMD64VPMADDUBSW256(v)
+	case OpAMD64VPMADDUBSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMADDUBSWMasked128(v)
+	case OpAMD64VPMADDUBSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMADDUBSWMasked256(v)
+	case OpAMD64VPMADDWD128:
+		return rewriteValueAMD64_OpAMD64VPMADDWD128(v)
+	case OpAMD64VPMADDWD256:
+		return rewriteValueAMD64_OpAMD64VPMADDWD256(v)
+	case OpAMD64VPMADDWDMasked128:
+		return rewriteValueAMD64_OpAMD64VPMADDWDMasked128(v)
+	case OpAMD64VPMADDWDMasked256:
+		return rewriteValueAMD64_OpAMD64VPMADDWDMasked256(v)
+	case OpAMD64VPMAXSB128:
+		return rewriteValueAMD64_OpAMD64VPMAXSB128(v)
+	case OpAMD64VPMAXSB256:
+		return rewriteValueAMD64_OpAMD64VPMAXSB256(v)
+	case OpAMD64VPMAXSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPMAXSBMasked128(v)
+	case OpAMD64VPMAXSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPMAXSBMasked256(v)
+	case OpAMD64VPMAXSD128:
+		return rewriteValueAMD64_OpAMD64VPMAXSD128(v)
+	case OpAMD64VPMAXSD256:
+		return rewriteValueAMD64_OpAMD64VPMAXSD256(v)
 	case OpAMD64VPMAXSD512:
 		return rewriteValueAMD64_OpAMD64VPMAXSD512(v)
 	case OpAMD64VPMAXSDMasked128:
@@ -1230,6 +1722,26 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPMAXSQMasked256(v)
 	case OpAMD64VPMAXSQMasked512:
 		return rewriteValueAMD64_OpAMD64VPMAXSQMasked512(v)
+	case OpAMD64VPMAXSW128:
+		return rewriteValueAMD64_OpAMD64VPMAXSW128(v)
+	case OpAMD64VPMAXSW256:
+		return rewriteValueAMD64_OpAMD64VPMAXSW256(v)
+	case OpAMD64VPMAXSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMAXSWMasked128(v)
+	case OpAMD64VPMAXSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMAXSWMasked256(v)
+	case OpAMD64VPMAXUB128:
+		return rewriteValueAMD64_OpAMD64VPMAXUB128(v)
+	case OpAMD64VPMAXUB256:
+		return rewriteValueAMD64_OpAMD64VPMAXUB256(v)
+	case OpAMD64VPMAXUBMasked128:
+		return rewriteValueAMD64_OpAMD64VPMAXUBMasked128(v)
+	case OpAMD64VPMAXUBMasked256:
+		return rewriteValueAMD64_OpAMD64VPMAXUBMasked256(v)
+	case OpAMD64VPMAXUD128:
+		return rewriteValueAMD64_OpAMD64VPMAXUD128(v)
+	case OpAMD64VPMAXUD256:
+		return rewriteValueAMD64_OpAMD64VPMAXUD256(v)
 	case OpAMD64VPMAXUD512:
 		return rewriteValueAMD64_OpAMD64VPMAXUD512(v)
 	case OpAMD64VPMAXUDMasked128:
@@ -1250,6 +1762,26 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPMAXUQMasked256(v)
 	case OpAMD64VPMAXUQMasked512:
 		return rewriteValueAMD64_OpAMD64VPMAXUQMasked512(v)
+	case OpAMD64VPMAXUW128:
+		return rewriteValueAMD64_OpAMD64VPMAXUW128(v)
+	case OpAMD64VPMAXUW256:
+		return rewriteValueAMD64_OpAMD64VPMAXUW256(v)
+	case OpAMD64VPMAXUWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMAXUWMasked128(v)
+	case OpAMD64VPMAXUWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMAXUWMasked256(v)
+	case OpAMD64VPMINSB128:
+		return rewriteValueAMD64_OpAMD64VPMINSB128(v)
+	case OpAMD64VPMINSB256:
+		return rewriteValueAMD64_OpAMD64VPMINSB256(v)
+	case OpAMD64VPMINSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPMINSBMasked128(v)
+	case OpAMD64VPMINSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPMINSBMasked256(v)
+	case OpAMD64VPMINSD128:
+		return rewriteValueAMD64_OpAMD64VPMINSD128(v)
+	case OpAMD64VPMINSD256:
+		return rewriteValueAMD64_OpAMD64VPMINSD256(v)
 	case OpAMD64VPMINSD512:
 		return rewriteValueAMD64_OpAMD64VPMINSD512(v)
 	case OpAMD64VPMINSDMasked128:
@@ -1270,6 +1802,26 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPMINSQMasked256(v)
 	case OpAMD64VPMINSQMasked512:
 		return rewriteValueAMD64_OpAMD64VPMINSQMasked512(v)
+	case OpAMD64VPMINSW128:
+		return rewriteValueAMD64_OpAMD64VPMINSW128(v)
+	case OpAMD64VPMINSW256:
+		return rewriteValueAMD64_OpAMD64VPMINSW256(v)
+	case OpAMD64VPMINSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMINSWMasked128(v)
+	case OpAMD64VPMINSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMINSWMasked256(v)
+	case OpAMD64VPMINUB128:
+		return rewriteValueAMD64_OpAMD64VPMINUB128(v)
+	case OpAMD64VPMINUB256:
+		return rewriteValueAMD64_OpAMD64VPMINUB256(v)
+	case OpAMD64VPMINUBMasked128:
+		return rewriteValueAMD64_OpAMD64VPMINUBMasked128(v)
+	case OpAMD64VPMINUBMasked256:
+		return rewriteValueAMD64_OpAMD64VPMINUBMasked256(v)
+	case OpAMD64VPMINUD128:
+		return rewriteValueAMD64_OpAMD64VPMINUD128(v)
+	case OpAMD64VPMINUD256:
+		return rewriteValueAMD64_OpAMD64VPMINUD256(v)
 	case OpAMD64VPMINUD512:
 		return rewriteValueAMD64_OpAMD64VPMINUD512(v)
 	case OpAMD64VPMINUDMasked128:
@@ -1290,6 +1842,84 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPMINUQMasked256(v)
 	case OpAMD64VPMINUQMasked512:
 		return rewriteValueAMD64_OpAMD64VPMINUQMasked512(v)
+	case OpAMD64VPMINUW128:
+		return rewriteValueAMD64_OpAMD64VPMINUW128(v)
+	case OpAMD64VPMINUW256:
+		return rewriteValueAMD64_OpAMD64VPMINUW256(v)
+	case OpAMD64VPMINUWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMINUWMasked128(v)
+	case OpAMD64VPMINUWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMINUWMasked256(v)
+	case OpAMD64VPMOVSXBD128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBD128(v)
+	case OpAMD64VPMOVSXBD256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBD256(v)
+	case OpAMD64VPMOVSXBD512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBD512(v)
+	case OpAMD64VPMOVSXBDMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBDMasked128(v)
+	case OpAMD64VPMOVSXBDMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBDMasked256(v)
+	case OpAMD64VPMOVSXBDMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBDMasked512(v)
+	case OpAMD64VPMOVSXBQ128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBQ128(v)
+	case OpAMD64VPMOVSXBQ256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBQ256(v)
+	case OpAMD64VPMOVSXBQ512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBQ512(v)
+	case OpAMD64VPMOVSXBQMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBQMasked256(v)
+	case OpAMD64VPMOVSXBQMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBQMasked512(v)
+	case OpAMD64VPMOVSXBW128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBW128(v)
+	case OpAMD64VPMOVSXBW256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBW256(v)
+	case OpAMD64VPMOVSXBW512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBW512(v)
+	case OpAMD64VPMOVSXBWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBWMasked128(v)
+	case OpAMD64VPMOVSXBWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBWMasked256(v)
+	case OpAMD64VPMOVSXBWMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXBWMasked512(v)
+	case OpAMD64VPMOVSXDQ128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXDQ128(v)
+	case OpAMD64VPMOVSXDQ256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXDQ256(v)
+	case OpAMD64VPMOVSXDQ512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXDQ512(v)
+	case OpAMD64VPMOVSXDQMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXDQMasked128(v)
+	case OpAMD64VPMOVSXDQMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXDQMasked256(v)
+	case OpAMD64VPMOVSXDQMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXDQMasked512(v)
+	case OpAMD64VPMOVSXWD128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWD128(v)
+	case OpAMD64VPMOVSXWD256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWD256(v)
+	case OpAMD64VPMOVSXWD512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWD512(v)
+	case OpAMD64VPMOVSXWDMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWDMasked128(v)
+	case OpAMD64VPMOVSXWDMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWDMasked256(v)
+	case OpAMD64VPMOVSXWDMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWDMasked512(v)
+	case OpAMD64VPMOVSXWQ128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWQ128(v)
+	case OpAMD64VPMOVSXWQ256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWQ256(v)
+	case OpAMD64VPMOVSXWQ512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWQ512(v)
+	case OpAMD64VPMOVSXWQMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWQMasked128(v)
+	case OpAMD64VPMOVSXWQMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWQMasked256(v)
+	case OpAMD64VPMOVSXWQMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVSXWQMasked512(v)
 	case OpAMD64VPMOVVec16x16ToM:
 		return rewriteValueAMD64_OpAMD64VPMOVVec16x16ToM(v)
 	case OpAMD64VPMOVVec16x32ToM:
@@ -1314,6 +1944,100 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPMOVVec8x32ToM(v)
 	case OpAMD64VPMOVVec8x64ToM:
 		return rewriteValueAMD64_OpAMD64VPMOVVec8x64ToM(v)
+	case OpAMD64VPMOVZXBD128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBD128(v)
+	case OpAMD64VPMOVZXBD256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBD256(v)
+	case OpAMD64VPMOVZXBD512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBD512(v)
+	case OpAMD64VPMOVZXBDMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBDMasked128(v)
+	case OpAMD64VPMOVZXBDMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBDMasked256(v)
+	case OpAMD64VPMOVZXBDMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBDMasked512(v)
+	case OpAMD64VPMOVZXBQ128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBQ128(v)
+	case OpAMD64VPMOVZXBQ256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBQ256(v)
+	case OpAMD64VPMOVZXBQ512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBQ512(v)
+	case OpAMD64VPMOVZXBQMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBQMasked256(v)
+	case OpAMD64VPMOVZXBQMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBQMasked512(v)
+	case OpAMD64VPMOVZXBW128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBW128(v)
+	case OpAMD64VPMOVZXBW256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBW256(v)
+	case OpAMD64VPMOVZXBW512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBW512(v)
+	case OpAMD64VPMOVZXBWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBWMasked128(v)
+	case OpAMD64VPMOVZXBWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBWMasked256(v)
+	case OpAMD64VPMOVZXBWMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXBWMasked512(v)
+	case OpAMD64VPMOVZXDQ128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXDQ128(v)
+	case OpAMD64VPMOVZXDQ256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXDQ256(v)
+	case OpAMD64VPMOVZXDQ512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXDQ512(v)
+	case OpAMD64VPMOVZXDQMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXDQMasked128(v)
+	case OpAMD64VPMOVZXDQMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXDQMasked256(v)
+	case OpAMD64VPMOVZXDQMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXDQMasked512(v)
+	case OpAMD64VPMOVZXWD128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWD128(v)
+	case OpAMD64VPMOVZXWD256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWD256(v)
+	case OpAMD64VPMOVZXWD512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWD512(v)
+	case OpAMD64VPMOVZXWDMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWDMasked128(v)
+	case OpAMD64VPMOVZXWDMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWDMasked256(v)
+	case OpAMD64VPMOVZXWDMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWDMasked512(v)
+	case OpAMD64VPMOVZXWQ128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWQ128(v)
+	case OpAMD64VPMOVZXWQ256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWQ256(v)
+	case OpAMD64VPMOVZXWQ512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWQ512(v)
+	case OpAMD64VPMOVZXWQMasked128:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWQMasked128(v)
+	case OpAMD64VPMOVZXWQMasked256:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWQMasked256(v)
+	case OpAMD64VPMOVZXWQMasked512:
+		return rewriteValueAMD64_OpAMD64VPMOVZXWQMasked512(v)
+	case OpAMD64VPMULDQ128:
+		return rewriteValueAMD64_OpAMD64VPMULDQ128(v)
+	case OpAMD64VPMULDQ256:
+		return rewriteValueAMD64_OpAMD64VPMULDQ256(v)
+	case OpAMD64VPMULHUW128:
+		return rewriteValueAMD64_OpAMD64VPMULHUW128(v)
+	case OpAMD64VPMULHUW256:
+		return rewriteValueAMD64_OpAMD64VPMULHUW256(v)
+	case OpAMD64VPMULHUWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMULHUWMasked128(v)
+	case OpAMD64VPMULHUWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMULHUWMasked256(v)
+	case OpAMD64VPMULHW128:
+		return rewriteValueAMD64_OpAMD64VPMULHW128(v)
+	case OpAMD64VPMULHW256:
+		return rewriteValueAMD64_OpAMD64VPMULHW256(v)
+	case OpAMD64VPMULHWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMULHWMasked128(v)
+	case OpAMD64VPMULHWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMULHWMasked256(v)
+	case OpAMD64VPMULLD128:
+		return rewriteValueAMD64_OpAMD64VPMULLD128(v)
+	case OpAMD64VPMULLD256:
+		return rewriteValueAMD64_OpAMD64VPMULLD256(v)
 	case OpAMD64VPMULLD512:
 		return rewriteValueAMD64_OpAMD64VPMULLD512(v)
 	case OpAMD64VPMULLDMasked128:
@@ -1334,6 +2058,26 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPMULLQMasked256(v)
 	case OpAMD64VPMULLQMasked512:
 		return rewriteValueAMD64_OpAMD64VPMULLQMasked512(v)
+	case OpAMD64VPMULLW128:
+		return rewriteValueAMD64_OpAMD64VPMULLW128(v)
+	case OpAMD64VPMULLW256:
+		return rewriteValueAMD64_OpAMD64VPMULLW256(v)
+	case OpAMD64VPMULLWMasked128:
+		return rewriteValueAMD64_OpAMD64VPMULLWMasked128(v)
+	case OpAMD64VPMULLWMasked256:
+		return rewriteValueAMD64_OpAMD64VPMULLWMasked256(v)
+	case OpAMD64VPMULUDQ128:
+		return rewriteValueAMD64_OpAMD64VPMULUDQ128(v)
+	case OpAMD64VPMULUDQ256:
+		return rewriteValueAMD64_OpAMD64VPMULUDQ256(v)
+	case OpAMD64VPOPCNTB128:
+		return rewriteValueAMD64_OpAMD64VPOPCNTB128(v)
+	case OpAMD64VPOPCNTB256:
+		return rewriteValueAMD64_OpAMD64VPOPCNTB256(v)
+	case OpAMD64VPOPCNTBMasked128:
+		return rewriteValueAMD64_OpAMD64VPOPCNTBMasked128(v)
+	case OpAMD64VPOPCNTBMasked256:
+		return rewriteValueAMD64_OpAMD64VPOPCNTBMasked256(v)
 	case OpAMD64VPOPCNTD128:
 		return rewriteValueAMD64_OpAMD64VPOPCNTD128(v)
 	case OpAMD64VPOPCNTD256:
@@ -1358,6 +2102,14 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPOPCNTQMasked256(v)
 	case OpAMD64VPOPCNTQMasked512:
 		return rewriteValueAMD64_OpAMD64VPOPCNTQMasked512(v)
+	case OpAMD64VPOPCNTW128:
+		return rewriteValueAMD64_OpAMD64VPOPCNTW128(v)
+	case OpAMD64VPOPCNTW256:
+		return rewriteValueAMD64_OpAMD64VPOPCNTW256(v)
+	case OpAMD64VPOPCNTWMasked128:
+		return rewriteValueAMD64_OpAMD64VPOPCNTWMasked128(v)
+	case OpAMD64VPOPCNTWMasked256:
+		return rewriteValueAMD64_OpAMD64VPOPCNTWMasked256(v)
 	case OpAMD64VPOR128:
 		return rewriteValueAMD64_OpAMD64VPOR128(v)
 	case OpAMD64VPOR256:
@@ -1474,6 +2226,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPRORVQMasked256(v)
 	case OpAMD64VPRORVQMasked512:
 		return rewriteValueAMD64_OpAMD64VPRORVQMasked512(v)
+	case OpAMD64VPSADBW128:
+		return rewriteValueAMD64_OpAMD64VPSADBW128(v)
+	case OpAMD64VPSADBW256:
+		return rewriteValueAMD64_OpAMD64VPSADBW256(v)
 	case OpAMD64VPSHLDD128:
 		return rewriteValueAMD64_OpAMD64VPSHLDD128(v)
 	case OpAMD64VPSHLDD256:
@@ -1522,6 +2278,22 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSHLDVQMasked256(v)
 	case OpAMD64VPSHLDVQMasked512:
 		return rewriteValueAMD64_OpAMD64VPSHLDVQMasked512(v)
+	case OpAMD64VPSHLDVW128:
+		return rewriteValueAMD64_OpAMD64VPSHLDVW128(v)
+	case OpAMD64VPSHLDVW256:
+		return rewriteValueAMD64_OpAMD64VPSHLDVW256(v)
+	case OpAMD64VPSHLDVWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHLDVWMasked128(v)
+	case OpAMD64VPSHLDVWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHLDVWMasked256(v)
+	case OpAMD64VPSHLDW128:
+		return rewriteValueAMD64_OpAMD64VPSHLDW128(v)
+	case OpAMD64VPSHLDW256:
+		return rewriteValueAMD64_OpAMD64VPSHLDW256(v)
+	case OpAMD64VPSHLDWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHLDWMasked128(v)
+	case OpAMD64VPSHLDWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHLDWMasked256(v)
 	case OpAMD64VPSHRDD128:
 		return rewriteValueAMD64_OpAMD64VPSHRDD128(v)
 	case OpAMD64VPSHRDD256:
@@ -1570,6 +2342,34 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSHRDVQMasked256(v)
 	case OpAMD64VPSHRDVQMasked512:
 		return rewriteValueAMD64_OpAMD64VPSHRDVQMasked512(v)
+	case OpAMD64VPSHRDVW128:
+		return rewriteValueAMD64_OpAMD64VPSHRDVW128(v)
+	case OpAMD64VPSHRDVW256:
+		return rewriteValueAMD64_OpAMD64VPSHRDVW256(v)
+	case OpAMD64VPSHRDVWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHRDVWMasked128(v)
+	case OpAMD64VPSHRDVWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHRDVWMasked256(v)
+	case OpAMD64VPSHRDW128:
+		return rewriteValueAMD64_OpAMD64VPSHRDW128(v)
+	case OpAMD64VPSHRDW256:
+		return rewriteValueAMD64_OpAMD64VPSHRDW256(v)
+	case OpAMD64VPSHRDWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHRDWMasked128(v)
+	case OpAMD64VPSHRDWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHRDWMasked256(v)
+	case OpAMD64VPSHUFB128:
+		return rewriteValueAMD64_OpAMD64VPSHUFB128(v)
+	case OpAMD64VPSHUFB256:
+		return rewriteValueAMD64_OpAMD64VPSHUFB256(v)
+	case OpAMD64VPSHUFBMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHUFBMasked128(v)
+	case OpAMD64VPSHUFBMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHUFBMasked256(v)
+	case OpAMD64VPSHUFD128:
+		return rewriteValueAMD64_OpAMD64VPSHUFD128(v)
+	case OpAMD64VPSHUFD256:
+		return rewriteValueAMD64_OpAMD64VPSHUFD256(v)
 	case OpAMD64VPSHUFD512:
 		return rewriteValueAMD64_OpAMD64VPSHUFD512(v)
 	case OpAMD64VPSHUFDMasked128:
@@ -1578,10 +2378,42 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSHUFDMasked256(v)
 	case OpAMD64VPSHUFDMasked512:
 		return rewriteValueAMD64_OpAMD64VPSHUFDMasked512(v)
+	case OpAMD64VPSHUFHW128:
+		return rewriteValueAMD64_OpAMD64VPSHUFHW128(v)
+	case OpAMD64VPSHUFHW256:
+		return rewriteValueAMD64_OpAMD64VPSHUFHW256(v)
+	case OpAMD64VPSHUFHWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHUFHWMasked128(v)
+	case OpAMD64VPSHUFHWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHUFHWMasked256(v)
+	case OpAMD64VPSHUFLW128:
+		return rewriteValueAMD64_OpAMD64VPSHUFLW128(v)
+	case OpAMD64VPSHUFLW256:
+		return rewriteValueAMD64_OpAMD64VPSHUFLW256(v)
+	case OpAMD64VPSHUFLWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSHUFLWMasked128(v)
+	case OpAMD64VPSHUFLWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSHUFLWMasked256(v)
+	case OpAMD64VPSIGNB128:
+		return rewriteValueAMD64_OpAMD64VPSIGNB128(v)
+	case OpAMD64VPSIGNB256:
+		return rewriteValueAMD64_OpAMD64VPSIGNB256(v)
+	case OpAMD64VPSIGND128:
+		return rewriteValueAMD64_OpAMD64VPSIGND128(v)
+	case OpAMD64VPSIGND256:
+		return rewriteValueAMD64_OpAMD64VPSIGND256(v)
+	case OpAMD64VPSIGNW128:
+		return rewriteValueAMD64_OpAMD64VPSIGNW128(v)
+	case OpAMD64VPSIGNW256:
+		return rewriteValueAMD64_OpAMD64VPSIGNW256(v)
 	case OpAMD64VPSLLD128:
 		return rewriteValueAMD64_OpAMD64VPSLLD128(v)
+	case OpAMD64VPSLLD128const:
+		return rewriteValueAMD64_OpAMD64VPSLLD128const(v)
 	case OpAMD64VPSLLD256:
 		return rewriteValueAMD64_OpAMD64VPSLLD256(v)
+	case OpAMD64VPSLLD256const:
+		return rewriteValueAMD64_OpAMD64VPSLLD256const(v)
 	case OpAMD64VPSLLD512:
 		return rewriteValueAMD64_OpAMD64VPSLLD512(v)
 	case OpAMD64VPSLLD512const:
@@ -1600,8 +2432,12 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSLLDMasked512const(v)
 	case OpAMD64VPSLLQ128:
 		return rewriteValueAMD64_OpAMD64VPSLLQ128(v)
+	case OpAMD64VPSLLQ128const:
+		return rewriteValueAMD64_OpAMD64VPSLLQ128const(v)
 	case OpAMD64VPSLLQ256:
 		return rewriteValueAMD64_OpAMD64VPSLLQ256(v)
+	case OpAMD64VPSLLQ256const:
+		return rewriteValueAMD64_OpAMD64VPSLLQ256const(v)
 	case OpAMD64VPSLLQ512:
 		return rewriteValueAMD64_OpAMD64VPSLLQ512(v)
 	case OpAMD64VPSLLQ512const:
@@ -1618,6 +2454,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSLLQMasked512(v)
 	case OpAMD64VPSLLQMasked512const:
 		return rewriteValueAMD64_OpAMD64VPSLLQMasked512const(v)
+	case OpAMD64VPSLLVD128:
+		return rewriteValueAMD64_OpAMD64VPSLLVD128(v)
+	case OpAMD64VPSLLVD256:
+		return rewriteValueAMD64_OpAMD64VPSLLVD256(v)
 	case OpAMD64VPSLLVD512:
 		return rewriteValueAMD64_OpAMD64VPSLLVD512(v)
 	case OpAMD64VPSLLVDMasked128:
@@ -1626,6 +2466,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSLLVDMasked256(v)
 	case OpAMD64VPSLLVDMasked512:
 		return rewriteValueAMD64_OpAMD64VPSLLVDMasked512(v)
+	case OpAMD64VPSLLVQ128:
+		return rewriteValueAMD64_OpAMD64VPSLLVQ128(v)
+	case OpAMD64VPSLLVQ256:
+		return rewriteValueAMD64_OpAMD64VPSLLVQ256(v)
 	case OpAMD64VPSLLVQ512:
 		return rewriteValueAMD64_OpAMD64VPSLLVQ512(v)
 	case OpAMD64VPSLLVQMasked128:
@@ -1634,22 +2478,46 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSLLVQMasked256(v)
 	case OpAMD64VPSLLVQMasked512:
 		return rewriteValueAMD64_OpAMD64VPSLLVQMasked512(v)
+	case OpAMD64VPSLLVW128:
+		return rewriteValueAMD64_OpAMD64VPSLLVW128(v)
+	case OpAMD64VPSLLVW256:
+		return rewriteValueAMD64_OpAMD64VPSLLVW256(v)
+	case OpAMD64VPSLLVWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSLLVWMasked128(v)
+	case OpAMD64VPSLLVWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSLLVWMasked256(v)
 	case OpAMD64VPSLLW128:
 		return rewriteValueAMD64_OpAMD64VPSLLW128(v)
+	case OpAMD64VPSLLW128const:
+		return rewriteValueAMD64_OpAMD64VPSLLW128const(v)
 	case OpAMD64VPSLLW256:
 		return rewriteValueAMD64_OpAMD64VPSLLW256(v)
+	case OpAMD64VPSLLW256const:
+		return rewriteValueAMD64_OpAMD64VPSLLW256const(v)
 	case OpAMD64VPSLLW512:
 		return rewriteValueAMD64_OpAMD64VPSLLW512(v)
+	case OpAMD64VPSLLW512const:
+		return rewriteValueAMD64_OpAMD64VPSLLW512const(v)
 	case OpAMD64VPSLLWMasked128:
 		return rewriteValueAMD64_OpAMD64VPSLLWMasked128(v)
+	case OpAMD64VPSLLWMasked128const:
+		return rewriteValueAMD64_OpAMD64VPSLLWMasked128const(v)
 	case OpAMD64VPSLLWMasked256:
 		return rewriteValueAMD64_OpAMD64VPSLLWMasked256(v)
+	case OpAMD64VPSLLWMasked256const:
+		return rewriteValueAMD64_OpAMD64VPSLLWMasked256const(v)
 	case OpAMD64VPSLLWMasked512:
 		return rewriteValueAMD64_OpAMD64VPSLLWMasked512(v)
+	case OpAMD64VPSLLWMasked512const:
+		return rewriteValueAMD64_OpAMD64VPSLLWMasked512const(v)
 	case OpAMD64VPSRAD128:
 		return rewriteValueAMD64_OpAMD64VPSRAD128(v)
+	case OpAMD64VPSRAD128const:
+		return rewriteValueAMD64_OpAMD64VPSRAD128const(v)
 	case OpAMD64VPSRAD256:
 		return rewriteValueAMD64_OpAMD64VPSRAD256(v)
+	case OpAMD64VPSRAD256const:
+		return rewriteValueAMD64_OpAMD64VPSRAD256const(v)
 	case OpAMD64VPSRAD512:
 		return rewriteValueAMD64_OpAMD64VPSRAD512(v)
 	case OpAMD64VPSRAD512const:
@@ -1690,6 +2558,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSRAQMasked512(v)
 	case OpAMD64VPSRAQMasked512const:
 		return rewriteValueAMD64_OpAMD64VPSRAQMasked512const(v)
+	case OpAMD64VPSRAVD128:
+		return rewriteValueAMD64_OpAMD64VPSRAVD128(v)
+	case OpAMD64VPSRAVD256:
+		return rewriteValueAMD64_OpAMD64VPSRAVD256(v)
 	case OpAMD64VPSRAVD512:
 		return rewriteValueAMD64_OpAMD64VPSRAVD512(v)
 	case OpAMD64VPSRAVDMasked128:
@@ -1710,34 +2582,90 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSRAVQMasked256(v)
 	case OpAMD64VPSRAVQMasked512:
 		return rewriteValueAMD64_OpAMD64VPSRAVQMasked512(v)
+	case OpAMD64VPSRAVW128:
+		return rewriteValueAMD64_OpAMD64VPSRAVW128(v)
+	case OpAMD64VPSRAVW256:
+		return rewriteValueAMD64_OpAMD64VPSRAVW256(v)
+	case OpAMD64VPSRAVWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSRAVWMasked128(v)
+	case OpAMD64VPSRAVWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSRAVWMasked256(v)
 	case OpAMD64VPSRAW128:
 		return rewriteValueAMD64_OpAMD64VPSRAW128(v)
+	case OpAMD64VPSRAW128const:
+		return rewriteValueAMD64_OpAMD64VPSRAW128const(v)
 	case OpAMD64VPSRAW256:
 		return rewriteValueAMD64_OpAMD64VPSRAW256(v)
+	case OpAMD64VPSRAW256const:
+		return rewriteValueAMD64_OpAMD64VPSRAW256const(v)
 	case OpAMD64VPSRAW512:
 		return rewriteValueAMD64_OpAMD64VPSRAW512(v)
+	case OpAMD64VPSRAW512const:
+		return rewriteValueAMD64_OpAMD64VPSRAW512const(v)
 	case OpAMD64VPSRAWMasked128:
 		return rewriteValueAMD64_OpAMD64VPSRAWMasked128(v)
+	case OpAMD64VPSRAWMasked128const:
+		return rewriteValueAMD64_OpAMD64VPSRAWMasked128const(v)
 	case OpAMD64VPSRAWMasked256:
 		return rewriteValueAMD64_OpAMD64VPSRAWMasked256(v)
+	case OpAMD64VPSRAWMasked256const:
+		return rewriteValueAMD64_OpAMD64VPSRAWMasked256const(v)
 	case OpAMD64VPSRAWMasked512:
 		return rewriteValueAMD64_OpAMD64VPSRAWMasked512(v)
+	case OpAMD64VPSRAWMasked512const:
+		return rewriteValueAMD64_OpAMD64VPSRAWMasked512const(v)
+	case OpAMD64VPSRLD128:
+		return rewriteValueAMD64_OpAMD64VPSRLD128(v)
+	case OpAMD64VPSRLD128const:
+		return rewriteValueAMD64_OpAMD64VPSRLD128const(v)
+	case OpAMD64VPSRLD256:
+		return rewriteValueAMD64_OpAMD64VPSRLD256(v)
+	case OpAMD64VPSRLD256const:
+		return rewriteValueAMD64_OpAMD64VPSRLD256const(v)
+	case OpAMD64VPSRLD512:
+		return rewriteValueAMD64_OpAMD64VPSRLD512(v)
 	case OpAMD64VPSRLD512const:
 		return rewriteValueAMD64_OpAMD64VPSRLD512const(v)
+	case OpAMD64VPSRLDMasked128:
+		return rewriteValueAMD64_OpAMD64VPSRLDMasked128(v)
 	case OpAMD64VPSRLDMasked128const:
 		return rewriteValueAMD64_OpAMD64VPSRLDMasked128const(v)
+	case OpAMD64VPSRLDMasked256:
+		return rewriteValueAMD64_OpAMD64VPSRLDMasked256(v)
 	case OpAMD64VPSRLDMasked256const:
 		return rewriteValueAMD64_OpAMD64VPSRLDMasked256const(v)
+	case OpAMD64VPSRLDMasked512:
+		return rewriteValueAMD64_OpAMD64VPSRLDMasked512(v)
 	case OpAMD64VPSRLDMasked512const:
 		return rewriteValueAMD64_OpAMD64VPSRLDMasked512const(v)
+	case OpAMD64VPSRLQ128:
+		return rewriteValueAMD64_OpAMD64VPSRLQ128(v)
+	case OpAMD64VPSRLQ128const:
+		return rewriteValueAMD64_OpAMD64VPSRLQ128const(v)
+	case OpAMD64VPSRLQ256:
+		return rewriteValueAMD64_OpAMD64VPSRLQ256(v)
+	case OpAMD64VPSRLQ256const:
+		return rewriteValueAMD64_OpAMD64VPSRLQ256const(v)
+	case OpAMD64VPSRLQ512:
+		return rewriteValueAMD64_OpAMD64VPSRLQ512(v)
 	case OpAMD64VPSRLQ512const:
 		return rewriteValueAMD64_OpAMD64VPSRLQ512const(v)
+	case OpAMD64VPSRLQMasked128:
+		return rewriteValueAMD64_OpAMD64VPSRLQMasked128(v)
 	case OpAMD64VPSRLQMasked128const:
 		return rewriteValueAMD64_OpAMD64VPSRLQMasked128const(v)
+	case OpAMD64VPSRLQMasked256:
+		return rewriteValueAMD64_OpAMD64VPSRLQMasked256(v)
 	case OpAMD64VPSRLQMasked256const:
 		return rewriteValueAMD64_OpAMD64VPSRLQMasked256const(v)
+	case OpAMD64VPSRLQMasked512:
+		return rewriteValueAMD64_OpAMD64VPSRLQMasked512(v)
 	case OpAMD64VPSRLQMasked512const:
 		return rewriteValueAMD64_OpAMD64VPSRLQMasked512const(v)
+	case OpAMD64VPSRLVD128:
+		return rewriteValueAMD64_OpAMD64VPSRLVD128(v)
+	case OpAMD64VPSRLVD256:
+		return rewriteValueAMD64_OpAMD64VPSRLVD256(v)
 	case OpAMD64VPSRLVD512:
 		return rewriteValueAMD64_OpAMD64VPSRLVD512(v)
 	case OpAMD64VPSRLVDMasked128:
@@ -1746,6 +2674,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSRLVDMasked256(v)
 	case OpAMD64VPSRLVDMasked512:
 		return rewriteValueAMD64_OpAMD64VPSRLVDMasked512(v)
+	case OpAMD64VPSRLVQ128:
+		return rewriteValueAMD64_OpAMD64VPSRLVQ128(v)
+	case OpAMD64VPSRLVQ256:
+		return rewriteValueAMD64_OpAMD64VPSRLVQ256(v)
 	case OpAMD64VPSRLVQ512:
 		return rewriteValueAMD64_OpAMD64VPSRLVQ512(v)
 	case OpAMD64VPSRLVQMasked128:
@@ -1754,6 +2686,50 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSRLVQMasked256(v)
 	case OpAMD64VPSRLVQMasked512:
 		return rewriteValueAMD64_OpAMD64VPSRLVQMasked512(v)
+	case OpAMD64VPSRLVW128:
+		return rewriteValueAMD64_OpAMD64VPSRLVW128(v)
+	case OpAMD64VPSRLVW256:
+		return rewriteValueAMD64_OpAMD64VPSRLVW256(v)
+	case OpAMD64VPSRLVWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSRLVWMasked128(v)
+	case OpAMD64VPSRLVWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSRLVWMasked256(v)
+	case OpAMD64VPSRLW128:
+		return rewriteValueAMD64_OpAMD64VPSRLW128(v)
+	case OpAMD64VPSRLW128const:
+		return rewriteValueAMD64_OpAMD64VPSRLW128const(v)
+	case OpAMD64VPSRLW256:
+		return rewriteValueAMD64_OpAMD64VPSRLW256(v)
+	case OpAMD64VPSRLW256const:
+		return rewriteValueAMD64_OpAMD64VPSRLW256const(v)
+	case OpAMD64VPSRLW512:
+		return rewriteValueAMD64_OpAMD64VPSRLW512(v)
+	case OpAMD64VPSRLW512const:
+		return rewriteValueAMD64_OpAMD64VPSRLW512const(v)
+	case OpAMD64VPSRLWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSRLWMasked128(v)
+	case OpAMD64VPSRLWMasked128const:
+		return rewriteValueAMD64_OpAMD64VPSRLWMasked128const(v)
+	case OpAMD64VPSRLWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSRLWMasked256(v)
+	case OpAMD64VPSRLWMasked256const:
+		return rewriteValueAMD64_OpAMD64VPSRLWMasked256const(v)
+	case OpAMD64VPSRLWMasked512:
+		return rewriteValueAMD64_OpAMD64VPSRLWMasked512(v)
+	case OpAMD64VPSRLWMasked512const:
+		return rewriteValueAMD64_OpAMD64VPSRLWMasked512const(v)
+	case OpAMD64VPSUBB128:
+		return rewriteValueAMD64_OpAMD64VPSUBB128(v)
+	case OpAMD64VPSUBB256:
+		return rewriteValueAMD64_OpAMD64VPSUBB256(v)
+	case OpAMD64VPSUBBMasked128:
+		return rewriteValueAMD64_OpAMD64VPSUBBMasked128(v)
+	case OpAMD64VPSUBBMasked256:
+		return rewriteValueAMD64_OpAMD64VPSUBBMasked256(v)
+	case OpAMD64VPSUBD128:
+		return rewriteValueAMD64_OpAMD64VPSUBD128(v)
+	case OpAMD64VPSUBD256:
+		return rewriteValueAMD64_OpAMD64VPSUBD256(v)
 	case OpAMD64VPSUBD512:
 		return rewriteValueAMD64_OpAMD64VPSUBD512(v)
 	case OpAMD64VPSUBDMasked128:
@@ -1762,6 +2738,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSUBDMasked256(v)
 	case OpAMD64VPSUBDMasked512:
 		return rewriteValueAMD64_OpAMD64VPSUBDMasked512(v)
+	case OpAMD64VPSUBQ128:
+		return rewriteValueAMD64_OpAMD64VPSUBQ128(v)
+	case OpAMD64VPSUBQ256:
+		return rewriteValueAMD64_OpAMD64VPSUBQ256(v)
 	case OpAMD64VPSUBQ512:
 		return rewriteValueAMD64_OpAMD64VPSUBQ512(v)
 	case OpAMD64VPSUBQMasked128:
@@ -1770,6 +2750,46 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPSUBQMasked256(v)
 	case OpAMD64VPSUBQMasked512:
 		return rewriteValueAMD64_OpAMD64VPSUBQMasked512(v)
+	case OpAMD64VPSUBSB128:
+		return rewriteValueAMD64_OpAMD64VPSUBSB128(v)
+	case OpAMD64VPSUBSB256:
+		return rewriteValueAMD64_OpAMD64VPSUBSB256(v)
+	case OpAMD64VPSUBSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPSUBSBMasked128(v)
+	case OpAMD64VPSUBSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPSUBSBMasked256(v)
+	case OpAMD64VPSUBSW128:
+		return rewriteValueAMD64_OpAMD64VPSUBSW128(v)
+	case OpAMD64VPSUBSW256:
+		return rewriteValueAMD64_OpAMD64VPSUBSW256(v)
+	case OpAMD64VPSUBSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSUBSWMasked128(v)
+	case OpAMD64VPSUBSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSUBSWMasked256(v)
+	case OpAMD64VPSUBUSB128:
+		return rewriteValueAMD64_OpAMD64VPSUBUSB128(v)
+	case OpAMD64VPSUBUSB256:
+		return rewriteValueAMD64_OpAMD64VPSUBUSB256(v)
+	case OpAMD64VPSUBUSBMasked128:
+		return rewriteValueAMD64_OpAMD64VPSUBUSBMasked128(v)
+	case OpAMD64VPSUBUSBMasked256:
+		return rewriteValueAMD64_OpAMD64VPSUBUSBMasked256(v)
+	case OpAMD64VPSUBUSW128:
+		return rewriteValueAMD64_OpAMD64VPSUBUSW128(v)
+	case OpAMD64VPSUBUSW256:
+		return rewriteValueAMD64_OpAMD64VPSUBUSW256(v)
+	case OpAMD64VPSUBUSWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSUBUSWMasked128(v)
+	case OpAMD64VPSUBUSWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSUBUSWMasked256(v)
+	case OpAMD64VPSUBW128:
+		return rewriteValueAMD64_OpAMD64VPSUBW128(v)
+	case OpAMD64VPSUBW256:
+		return rewriteValueAMD64_OpAMD64VPSUBW256(v)
+	case OpAMD64VPSUBWMasked128:
+		return rewriteValueAMD64_OpAMD64VPSUBWMasked128(v)
+	case OpAMD64VPSUBWMasked256:
+		return rewriteValueAMD64_OpAMD64VPSUBWMasked256(v)
 	case OpAMD64VPTERNLOGD128:
 		return rewriteValueAMD64_OpAMD64VPTERNLOGD128(v)
 	case OpAMD64VPTERNLOGD256:
@@ -1782,14 +2802,42 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VPTERNLOGQ256(v)
 	case OpAMD64VPTERNLOGQ512:
 		return rewriteValueAMD64_OpAMD64VPTERNLOGQ512(v)
+	case OpAMD64VPUNPCKHDQ128:
+		return rewriteValueAMD64_OpAMD64VPUNPCKHDQ128(v)
+	case OpAMD64VPUNPCKHDQ256:
+		return rewriteValueAMD64_OpAMD64VPUNPCKHDQ256(v)
 	case OpAMD64VPUNPCKHDQ512:
 		return rewriteValueAMD64_OpAMD64VPUNPCKHDQ512(v)
+	case OpAMD64VPUNPCKHQDQ128:
+		return rewriteValueAMD64_OpAMD64VPUNPCKHQDQ128(v)
+	case OpAMD64VPUNPCKHQDQ256:
+		return rewriteValueAMD64_OpAMD64VPUNPCKHQDQ256(v)
 	case OpAMD64VPUNPCKHQDQ512:
 		return rewriteValueAMD64_OpAMD64VPUNPCKHQDQ512(v)
+	case OpAMD64VPUNPCKHWD128:
+		return rewriteValueAMD64_OpAMD64VPUNPCKHWD128(v)
+	case OpAMD64VPUNPCKHWD256:
+		return rewriteValueAMD64_OpAMD64VPUNPCKHWD256(v)
+	case OpAMD64VPUNPCKLDQ128:
+		return rewriteValueAMD64_OpAMD64VPUNPCKLDQ128(v)
+	case OpAMD64VPUNPCKLDQ256:
+		return rewriteValueAMD64_OpAMD64VPUNPCKLDQ256(v)
 	case OpAMD64VPUNPCKLDQ512:
 		return rewriteValueAMD64_OpAMD64VPUNPCKLDQ512(v)
+	case OpAMD64VPUNPCKLQDQ128:
+		return rewriteValueAMD64_OpAMD64VPUNPCKLQDQ128(v)
+	case OpAMD64VPUNPCKLQDQ256:
+		return rewriteValueAMD64_OpAMD64VPUNPCKLQDQ256(v)
 	case OpAMD64VPUNPCKLQDQ512:
 		return rewriteValueAMD64_OpAMD64VPUNPCKLQDQ512(v)
+	case OpAMD64VPUNPCKLWD128:
+		return rewriteValueAMD64_OpAMD64VPUNPCKLWD128(v)
+	case OpAMD64VPUNPCKLWD256:
+		return rewriteValueAMD64_OpAMD64VPUNPCKLWD256(v)
+	case OpAMD64VPXOR128:
+		return rewriteValueAMD64_OpAMD64VPXOR128(v)
+	case OpAMD64VPXOR256:
+		return rewriteValueAMD64_OpAMD64VPXOR256(v)
 	case OpAMD64VPXORD512:
 		return rewriteValueAMD64_OpAMD64VPXORD512(v)
 	case OpAMD64VPXORDMasked128:
@@ -1826,6 +2874,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VRCP14PSMasked256(v)
 	case OpAMD64VRCP14PSMasked512:
 		return rewriteValueAMD64_OpAMD64VRCP14PSMasked512(v)
+	case OpAMD64VRCPPS128:
+		return rewriteValueAMD64_OpAMD64VRCPPS128(v)
+	case OpAMD64VRCPPS256:
+		return rewriteValueAMD64_OpAMD64VRCPPS256(v)
 	case OpAMD64VREDUCEPD128:
 		return rewriteValueAMD64_OpAMD64VREDUCEPD128(v)
 	case OpAMD64VREDUCEPD256:
@@ -1874,6 +2926,14 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VRNDSCALEPSMasked256(v)
 	case OpAMD64VRNDSCALEPSMasked512:
 		return rewriteValueAMD64_OpAMD64VRNDSCALEPSMasked512(v)
+	case OpAMD64VROUNDPD128:
+		return rewriteValueAMD64_OpAMD64VROUNDPD128(v)
+	case OpAMD64VROUNDPD256:
+		return rewriteValueAMD64_OpAMD64VROUNDPD256(v)
+	case OpAMD64VROUNDPS128:
+		return rewriteValueAMD64_OpAMD64VROUNDPS128(v)
+	case OpAMD64VROUNDPS256:
+		return rewriteValueAMD64_OpAMD64VROUNDPS256(v)
 	case OpAMD64VRSQRT14PD128:
 		return rewriteValueAMD64_OpAMD64VRSQRT14PD128(v)
 	case OpAMD64VRSQRT14PD256:
@@ -1894,6 +2954,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VRSQRT14PSMasked256(v)
 	case OpAMD64VRSQRT14PSMasked512:
 		return rewriteValueAMD64_OpAMD64VRSQRT14PSMasked512(v)
+	case OpAMD64VRSQRTPS128:
+		return rewriteValueAMD64_OpAMD64VRSQRTPS128(v)
+	case OpAMD64VRSQRTPS256:
+		return rewriteValueAMD64_OpAMD64VRSQRTPS256(v)
 	case OpAMD64VSCALEFPD128:
 		return rewriteValueAMD64_OpAMD64VSCALEFPD128(v)
 	case OpAMD64VSCALEFPD256:
@@ -1918,10 +2982,22 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VSCALEFPSMasked256(v)
 	case OpAMD64VSCALEFPSMasked512:
 		return rewriteValueAMD64_OpAMD64VSCALEFPSMasked512(v)
+	case OpAMD64VSHUFPD128:
+		return rewriteValueAMD64_OpAMD64VSHUFPD128(v)
+	case OpAMD64VSHUFPD256:
+		return rewriteValueAMD64_OpAMD64VSHUFPD256(v)
 	case OpAMD64VSHUFPD512:
 		return rewriteValueAMD64_OpAMD64VSHUFPD512(v)
+	case OpAMD64VSHUFPS128:
+		return rewriteValueAMD64_OpAMD64VSHUFPS128(v)
+	case OpAMD64VSHUFPS256:
+		return rewriteValueAMD64_OpAMD64VSHUFPS256(v)
 	case OpAMD64VSHUFPS512:
 		return rewriteValueAMD64_OpAMD64VSHUFPS512(v)
+	case OpAMD64VSQRTPD128:
+		return rewriteValueAMD64_OpAMD64VSQRTPD128(v)
+	case OpAMD64VSQRTPD256:
+		return rewriteValueAMD64_OpAMD64VSQRTPD256(v)
 	case OpAMD64VSQRTPD512:
 		return rewriteValueAMD64_OpAMD64VSQRTPD512(v)
 	case OpAMD64VSQRTPDMasked128:
@@ -1930,6 +3006,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VSQRTPDMasked256(v)
 	case OpAMD64VSQRTPDMasked512:
 		return rewriteValueAMD64_OpAMD64VSQRTPDMasked512(v)
+	case OpAMD64VSQRTPS128:
+		return rewriteValueAMD64_OpAMD64VSQRTPS128(v)
+	case OpAMD64VSQRTPS256:
+		return rewriteValueAMD64_OpAMD64VSQRTPS256(v)
 	case OpAMD64VSQRTPS512:
 		return rewriteValueAMD64_OpAMD64VSQRTPS512(v)
 	case OpAMD64VSQRTPSMasked128:
@@ -1938,6 +3018,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VSQRTPSMasked256(v)
 	case OpAMD64VSQRTPSMasked512:
 		return rewriteValueAMD64_OpAMD64VSQRTPSMasked512(v)
+	case OpAMD64VSUBPD128:
+		return rewriteValueAMD64_OpAMD64VSUBPD128(v)
+	case OpAMD64VSUBPD256:
+		return rewriteValueAMD64_OpAMD64VSUBPD256(v)
 	case OpAMD64VSUBPD512:
 		return rewriteValueAMD64_OpAMD64VSUBPD512(v)
 	case OpAMD64VSUBPDMasked128:
@@ -1946,6 +3030,10 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpAMD64VSUBPDMasked256(v)
 	case OpAMD64VSUBPDMasked512:
 		return rewriteValueAMD64_OpAMD64VSUBPDMasked512(v)
+	case OpAMD64VSUBPS128:
+		return rewriteValueAMD64_OpAMD64VSUBPS128(v)
+	case OpAMD64VSUBPS256:
+		return rewriteValueAMD64_OpAMD64VSUBPS256(v)
 	case OpAMD64VSUBPS512:
 		return rewriteValueAMD64_OpAMD64VSUBPS512(v)
 	case OpAMD64VSUBPSMasked128:
@@ -2090,47 +3178,17 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpAddInt8x64:
 		v.Op = OpAMD64VPADDB512
 		return true
-	case OpAddPairsFloat32x4:
-		v.Op = OpAMD64VHADDPS128
+	case OpAddOddSubEvenFloat32x4:
+		v.Op = OpAMD64VADDSUBPS128
 		return true
-	case OpAddPairsFloat64x2:
-		v.Op = OpAMD64VHADDPD128
+	case OpAddOddSubEvenFloat32x8:
+		v.Op = OpAMD64VADDSUBPS256
 		return true
-	case OpAddPairsGroupedFloat32x8:
-		v.Op = OpAMD64VHADDPS256
+	case OpAddOddSubEvenFloat64x2:
+		v.Op = OpAMD64VADDSUBPD128
 		return true
-	case OpAddPairsGroupedFloat64x4:
-		v.Op = OpAMD64VHADDPD256
-		return true
-	case OpAddPairsGroupedInt16x16:
-		v.Op = OpAMD64VPHADDW256
-		return true
-	case OpAddPairsGroupedInt32x8:
-		v.Op = OpAMD64VPHADDD256
-		return true
-	case OpAddPairsGroupedUint16x16:
-		v.Op = OpAMD64VPHADDW256
-		return true
-	case OpAddPairsGroupedUint32x8:
-		v.Op = OpAMD64VPHADDD256
-		return true
-	case OpAddPairsInt16x8:
-		v.Op = OpAMD64VPHADDW128
-		return true
-	case OpAddPairsInt32x4:
-		v.Op = OpAMD64VPHADDD128
-		return true
-	case OpAddPairsSaturatedGroupedInt16x16:
-		v.Op = OpAMD64VPHADDSW256
-		return true
-	case OpAddPairsSaturatedInt16x8:
-		v.Op = OpAMD64VPHADDSW128
-		return true
-	case OpAddPairsUint16x8:
-		v.Op = OpAMD64VPHADDW128
-		return true
-	case OpAddPairsUint32x4:
-		v.Op = OpAMD64VPHADDD128
+	case OpAddOddSubEvenFloat64x4:
+		v.Op = OpAMD64VADDSUBPD256
 		return true
 	case OpAddPtr:
 		v.Op = OpAMD64ADDQ
@@ -2170,18 +3228,6 @@ func rewriteValueAMD64(v *Value) bool {
 		return true
 	case OpAddSaturatedUint8x64:
 		v.Op = OpAMD64VPADDUSB512
-		return true
-	case OpAddSubFloat32x4:
-		v.Op = OpAMD64VADDSUBPS128
-		return true
-	case OpAddSubFloat32x8:
-		v.Op = OpAMD64VADDSUBPS256
-		return true
-	case OpAddSubFloat64x2:
-		v.Op = OpAMD64VADDSUBPD128
-		return true
-	case OpAddSubFloat64x4:
-		v.Op = OpAMD64VADDSUBPD256
 		return true
 	case OpAddUint16x16:
 		v.Op = OpAMD64VPADDW256
@@ -2455,96 +3501,6 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpBitLen64(v)
 	case OpBitLen8:
 		return rewriteValueAMD64_OpBitLen8(v)
-	case OpBroadcast1To16Float32x4:
-		v.Op = OpAMD64VBROADCASTSS512
-		return true
-	case OpBroadcast1To16Int16x8:
-		v.Op = OpAMD64VPBROADCASTW256
-		return true
-	case OpBroadcast1To16Int32x4:
-		v.Op = OpAMD64VPBROADCASTD512
-		return true
-	case OpBroadcast1To16Int8x16:
-		v.Op = OpAMD64VPBROADCASTB128
-		return true
-	case OpBroadcast1To16Uint16x8:
-		v.Op = OpAMD64VPBROADCASTW256
-		return true
-	case OpBroadcast1To16Uint32x4:
-		v.Op = OpAMD64VPBROADCASTD512
-		return true
-	case OpBroadcast1To16Uint8x16:
-		v.Op = OpAMD64VPBROADCASTB128
-		return true
-	case OpBroadcast1To2Float64x2:
-		v.Op = OpAMD64VPBROADCASTQ128
-		return true
-	case OpBroadcast1To2Int64x2:
-		v.Op = OpAMD64VPBROADCASTQ128
-		return true
-	case OpBroadcast1To2Uint64x2:
-		v.Op = OpAMD64VPBROADCASTQ128
-		return true
-	case OpBroadcast1To32Int16x8:
-		v.Op = OpAMD64VPBROADCASTW512
-		return true
-	case OpBroadcast1To32Int8x16:
-		v.Op = OpAMD64VPBROADCASTB256
-		return true
-	case OpBroadcast1To32Uint16x8:
-		v.Op = OpAMD64VPBROADCASTW512
-		return true
-	case OpBroadcast1To32Uint8x16:
-		v.Op = OpAMD64VPBROADCASTB256
-		return true
-	case OpBroadcast1To4Float32x4:
-		v.Op = OpAMD64VBROADCASTSS128
-		return true
-	case OpBroadcast1To4Float64x2:
-		v.Op = OpAMD64VBROADCASTSD256
-		return true
-	case OpBroadcast1To4Int32x4:
-		v.Op = OpAMD64VPBROADCASTD128
-		return true
-	case OpBroadcast1To4Int64x2:
-		v.Op = OpAMD64VPBROADCASTQ256
-		return true
-	case OpBroadcast1To4Uint32x4:
-		v.Op = OpAMD64VPBROADCASTD128
-		return true
-	case OpBroadcast1To4Uint64x2:
-		v.Op = OpAMD64VPBROADCASTQ256
-		return true
-	case OpBroadcast1To64Int8x16:
-		v.Op = OpAMD64VPBROADCASTB512
-		return true
-	case OpBroadcast1To64Uint8x16:
-		v.Op = OpAMD64VPBROADCASTB512
-		return true
-	case OpBroadcast1To8Float32x4:
-		v.Op = OpAMD64VBROADCASTSS256
-		return true
-	case OpBroadcast1To8Float64x2:
-		v.Op = OpAMD64VBROADCASTSD512
-		return true
-	case OpBroadcast1To8Int16x8:
-		v.Op = OpAMD64VPBROADCASTW128
-		return true
-	case OpBroadcast1To8Int32x4:
-		v.Op = OpAMD64VPBROADCASTD256
-		return true
-	case OpBroadcast1To8Int64x2:
-		v.Op = OpAMD64VPBROADCASTQ512
-		return true
-	case OpBroadcast1To8Uint16x8:
-		v.Op = OpAMD64VPBROADCASTW128
-		return true
-	case OpBroadcast1To8Uint32x4:
-		v.Op = OpAMD64VPBROADCASTD256
-		return true
-	case OpBroadcast1To8Uint64x2:
-		v.Op = OpAMD64VPBROADCASTQ512
-		return true
 	case OpBswap16:
 		return rewriteValueAMD64_OpBswap16(v)
 	case OpBswap32:
@@ -2662,6 +3618,78 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpCompressUint8x32(v)
 	case OpCompressUint8x64:
 		return rewriteValueAMD64_OpCompressUint8x64(v)
+	case OpConcatAddPairsFloat32x4:
+		v.Op = OpAMD64VHADDPS128
+		return true
+	case OpConcatAddPairsFloat64x2:
+		v.Op = OpAMD64VHADDPD128
+		return true
+	case OpConcatAddPairsGroupedFloat32x8:
+		v.Op = OpAMD64VHADDPS256
+		return true
+	case OpConcatAddPairsGroupedFloat64x4:
+		v.Op = OpAMD64VHADDPD256
+		return true
+	case OpConcatAddPairsGroupedInt16x16:
+		v.Op = OpAMD64VPHADDW256
+		return true
+	case OpConcatAddPairsGroupedInt32x8:
+		v.Op = OpAMD64VPHADDD256
+		return true
+	case OpConcatAddPairsGroupedUint16x16:
+		v.Op = OpAMD64VPHADDW256
+		return true
+	case OpConcatAddPairsGroupedUint32x8:
+		v.Op = OpAMD64VPHADDD256
+		return true
+	case OpConcatAddPairsInt16x8:
+		v.Op = OpAMD64VPHADDW128
+		return true
+	case OpConcatAddPairsInt32x4:
+		v.Op = OpAMD64VPHADDD128
+		return true
+	case OpConcatAddPairsSaturatedGroupedInt16x16:
+		v.Op = OpAMD64VPHADDSW256
+		return true
+	case OpConcatAddPairsSaturatedInt16x8:
+		v.Op = OpAMD64VPHADDSW128
+		return true
+	case OpConcatAddPairsUint16x8:
+		v.Op = OpAMD64VPHADDW128
+		return true
+	case OpConcatAddPairsUint32x4:
+		v.Op = OpAMD64VPHADDD128
+		return true
+	case OpConcatPermute128ScalarsFloat32x8:
+		v.Op = OpAMD64VPERM2F128256
+		return true
+	case OpConcatPermute128ScalarsFloat64x4:
+		v.Op = OpAMD64VPERM2F128256
+		return true
+	case OpConcatPermute128ScalarsInt16x16:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsInt32x8:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsInt64x4:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsInt8x32:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsUint16x16:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsUint32x8:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsUint64x4:
+		v.Op = OpAMD64VPERM2I128256
+		return true
+	case OpConcatPermute128ScalarsUint8x32:
+		v.Op = OpAMD64VPERM2I128256
+		return true
 	case OpConcatPermuteFloat32x16:
 		v.Op = OpAMD64VPERMI2PS512
 		return true
@@ -2760,6 +3788,48 @@ func rewriteValueAMD64(v *Value) bool {
 		return true
 	case OpConcatShiftBytesRightUint8x16:
 		v.Op = OpAMD64VPALIGNR128
+		return true
+	case OpConcatSubPairsFloat32x4:
+		v.Op = OpAMD64VHSUBPS128
+		return true
+	case OpConcatSubPairsFloat64x2:
+		v.Op = OpAMD64VHSUBPD128
+		return true
+	case OpConcatSubPairsGroupedFloat32x8:
+		v.Op = OpAMD64VHSUBPS256
+		return true
+	case OpConcatSubPairsGroupedFloat64x4:
+		v.Op = OpAMD64VHSUBPD256
+		return true
+	case OpConcatSubPairsGroupedInt16x16:
+		v.Op = OpAMD64VPHSUBW256
+		return true
+	case OpConcatSubPairsGroupedInt32x8:
+		v.Op = OpAMD64VPHSUBD256
+		return true
+	case OpConcatSubPairsGroupedUint16x16:
+		v.Op = OpAMD64VPHSUBW256
+		return true
+	case OpConcatSubPairsGroupedUint32x8:
+		v.Op = OpAMD64VPHSUBD256
+		return true
+	case OpConcatSubPairsInt16x8:
+		v.Op = OpAMD64VPHSUBW128
+		return true
+	case OpConcatSubPairsInt32x4:
+		v.Op = OpAMD64VPHSUBD128
+		return true
+	case OpConcatSubPairsSaturatedGroupedInt16x16:
+		v.Op = OpAMD64VPHSUBSW256
+		return true
+	case OpConcatSubPairsSaturatedInt16x8:
+		v.Op = OpAMD64VPHSUBSW128
+		return true
+	case OpConcatSubPairsUint16x8:
+		v.Op = OpAMD64VPHSUBW128
+		return true
+	case OpConcatSubPairsUint32x4:
+		v.Op = OpAMD64VPHSUBD128
 		return true
 	case OpCondSelect:
 		return rewriteValueAMD64_OpCondSelect(v)
@@ -2929,24 +3999,6 @@ func rewriteValueAMD64(v *Value) bool {
 		return true
 	case OpConvertToUint64Float64x8:
 		v.Op = OpAMD64VCVTTPD2UQQ512
-		return true
-	case OpCopySignInt16x16:
-		v.Op = OpAMD64VPSIGNW256
-		return true
-	case OpCopySignInt16x8:
-		v.Op = OpAMD64VPSIGNW128
-		return true
-	case OpCopySignInt32x4:
-		v.Op = OpAMD64VPSIGND128
-		return true
-	case OpCopySignInt32x8:
-		v.Op = OpAMD64VPSIGND256
-		return true
-	case OpCopySignInt8x16:
-		v.Op = OpAMD64VPSIGNB128
-		return true
-	case OpCopySignInt8x32:
-		v.Op = OpAMD64VPSIGNB256
 		return true
 	case OpCtz16:
 		return rewriteValueAMD64_OpCtz16(v)
@@ -4180,6 +5232,24 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpMul8:
 		v.Op = OpAMD64MULL
 		return true
+	case OpMulAddEvenSubOddFloat32x16:
+		v.Op = OpAMD64VFMADDSUB213PS512
+		return true
+	case OpMulAddEvenSubOddFloat32x4:
+		v.Op = OpAMD64VFMADDSUB213PS128
+		return true
+	case OpMulAddEvenSubOddFloat32x8:
+		v.Op = OpAMD64VFMADDSUB213PS256
+		return true
+	case OpMulAddEvenSubOddFloat64x2:
+		v.Op = OpAMD64VFMADDSUB213PD128
+		return true
+	case OpMulAddEvenSubOddFloat64x4:
+		v.Op = OpAMD64VFMADDSUB213PD256
+		return true
+	case OpMulAddEvenSubOddFloat64x8:
+		v.Op = OpAMD64VFMADDSUB213PD512
+		return true
 	case OpMulAddFloat32x16:
 		v.Op = OpAMD64VFMADD213PS512
 		return true
@@ -4198,35 +5268,23 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpMulAddFloat64x8:
 		v.Op = OpAMD64VFMADD213PD512
 		return true
-	case OpMulAddSubFloat32x16:
-		v.Op = OpAMD64VFMADDSUB213PS512
+	case OpMulAddOddSubEvenFloat32x16:
+		v.Op = OpAMD64VFMSUBADD213PS512
 		return true
-	case OpMulAddSubFloat32x4:
-		v.Op = OpAMD64VFMADDSUB213PS128
+	case OpMulAddOddSubEvenFloat32x4:
+		v.Op = OpAMD64VFMSUBADD213PS128
 		return true
-	case OpMulAddSubFloat32x8:
-		v.Op = OpAMD64VFMADDSUB213PS256
+	case OpMulAddOddSubEvenFloat32x8:
+		v.Op = OpAMD64VFMSUBADD213PS256
 		return true
-	case OpMulAddSubFloat64x2:
-		v.Op = OpAMD64VFMADDSUB213PD128
+	case OpMulAddOddSubEvenFloat64x2:
+		v.Op = OpAMD64VFMSUBADD213PD128
 		return true
-	case OpMulAddSubFloat64x4:
-		v.Op = OpAMD64VFMADDSUB213PD256
+	case OpMulAddOddSubEvenFloat64x4:
+		v.Op = OpAMD64VFMSUBADD213PD256
 		return true
-	case OpMulAddSubFloat64x8:
-		v.Op = OpAMD64VFMADDSUB213PD512
-		return true
-	case OpMulEvenWidenInt32x4:
-		v.Op = OpAMD64VPMULDQ128
-		return true
-	case OpMulEvenWidenInt32x8:
-		v.Op = OpAMD64VPMULDQ256
-		return true
-	case OpMulEvenWidenUint32x4:
-		v.Op = OpAMD64VPMULUDQ128
-		return true
-	case OpMulEvenWidenUint32x8:
-		v.Op = OpAMD64VPMULUDQ256
+	case OpMulAddOddSubEvenFloat64x8:
+		v.Op = OpAMD64VFMSUBADD213PD512
 		return true
 	case OpMulFloat32x16:
 		v.Op = OpAMD64VMULPS512
@@ -4291,23 +5349,23 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpMulInt64x8:
 		v.Op = OpAMD64VPMULLQ512
 		return true
-	case OpMulSubAddFloat32x16:
-		v.Op = OpAMD64VFMSUBADD213PS512
+	case OpMulSignInt16x16:
+		v.Op = OpAMD64VPSIGNW256
 		return true
-	case OpMulSubAddFloat32x4:
-		v.Op = OpAMD64VFMSUBADD213PS128
+	case OpMulSignInt16x8:
+		v.Op = OpAMD64VPSIGNW128
 		return true
-	case OpMulSubAddFloat32x8:
-		v.Op = OpAMD64VFMSUBADD213PS256
+	case OpMulSignInt32x4:
+		v.Op = OpAMD64VPSIGND128
 		return true
-	case OpMulSubAddFloat64x2:
-		v.Op = OpAMD64VFMSUBADD213PD128
+	case OpMulSignInt32x8:
+		v.Op = OpAMD64VPSIGND256
 		return true
-	case OpMulSubAddFloat64x4:
-		v.Op = OpAMD64VFMSUBADD213PD256
+	case OpMulSignInt8x16:
+		v.Op = OpAMD64VPSIGNB128
 		return true
-	case OpMulSubAddFloat64x8:
-		v.Op = OpAMD64VFMSUBADD213PD512
+	case OpMulSignInt8x32:
+		v.Op = OpAMD64VPSIGNB256
 		return true
 	case OpMulUint16x16:
 		v.Op = OpAMD64VPMULLW256
@@ -4335,6 +5393,18 @@ func rewriteValueAMD64(v *Value) bool {
 		return true
 	case OpMulUint64x8:
 		v.Op = OpAMD64VPMULLQ512
+		return true
+	case OpMulWidenEvenInt32x4:
+		v.Op = OpAMD64VPMULDQ128
+		return true
+	case OpMulWidenEvenInt32x8:
+		v.Op = OpAMD64VPMULDQ256
+		return true
+	case OpMulWidenEvenUint32x4:
+		v.Op = OpAMD64VPMULUDQ128
+		return true
+	case OpMulWidenEvenUint32x8:
+		v.Op = OpAMD64VPMULUDQ256
 		return true
 	case OpNeg16:
 		v.Op = OpAMD64NEGL
@@ -4707,78 +5777,6 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpReciprocalSqrtFloat64x8:
 		v.Op = OpAMD64VRSQRT14PD512
 		return true
-	case OpRotateAllLeftInt32x16:
-		v.Op = OpAMD64VPROLD512
-		return true
-	case OpRotateAllLeftInt32x4:
-		v.Op = OpAMD64VPROLD128
-		return true
-	case OpRotateAllLeftInt32x8:
-		v.Op = OpAMD64VPROLD256
-		return true
-	case OpRotateAllLeftInt64x2:
-		v.Op = OpAMD64VPROLQ128
-		return true
-	case OpRotateAllLeftInt64x4:
-		v.Op = OpAMD64VPROLQ256
-		return true
-	case OpRotateAllLeftInt64x8:
-		v.Op = OpAMD64VPROLQ512
-		return true
-	case OpRotateAllLeftUint32x16:
-		v.Op = OpAMD64VPROLD512
-		return true
-	case OpRotateAllLeftUint32x4:
-		v.Op = OpAMD64VPROLD128
-		return true
-	case OpRotateAllLeftUint32x8:
-		v.Op = OpAMD64VPROLD256
-		return true
-	case OpRotateAllLeftUint64x2:
-		v.Op = OpAMD64VPROLQ128
-		return true
-	case OpRotateAllLeftUint64x4:
-		v.Op = OpAMD64VPROLQ256
-		return true
-	case OpRotateAllLeftUint64x8:
-		v.Op = OpAMD64VPROLQ512
-		return true
-	case OpRotateAllRightInt32x16:
-		v.Op = OpAMD64VPRORD512
-		return true
-	case OpRotateAllRightInt32x4:
-		v.Op = OpAMD64VPRORD128
-		return true
-	case OpRotateAllRightInt32x8:
-		v.Op = OpAMD64VPRORD256
-		return true
-	case OpRotateAllRightInt64x2:
-		v.Op = OpAMD64VPRORQ128
-		return true
-	case OpRotateAllRightInt64x4:
-		v.Op = OpAMD64VPRORQ256
-		return true
-	case OpRotateAllRightInt64x8:
-		v.Op = OpAMD64VPRORQ512
-		return true
-	case OpRotateAllRightUint32x16:
-		v.Op = OpAMD64VPRORD512
-		return true
-	case OpRotateAllRightUint32x4:
-		v.Op = OpAMD64VPRORD128
-		return true
-	case OpRotateAllRightUint32x8:
-		v.Op = OpAMD64VPRORD256
-		return true
-	case OpRotateAllRightUint64x2:
-		v.Op = OpAMD64VPRORQ128
-		return true
-	case OpRotateAllRightUint64x4:
-		v.Op = OpAMD64VPRORQ256
-		return true
-	case OpRotateAllRightUint64x8:
-		v.Op = OpAMD64VPRORQ512
-		return true
 	case OpRotateLeft16:
 		v.Op = OpAMD64ROLW
 		return true
@@ -4869,40 +5867,40 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpRound64F:
 		v.Op = OpAMD64LoweredRound64F
 		return true
+	case OpRoundFloat32x4:
+		return rewriteValueAMD64_OpRoundFloat32x4(v)
+	case OpRoundFloat32x8:
+		return rewriteValueAMD64_OpRoundFloat32x8(v)
+	case OpRoundFloat64x2:
+		return rewriteValueAMD64_OpRoundFloat64x2(v)
+	case OpRoundFloat64x4:
+		return rewriteValueAMD64_OpRoundFloat64x4(v)
+	case OpRoundScaledFloat32x16:
+		return rewriteValueAMD64_OpRoundScaledFloat32x16(v)
+	case OpRoundScaledFloat32x4:
+		return rewriteValueAMD64_OpRoundScaledFloat32x4(v)
+	case OpRoundScaledFloat32x8:
+		return rewriteValueAMD64_OpRoundScaledFloat32x8(v)
+	case OpRoundScaledFloat64x2:
+		return rewriteValueAMD64_OpRoundScaledFloat64x2(v)
+	case OpRoundScaledFloat64x4:
+		return rewriteValueAMD64_OpRoundScaledFloat64x4(v)
+	case OpRoundScaledFloat64x8:
+		return rewriteValueAMD64_OpRoundScaledFloat64x8(v)
+	case OpRoundScaledResidueFloat32x16:
+		return rewriteValueAMD64_OpRoundScaledResidueFloat32x16(v)
+	case OpRoundScaledResidueFloat32x4:
+		return rewriteValueAMD64_OpRoundScaledResidueFloat32x4(v)
+	case OpRoundScaledResidueFloat32x8:
+		return rewriteValueAMD64_OpRoundScaledResidueFloat32x8(v)
+	case OpRoundScaledResidueFloat64x2:
+		return rewriteValueAMD64_OpRoundScaledResidueFloat64x2(v)
+	case OpRoundScaledResidueFloat64x4:
+		return rewriteValueAMD64_OpRoundScaledResidueFloat64x4(v)
+	case OpRoundScaledResidueFloat64x8:
+		return rewriteValueAMD64_OpRoundScaledResidueFloat64x8(v)
 	case OpRoundToEven:
 		return rewriteValueAMD64_OpRoundToEven(v)
-	case OpRoundToEvenFloat32x4:
-		return rewriteValueAMD64_OpRoundToEvenFloat32x4(v)
-	case OpRoundToEvenFloat32x8:
-		return rewriteValueAMD64_OpRoundToEvenFloat32x8(v)
-	case OpRoundToEvenFloat64x2:
-		return rewriteValueAMD64_OpRoundToEvenFloat64x2(v)
-	case OpRoundToEvenFloat64x4:
-		return rewriteValueAMD64_OpRoundToEvenFloat64x4(v)
-	case OpRoundToEvenScaledFloat32x16:
-		return rewriteValueAMD64_OpRoundToEvenScaledFloat32x16(v)
-	case OpRoundToEvenScaledFloat32x4:
-		return rewriteValueAMD64_OpRoundToEvenScaledFloat32x4(v)
-	case OpRoundToEvenScaledFloat32x8:
-		return rewriteValueAMD64_OpRoundToEvenScaledFloat32x8(v)
-	case OpRoundToEvenScaledFloat64x2:
-		return rewriteValueAMD64_OpRoundToEvenScaledFloat64x2(v)
-	case OpRoundToEvenScaledFloat64x4:
-		return rewriteValueAMD64_OpRoundToEvenScaledFloat64x4(v)
-	case OpRoundToEvenScaledFloat64x8:
-		return rewriteValueAMD64_OpRoundToEvenScaledFloat64x8(v)
-	case OpRoundToEvenScaledResidueFloat32x16:
-		return rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x16(v)
-	case OpRoundToEvenScaledResidueFloat32x4:
-		return rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x4(v)
-	case OpRoundToEvenScaledResidueFloat32x8:
-		return rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x8(v)
-	case OpRoundToEvenScaledResidueFloat64x2:
-		return rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x2(v)
-	case OpRoundToEvenScaledResidueFloat64x4:
-		return rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x4(v)
-	case OpRoundToEvenScaledResidueFloat64x8:
-		return rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x8(v)
 	case OpRsh16Ux16:
 		return rewriteValueAMD64_OpRsh16Ux16(v)
 	case OpRsh16Ux32:
@@ -5136,36 +6134,6 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpSelect0(v)
 	case OpSelect1:
 		return rewriteValueAMD64_OpSelect1(v)
-	case OpSelect128FromPairFloat32x8:
-		v.Op = OpAMD64VPERM2F128256
-		return true
-	case OpSelect128FromPairFloat64x4:
-		v.Op = OpAMD64VPERM2F128256
-		return true
-	case OpSelect128FromPairInt16x16:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairInt32x8:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairInt64x4:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairInt8x32:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairUint16x16:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairUint32x8:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairUint64x4:
-		v.Op = OpAMD64VPERM2I128256
-		return true
-	case OpSelect128FromPairUint8x32:
-		v.Op = OpAMD64VPERM2I128256
-		return true
 	case OpSelectN:
 		return rewriteValueAMD64_OpSelectN(v)
 	case OpSetElemFloat32x4:
@@ -5278,58 +6246,58 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpSetLoUint8x32(v)
 	case OpSetLoUint8x64:
 		return rewriteValueAMD64_OpSetLoUint8x64(v)
-	case OpShiftAllLeftConcatInt16x16:
+	case OpShiftAllLeftConcatMod16Int16x16:
 		v.Op = OpAMD64VPSHLDW256
 		return true
-	case OpShiftAllLeftConcatInt16x32:
+	case OpShiftAllLeftConcatMod16Int16x32:
 		v.Op = OpAMD64VPSHLDW512
 		return true
-	case OpShiftAllLeftConcatInt16x8:
+	case OpShiftAllLeftConcatMod16Int16x8:
 		v.Op = OpAMD64VPSHLDW128
 		return true
-	case OpShiftAllLeftConcatInt32x16:
+	case OpShiftAllLeftConcatMod16Uint16x16:
+		v.Op = OpAMD64VPSHLDW256
+		return true
+	case OpShiftAllLeftConcatMod16Uint16x32:
+		v.Op = OpAMD64VPSHLDW512
+		return true
+	case OpShiftAllLeftConcatMod16Uint16x8:
+		v.Op = OpAMD64VPSHLDW128
+		return true
+	case OpShiftAllLeftConcatMod32Int32x16:
 		v.Op = OpAMD64VPSHLDD512
 		return true
-	case OpShiftAllLeftConcatInt32x4:
+	case OpShiftAllLeftConcatMod32Int32x4:
 		v.Op = OpAMD64VPSHLDD128
 		return true
-	case OpShiftAllLeftConcatInt32x8:
+	case OpShiftAllLeftConcatMod32Int32x8:
 		v.Op = OpAMD64VPSHLDD256
 		return true
-	case OpShiftAllLeftConcatInt64x2:
+	case OpShiftAllLeftConcatMod32Uint32x16:
+		v.Op = OpAMD64VPSHLDD512
+		return true
+	case OpShiftAllLeftConcatMod32Uint32x4:
+		v.Op = OpAMD64VPSHLDD128
+		return true
+	case OpShiftAllLeftConcatMod32Uint32x8:
+		v.Op = OpAMD64VPSHLDD256
+		return true
+	case OpShiftAllLeftConcatMod64Int64x2:
 		v.Op = OpAMD64VPSHLDQ128
 		return true
-	case OpShiftAllLeftConcatInt64x4:
+	case OpShiftAllLeftConcatMod64Int64x4:
 		v.Op = OpAMD64VPSHLDQ256
 		return true
-	case OpShiftAllLeftConcatInt64x8:
+	case OpShiftAllLeftConcatMod64Int64x8:
 		v.Op = OpAMD64VPSHLDQ512
 		return true
-	case OpShiftAllLeftConcatUint16x16:
-		v.Op = OpAMD64VPSHLDW256
-		return true
-	case OpShiftAllLeftConcatUint16x32:
-		v.Op = OpAMD64VPSHLDW512
-		return true
-	case OpShiftAllLeftConcatUint16x8:
-		v.Op = OpAMD64VPSHLDW128
-		return true
-	case OpShiftAllLeftConcatUint32x16:
-		v.Op = OpAMD64VPSHLDD512
-		return true
-	case OpShiftAllLeftConcatUint32x4:
-		v.Op = OpAMD64VPSHLDD128
-		return true
-	case OpShiftAllLeftConcatUint32x8:
-		v.Op = OpAMD64VPSHLDD256
-		return true
-	case OpShiftAllLeftConcatUint64x2:
+	case OpShiftAllLeftConcatMod64Uint64x2:
 		v.Op = OpAMD64VPSHLDQ128
 		return true
-	case OpShiftAllLeftConcatUint64x4:
+	case OpShiftAllLeftConcatMod64Uint64x4:
 		v.Op = OpAMD64VPSHLDQ256
 		return true
-	case OpShiftAllLeftConcatUint64x8:
+	case OpShiftAllLeftConcatMod64Uint64x8:
 		v.Op = OpAMD64VPSHLDQ512
 		return true
 	case OpShiftAllLeftInt16x16:
@@ -5386,58 +6354,58 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpShiftAllLeftUint64x8:
 		v.Op = OpAMD64VPSLLQ512
 		return true
-	case OpShiftAllRightConcatInt16x16:
+	case OpShiftAllRightConcatMod16Int16x16:
 		v.Op = OpAMD64VPSHRDW256
 		return true
-	case OpShiftAllRightConcatInt16x32:
+	case OpShiftAllRightConcatMod16Int16x32:
 		v.Op = OpAMD64VPSHRDW512
 		return true
-	case OpShiftAllRightConcatInt16x8:
+	case OpShiftAllRightConcatMod16Int16x8:
 		v.Op = OpAMD64VPSHRDW128
 		return true
-	case OpShiftAllRightConcatInt32x16:
+	case OpShiftAllRightConcatMod16Uint16x16:
+		v.Op = OpAMD64VPSHRDW256
+		return true
+	case OpShiftAllRightConcatMod16Uint16x32:
+		v.Op = OpAMD64VPSHRDW512
+		return true
+	case OpShiftAllRightConcatMod16Uint16x8:
+		v.Op = OpAMD64VPSHRDW128
+		return true
+	case OpShiftAllRightConcatMod32Int32x16:
 		v.Op = OpAMD64VPSHRDD512
 		return true
-	case OpShiftAllRightConcatInt32x4:
+	case OpShiftAllRightConcatMod32Int32x4:
 		v.Op = OpAMD64VPSHRDD128
 		return true
-	case OpShiftAllRightConcatInt32x8:
+	case OpShiftAllRightConcatMod32Int32x8:
 		v.Op = OpAMD64VPSHRDD256
 		return true
-	case OpShiftAllRightConcatInt64x2:
+	case OpShiftAllRightConcatMod32Uint32x16:
+		v.Op = OpAMD64VPSHRDD512
+		return true
+	case OpShiftAllRightConcatMod32Uint32x4:
+		v.Op = OpAMD64VPSHRDD128
+		return true
+	case OpShiftAllRightConcatMod32Uint32x8:
+		v.Op = OpAMD64VPSHRDD256
+		return true
+	case OpShiftAllRightConcatMod64Int64x2:
 		v.Op = OpAMD64VPSHRDQ128
 		return true
-	case OpShiftAllRightConcatInt64x4:
+	case OpShiftAllRightConcatMod64Int64x4:
 		v.Op = OpAMD64VPSHRDQ256
 		return true
-	case OpShiftAllRightConcatInt64x8:
+	case OpShiftAllRightConcatMod64Int64x8:
 		v.Op = OpAMD64VPSHRDQ512
 		return true
-	case OpShiftAllRightConcatUint16x16:
-		v.Op = OpAMD64VPSHRDW256
-		return true
-	case OpShiftAllRightConcatUint16x32:
-		v.Op = OpAMD64VPSHRDW512
-		return true
-	case OpShiftAllRightConcatUint16x8:
-		v.Op = OpAMD64VPSHRDW128
-		return true
-	case OpShiftAllRightConcatUint32x16:
-		v.Op = OpAMD64VPSHRDD512
-		return true
-	case OpShiftAllRightConcatUint32x4:
-		v.Op = OpAMD64VPSHRDD128
-		return true
-	case OpShiftAllRightConcatUint32x8:
-		v.Op = OpAMD64VPSHRDD256
-		return true
-	case OpShiftAllRightConcatUint64x2:
+	case OpShiftAllRightConcatMod64Uint64x2:
 		v.Op = OpAMD64VPSHRDQ128
 		return true
-	case OpShiftAllRightConcatUint64x4:
+	case OpShiftAllRightConcatMod64Uint64x4:
 		v.Op = OpAMD64VPSHRDQ256
 		return true
-	case OpShiftAllRightConcatUint64x8:
+	case OpShiftAllRightConcatMod64Uint64x8:
 		v.Op = OpAMD64VPSHRDQ512
 		return true
 	case OpShiftAllRightInt16x16:
@@ -5494,58 +6462,58 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpShiftAllRightUint64x8:
 		v.Op = OpAMD64VPSRLQ512
 		return true
-	case OpShiftLeftConcatInt16x16:
+	case OpShiftLeftConcatMod16Int16x16:
 		v.Op = OpAMD64VPSHLDVW256
 		return true
-	case OpShiftLeftConcatInt16x32:
+	case OpShiftLeftConcatMod16Int16x32:
 		v.Op = OpAMD64VPSHLDVW512
 		return true
-	case OpShiftLeftConcatInt16x8:
+	case OpShiftLeftConcatMod16Int16x8:
 		v.Op = OpAMD64VPSHLDVW128
 		return true
-	case OpShiftLeftConcatInt32x16:
+	case OpShiftLeftConcatMod16Uint16x16:
+		v.Op = OpAMD64VPSHLDVW256
+		return true
+	case OpShiftLeftConcatMod16Uint16x32:
+		v.Op = OpAMD64VPSHLDVW512
+		return true
+	case OpShiftLeftConcatMod16Uint16x8:
+		v.Op = OpAMD64VPSHLDVW128
+		return true
+	case OpShiftLeftConcatMod32Int32x16:
 		v.Op = OpAMD64VPSHLDVD512
 		return true
-	case OpShiftLeftConcatInt32x4:
+	case OpShiftLeftConcatMod32Int32x4:
 		v.Op = OpAMD64VPSHLDVD128
 		return true
-	case OpShiftLeftConcatInt32x8:
+	case OpShiftLeftConcatMod32Int32x8:
 		v.Op = OpAMD64VPSHLDVD256
 		return true
-	case OpShiftLeftConcatInt64x2:
+	case OpShiftLeftConcatMod32Uint32x16:
+		v.Op = OpAMD64VPSHLDVD512
+		return true
+	case OpShiftLeftConcatMod32Uint32x4:
+		v.Op = OpAMD64VPSHLDVD128
+		return true
+	case OpShiftLeftConcatMod32Uint32x8:
+		v.Op = OpAMD64VPSHLDVD256
+		return true
+	case OpShiftLeftConcatMod64Int64x2:
 		v.Op = OpAMD64VPSHLDVQ128
 		return true
-	case OpShiftLeftConcatInt64x4:
+	case OpShiftLeftConcatMod64Int64x4:
 		v.Op = OpAMD64VPSHLDVQ256
 		return true
-	case OpShiftLeftConcatInt64x8:
+	case OpShiftLeftConcatMod64Int64x8:
 		v.Op = OpAMD64VPSHLDVQ512
 		return true
-	case OpShiftLeftConcatUint16x16:
-		v.Op = OpAMD64VPSHLDVW256
-		return true
-	case OpShiftLeftConcatUint16x32:
-		v.Op = OpAMD64VPSHLDVW512
-		return true
-	case OpShiftLeftConcatUint16x8:
-		v.Op = OpAMD64VPSHLDVW128
-		return true
-	case OpShiftLeftConcatUint32x16:
-		v.Op = OpAMD64VPSHLDVD512
-		return true
-	case OpShiftLeftConcatUint32x4:
-		v.Op = OpAMD64VPSHLDVD128
-		return true
-	case OpShiftLeftConcatUint32x8:
-		v.Op = OpAMD64VPSHLDVD256
-		return true
-	case OpShiftLeftConcatUint64x2:
+	case OpShiftLeftConcatMod64Uint64x2:
 		v.Op = OpAMD64VPSHLDVQ128
 		return true
-	case OpShiftLeftConcatUint64x4:
+	case OpShiftLeftConcatMod64Uint64x4:
 		v.Op = OpAMD64VPSHLDVQ256
 		return true
-	case OpShiftLeftConcatUint64x8:
+	case OpShiftLeftConcatMod64Uint64x8:
 		v.Op = OpAMD64VPSHLDVQ512
 		return true
 	case OpShiftLeftInt16x16:
@@ -5602,58 +6570,58 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpShiftLeftUint64x8:
 		v.Op = OpAMD64VPSLLVQ512
 		return true
-	case OpShiftRightConcatInt16x16:
+	case OpShiftRightConcatMod16Int16x16:
 		v.Op = OpAMD64VPSHRDVW256
 		return true
-	case OpShiftRightConcatInt16x32:
+	case OpShiftRightConcatMod16Int16x32:
 		v.Op = OpAMD64VPSHRDVW512
 		return true
-	case OpShiftRightConcatInt16x8:
+	case OpShiftRightConcatMod16Int16x8:
 		v.Op = OpAMD64VPSHRDVW128
 		return true
-	case OpShiftRightConcatInt32x16:
+	case OpShiftRightConcatMod16Uint16x16:
+		v.Op = OpAMD64VPSHRDVW256
+		return true
+	case OpShiftRightConcatMod16Uint16x32:
+		v.Op = OpAMD64VPSHRDVW512
+		return true
+	case OpShiftRightConcatMod16Uint16x8:
+		v.Op = OpAMD64VPSHRDVW128
+		return true
+	case OpShiftRightConcatMod32Int32x16:
 		v.Op = OpAMD64VPSHRDVD512
 		return true
-	case OpShiftRightConcatInt32x4:
+	case OpShiftRightConcatMod32Int32x4:
 		v.Op = OpAMD64VPSHRDVD128
 		return true
-	case OpShiftRightConcatInt32x8:
+	case OpShiftRightConcatMod32Int32x8:
 		v.Op = OpAMD64VPSHRDVD256
 		return true
-	case OpShiftRightConcatInt64x2:
+	case OpShiftRightConcatMod32Uint32x16:
+		v.Op = OpAMD64VPSHRDVD512
+		return true
+	case OpShiftRightConcatMod32Uint32x4:
+		v.Op = OpAMD64VPSHRDVD128
+		return true
+	case OpShiftRightConcatMod32Uint32x8:
+		v.Op = OpAMD64VPSHRDVD256
+		return true
+	case OpShiftRightConcatMod64Int64x2:
 		v.Op = OpAMD64VPSHRDVQ128
 		return true
-	case OpShiftRightConcatInt64x4:
+	case OpShiftRightConcatMod64Int64x4:
 		v.Op = OpAMD64VPSHRDVQ256
 		return true
-	case OpShiftRightConcatInt64x8:
+	case OpShiftRightConcatMod64Int64x8:
 		v.Op = OpAMD64VPSHRDVQ512
 		return true
-	case OpShiftRightConcatUint16x16:
-		v.Op = OpAMD64VPSHRDVW256
-		return true
-	case OpShiftRightConcatUint16x32:
-		v.Op = OpAMD64VPSHRDVW512
-		return true
-	case OpShiftRightConcatUint16x8:
-		v.Op = OpAMD64VPSHRDVW128
-		return true
-	case OpShiftRightConcatUint32x16:
-		v.Op = OpAMD64VPSHRDVD512
-		return true
-	case OpShiftRightConcatUint32x4:
-		v.Op = OpAMD64VPSHRDVD128
-		return true
-	case OpShiftRightConcatUint32x8:
-		v.Op = OpAMD64VPSHRDVD256
-		return true
-	case OpShiftRightConcatUint64x2:
+	case OpShiftRightConcatMod64Uint64x2:
 		v.Op = OpAMD64VPSHRDVQ128
 		return true
-	case OpShiftRightConcatUint64x4:
+	case OpShiftRightConcatMod64Uint64x4:
 		v.Op = OpAMD64VPSHRDVQ256
 		return true
-	case OpShiftRightConcatUint64x8:
+	case OpShiftRightConcatMod64Uint64x8:
 		v.Op = OpAMD64VPSHRDVQ512
 		return true
 	case OpShiftRightInt16x16:
@@ -5843,48 +6811,6 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpSubInt8x64:
 		v.Op = OpAMD64VPSUBB512
 		return true
-	case OpSubPairsFloat32x4:
-		v.Op = OpAMD64VHSUBPS128
-		return true
-	case OpSubPairsFloat64x2:
-		v.Op = OpAMD64VHSUBPD128
-		return true
-	case OpSubPairsGroupedFloat32x8:
-		v.Op = OpAMD64VHSUBPS256
-		return true
-	case OpSubPairsGroupedFloat64x4:
-		v.Op = OpAMD64VHSUBPD256
-		return true
-	case OpSubPairsGroupedInt16x16:
-		v.Op = OpAMD64VPHSUBW256
-		return true
-	case OpSubPairsGroupedInt32x8:
-		v.Op = OpAMD64VPHSUBD256
-		return true
-	case OpSubPairsGroupedUint16x16:
-		v.Op = OpAMD64VPHSUBW256
-		return true
-	case OpSubPairsGroupedUint32x8:
-		v.Op = OpAMD64VPHSUBD256
-		return true
-	case OpSubPairsInt16x8:
-		v.Op = OpAMD64VPHSUBW128
-		return true
-	case OpSubPairsInt32x4:
-		v.Op = OpAMD64VPHSUBD128
-		return true
-	case OpSubPairsSaturatedGroupedInt16x16:
-		v.Op = OpAMD64VPHSUBSW256
-		return true
-	case OpSubPairsSaturatedInt16x8:
-		v.Op = OpAMD64VPHSUBSW128
-		return true
-	case OpSubPairsUint16x8:
-		v.Op = OpAMD64VPHSUBW128
-		return true
-	case OpSubPairsUint32x4:
-		v.Op = OpAMD64VPHSUBD128
-		return true
 	case OpSubPtr:
 		v.Op = OpAMD64SUBQ
 		return true
@@ -5960,17 +6886,20 @@ func rewriteValueAMD64(v *Value) bool {
 	case OpSubUint8x64:
 		v.Op = OpAMD64VPSUBB512
 		return true
-	case OpSumAbsDiffUint8x16:
+	case OpSumOf8AbsDiffUint8x16:
 		v.Op = OpAMD64VPSADBW128
 		return true
-	case OpSumAbsDiffUint8x32:
+	case OpSumOf8AbsDiffUint8x32:
 		v.Op = OpAMD64VPSADBW256
 		return true
-	case OpSumAbsDiffUint8x64:
+	case OpSumOf8AbsDiffUint8x64:
 		v.Op = OpAMD64VPSADBW512
 		return true
 	case OpTailCall:
 		v.Op = OpAMD64CALLtail
+		return true
+	case OpTailCallInter:
+		v.Op = OpAMD64CALLtailinter
 		return true
 	case OpTrunc:
 		return rewriteValueAMD64_OpTrunc(v)
@@ -6024,112 +6953,112 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpTruncScaledResidueFloat64x4(v)
 	case OpTruncScaledResidueFloat64x8:
 		return rewriteValueAMD64_OpTruncScaledResidueFloat64x8(v)
-	case OpTruncateToInt16Int32x16:
+	case OpTruncToInt16Int32x16:
 		v.Op = OpAMD64VPMOVDW256
 		return true
-	case OpTruncateToInt16Int32x4:
+	case OpTruncToInt16Int32x4:
 		v.Op = OpAMD64VPMOVDW128_128
 		return true
-	case OpTruncateToInt16Int32x8:
+	case OpTruncToInt16Int32x8:
 		v.Op = OpAMD64VPMOVDW128_256
 		return true
-	case OpTruncateToInt16Int64x2:
+	case OpTruncToInt16Int64x2:
 		v.Op = OpAMD64VPMOVQW128_128
 		return true
-	case OpTruncateToInt16Int64x4:
+	case OpTruncToInt16Int64x4:
 		v.Op = OpAMD64VPMOVQW128_256
 		return true
-	case OpTruncateToInt16Int64x8:
+	case OpTruncToInt16Int64x8:
 		v.Op = OpAMD64VPMOVQW128_512
 		return true
-	case OpTruncateToInt32Int64x2:
+	case OpTruncToInt32Int64x2:
 		v.Op = OpAMD64VPMOVQD128_128
 		return true
-	case OpTruncateToInt32Int64x4:
+	case OpTruncToInt32Int64x4:
 		v.Op = OpAMD64VPMOVQD128_256
 		return true
-	case OpTruncateToInt32Int64x8:
+	case OpTruncToInt32Int64x8:
 		v.Op = OpAMD64VPMOVQD256
 		return true
-	case OpTruncateToInt8Int16x16:
+	case OpTruncToInt8Int16x16:
 		v.Op = OpAMD64VPMOVWB128_256
 		return true
-	case OpTruncateToInt8Int16x32:
+	case OpTruncToInt8Int16x32:
 		v.Op = OpAMD64VPMOVWB256
 		return true
-	case OpTruncateToInt8Int16x8:
+	case OpTruncToInt8Int16x8:
 		v.Op = OpAMD64VPMOVWB128_128
 		return true
-	case OpTruncateToInt8Int32x16:
+	case OpTruncToInt8Int32x16:
 		v.Op = OpAMD64VPMOVDB128_512
 		return true
-	case OpTruncateToInt8Int32x4:
+	case OpTruncToInt8Int32x4:
 		v.Op = OpAMD64VPMOVDB128_128
 		return true
-	case OpTruncateToInt8Int32x8:
+	case OpTruncToInt8Int32x8:
 		v.Op = OpAMD64VPMOVDB128_256
 		return true
-	case OpTruncateToInt8Int64x2:
+	case OpTruncToInt8Int64x2:
 		v.Op = OpAMD64VPMOVQB128_128
 		return true
-	case OpTruncateToInt8Int64x4:
+	case OpTruncToInt8Int64x4:
 		v.Op = OpAMD64VPMOVQB128_256
 		return true
-	case OpTruncateToInt8Int64x8:
+	case OpTruncToInt8Int64x8:
 		v.Op = OpAMD64VPMOVQB128_512
 		return true
-	case OpTruncateToUint16Uint32x16:
+	case OpTruncToUint16Uint32x16:
 		v.Op = OpAMD64VPMOVDW256
 		return true
-	case OpTruncateToUint16Uint32x4:
+	case OpTruncToUint16Uint32x4:
 		v.Op = OpAMD64VPMOVDW128_128
 		return true
-	case OpTruncateToUint16Uint32x8:
+	case OpTruncToUint16Uint32x8:
 		v.Op = OpAMD64VPMOVDW128_256
 		return true
-	case OpTruncateToUint16Uint64x2:
+	case OpTruncToUint16Uint64x2:
 		v.Op = OpAMD64VPMOVQW128_128
 		return true
-	case OpTruncateToUint16Uint64x4:
+	case OpTruncToUint16Uint64x4:
 		v.Op = OpAMD64VPMOVQW128_256
 		return true
-	case OpTruncateToUint16Uint64x8:
+	case OpTruncToUint16Uint64x8:
 		v.Op = OpAMD64VPMOVQW128_512
 		return true
-	case OpTruncateToUint32Uint64x2:
+	case OpTruncToUint32Uint64x2:
 		v.Op = OpAMD64VPMOVQD128_128
 		return true
-	case OpTruncateToUint32Uint64x4:
+	case OpTruncToUint32Uint64x4:
 		v.Op = OpAMD64VPMOVQD128_256
 		return true
-	case OpTruncateToUint32Uint64x8:
+	case OpTruncToUint32Uint64x8:
 		v.Op = OpAMD64VPMOVQD256
 		return true
-	case OpTruncateToUint8Uint16x16:
+	case OpTruncToUint8Uint16x16:
 		v.Op = OpAMD64VPMOVWB128_256
 		return true
-	case OpTruncateToUint8Uint16x32:
+	case OpTruncToUint8Uint16x32:
 		v.Op = OpAMD64VPMOVWB256
 		return true
-	case OpTruncateToUint8Uint16x8:
+	case OpTruncToUint8Uint16x8:
 		v.Op = OpAMD64VPMOVWB128_128
 		return true
-	case OpTruncateToUint8Uint32x16:
+	case OpTruncToUint8Uint32x16:
 		v.Op = OpAMD64VPMOVDB128_512
 		return true
-	case OpTruncateToUint8Uint32x4:
+	case OpTruncToUint8Uint32x4:
 		v.Op = OpAMD64VPMOVDB128_128
 		return true
-	case OpTruncateToUint8Uint32x8:
+	case OpTruncToUint8Uint32x8:
 		v.Op = OpAMD64VPMOVDB128_256
 		return true
-	case OpTruncateToUint8Uint64x2:
+	case OpTruncToUint8Uint64x2:
 		v.Op = OpAMD64VPMOVQB128_128
 		return true
-	case OpTruncateToUint8Uint64x4:
+	case OpTruncToUint8Uint64x4:
 		v.Op = OpAMD64VPMOVQB128_256
 		return true
-	case OpTruncateToUint8Uint64x8:
+	case OpTruncToUint8Uint64x8:
 		v.Op = OpAMD64VPMOVQB128_512
 		return true
 	case OpWB:
@@ -6255,6 +7184,156 @@ func rewriteValueAMD64(v *Value) bool {
 		return rewriteValueAMD64_OpblendMaskedInt64x8(v)
 	case OpblendMaskedInt8x64:
 		return rewriteValueAMD64_OpblendMaskedInt8x64(v)
+	case Opbroadcast1To16Float32x4:
+		v.Op = OpAMD64VBROADCASTSS512
+		return true
+	case Opbroadcast1To16Int16x8:
+		v.Op = OpAMD64VPBROADCASTW256
+		return true
+	case Opbroadcast1To16Int32x4:
+		v.Op = OpAMD64VPBROADCASTD512
+		return true
+	case Opbroadcast1To16Int8x16:
+		v.Op = OpAMD64VPBROADCASTB128
+		return true
+	case Opbroadcast1To16MaskedFloat32x4:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedFloat32x4(v)
+	case Opbroadcast1To16MaskedInt16x8:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedInt16x8(v)
+	case Opbroadcast1To16MaskedInt32x4:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedInt32x4(v)
+	case Opbroadcast1To16MaskedInt8x16:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedInt8x16(v)
+	case Opbroadcast1To16MaskedUint16x8:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedUint16x8(v)
+	case Opbroadcast1To16MaskedUint32x4:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedUint32x4(v)
+	case Opbroadcast1To16MaskedUint8x16:
+		return rewriteValueAMD64_Opbroadcast1To16MaskedUint8x16(v)
+	case Opbroadcast1To16Uint16x8:
+		v.Op = OpAMD64VPBROADCASTW256
+		return true
+	case Opbroadcast1To16Uint32x4:
+		v.Op = OpAMD64VPBROADCASTD512
+		return true
+	case Opbroadcast1To16Uint8x16:
+		v.Op = OpAMD64VPBROADCASTB128
+		return true
+	case Opbroadcast1To2Float64x2:
+		v.Op = OpAMD64VPBROADCASTQ128
+		return true
+	case Opbroadcast1To2Int64x2:
+		v.Op = OpAMD64VPBROADCASTQ128
+		return true
+	case Opbroadcast1To2MaskedFloat64x2:
+		return rewriteValueAMD64_Opbroadcast1To2MaskedFloat64x2(v)
+	case Opbroadcast1To2MaskedInt64x2:
+		return rewriteValueAMD64_Opbroadcast1To2MaskedInt64x2(v)
+	case Opbroadcast1To2MaskedUint64x2:
+		return rewriteValueAMD64_Opbroadcast1To2MaskedUint64x2(v)
+	case Opbroadcast1To2Uint64x2:
+		v.Op = OpAMD64VPBROADCASTQ128
+		return true
+	case Opbroadcast1To32Int16x8:
+		v.Op = OpAMD64VPBROADCASTW512
+		return true
+	case Opbroadcast1To32Int8x16:
+		v.Op = OpAMD64VPBROADCASTB256
+		return true
+	case Opbroadcast1To32MaskedInt16x8:
+		return rewriteValueAMD64_Opbroadcast1To32MaskedInt16x8(v)
+	case Opbroadcast1To32MaskedInt8x16:
+		return rewriteValueAMD64_Opbroadcast1To32MaskedInt8x16(v)
+	case Opbroadcast1To32MaskedUint16x8:
+		return rewriteValueAMD64_Opbroadcast1To32MaskedUint16x8(v)
+	case Opbroadcast1To32MaskedUint8x16:
+		return rewriteValueAMD64_Opbroadcast1To32MaskedUint8x16(v)
+	case Opbroadcast1To32Uint16x8:
+		v.Op = OpAMD64VPBROADCASTW512
+		return true
+	case Opbroadcast1To32Uint8x16:
+		v.Op = OpAMD64VPBROADCASTB256
+		return true
+	case Opbroadcast1To4Float32x4:
+		v.Op = OpAMD64VBROADCASTSS128
+		return true
+	case Opbroadcast1To4Float64x2:
+		v.Op = OpAMD64VBROADCASTSD256
+		return true
+	case Opbroadcast1To4Int32x4:
+		v.Op = OpAMD64VPBROADCASTD128
+		return true
+	case Opbroadcast1To4Int64x2:
+		v.Op = OpAMD64VPBROADCASTQ256
+		return true
+	case Opbroadcast1To4MaskedFloat32x4:
+		return rewriteValueAMD64_Opbroadcast1To4MaskedFloat32x4(v)
+	case Opbroadcast1To4MaskedFloat64x2:
+		return rewriteValueAMD64_Opbroadcast1To4MaskedFloat64x2(v)
+	case Opbroadcast1To4MaskedInt32x4:
+		return rewriteValueAMD64_Opbroadcast1To4MaskedInt32x4(v)
+	case Opbroadcast1To4MaskedInt64x2:
+		return rewriteValueAMD64_Opbroadcast1To4MaskedInt64x2(v)
+	case Opbroadcast1To4MaskedUint32x4:
+		return rewriteValueAMD64_Opbroadcast1To4MaskedUint32x4(v)
+	case Opbroadcast1To4MaskedUint64x2:
+		return rewriteValueAMD64_Opbroadcast1To4MaskedUint64x2(v)
+	case Opbroadcast1To4Uint32x4:
+		v.Op = OpAMD64VPBROADCASTD128
+		return true
+	case Opbroadcast1To4Uint64x2:
+		v.Op = OpAMD64VPBROADCASTQ256
+		return true
+	case Opbroadcast1To64Int8x16:
+		v.Op = OpAMD64VPBROADCASTB512
+		return true
+	case Opbroadcast1To64MaskedInt8x16:
+		return rewriteValueAMD64_Opbroadcast1To64MaskedInt8x16(v)
+	case Opbroadcast1To64MaskedUint8x16:
+		return rewriteValueAMD64_Opbroadcast1To64MaskedUint8x16(v)
+	case Opbroadcast1To64Uint8x16:
+		v.Op = OpAMD64VPBROADCASTB512
+		return true
+	case Opbroadcast1To8Float32x4:
+		v.Op = OpAMD64VBROADCASTSS256
+		return true
+	case Opbroadcast1To8Float64x2:
+		v.Op = OpAMD64VBROADCASTSD512
+		return true
+	case Opbroadcast1To8Int16x8:
+		v.Op = OpAMD64VPBROADCASTW128
+		return true
+	case Opbroadcast1To8Int32x4:
+		v.Op = OpAMD64VPBROADCASTD256
+		return true
+	case Opbroadcast1To8Int64x2:
+		v.Op = OpAMD64VPBROADCASTQ512
+		return true
+	case Opbroadcast1To8MaskedFloat32x4:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedFloat32x4(v)
+	case Opbroadcast1To8MaskedFloat64x2:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedFloat64x2(v)
+	case Opbroadcast1To8MaskedInt16x8:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedInt16x8(v)
+	case Opbroadcast1To8MaskedInt32x4:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedInt32x4(v)
+	case Opbroadcast1To8MaskedInt64x2:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedInt64x2(v)
+	case Opbroadcast1To8MaskedUint16x8:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedUint16x8(v)
+	case Opbroadcast1To8MaskedUint32x4:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedUint32x4(v)
+	case Opbroadcast1To8MaskedUint64x2:
+		return rewriteValueAMD64_Opbroadcast1To8MaskedUint64x2(v)
+	case Opbroadcast1To8Uint16x8:
+		v.Op = OpAMD64VPBROADCASTW128
+		return true
+	case Opbroadcast1To8Uint32x4:
+		v.Op = OpAMD64VPBROADCASTD256
+		return true
+	case Opbroadcast1To8Uint64x2:
+		v.Op = OpAMD64VPBROADCASTQ512
+		return true
 	case OpcarrylessMultiplyUint64x2:
 		v.Op = OpAMD64VPCLMULQDQ128
 		return true
@@ -6415,6 +7494,8 @@ func rewriteValueAMD64_OpAMD64ADCQ(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
 	// match: (ADCQ x (MOVQconst [c]) carry)
 	// cond: is32Bit(c)
 	// result: (ADCQconst x [int32(c)] carry)
@@ -6448,11 +7529,34 @@ func rewriteValueAMD64_OpAMD64ADCQ(v *Value) bool {
 		v.AddArg2(x, y)
 		return true
 	}
+	// match: (ADCQ x y (InvertFlags f))
+	// result: (ADCQ x y (Select1 <types.TypeFlags> (NEGLflags (MOVBQZX <types.Types[types.TUINT32]> (SETA <types.Types[types.TUINT8]> f)))))
+	for {
+		x := v_0
+		y := v_1
+		if v_2.Op != OpAMD64InvertFlags {
+			break
+		}
+		f := v_2.Args[0]
+		v.reset(OpAMD64ADCQ)
+		v0 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
+		v1 := b.NewValue0(v.Pos, OpAMD64NEGLflags, types.NewTuple(typ.UInt32, types.TypeFlags))
+		v2 := b.NewValue0(v.Pos, OpAMD64MOVBQZX, types.Types[types.TUINT32])
+		v3 := b.NewValue0(v.Pos, OpAMD64SETA, types.Types[types.TUINT8])
+		v3.AddArg(f)
+		v2.AddArg(v3)
+		v1.AddArg(v2)
+		v0.AddArg(v1)
+		v.AddArg3(x, y, v0)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64ADCQconst(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
 	// match: (ADCQconst x [c] (FlagEQ))
 	// result: (ADDQconstcarry x [c])
 	for {
@@ -6464,6 +7568,28 @@ func rewriteValueAMD64_OpAMD64ADCQconst(v *Value) bool {
 		v.reset(OpAMD64ADDQconstcarry)
 		v.AuxInt = int32ToAuxInt(c)
 		v.AddArg(x)
+		return true
+	}
+	// match: (ADCQconst x [c] (InvertFlags f))
+	// result: (ADCQconst x [c] (Select1 <types.TypeFlags> (NEGLflags (MOVBQZX <types.Types[types.TUINT32]> (SETA <types.Types[types.TUINT8]> f)))))
+	for {
+		c := auxIntToInt32(v.AuxInt)
+		x := v_0
+		if v_1.Op != OpAMD64InvertFlags {
+			break
+		}
+		f := v_1.Args[0]
+		v.reset(OpAMD64ADCQconst)
+		v.AuxInt = int32ToAuxInt(c)
+		v0 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
+		v1 := b.NewValue0(v.Pos, OpAMD64NEGLflags, types.NewTuple(typ.UInt32, types.TypeFlags))
+		v2 := b.NewValue0(v.Pos, OpAMD64MOVBQZX, types.Types[types.TUINT32])
+		v3 := b.NewValue0(v.Pos, OpAMD64SETA, types.Types[types.TUINT8])
+		v3.AddArg(f)
+		v2.AddArg(v3)
+		v1.AddArg(v2)
+		v0.AddArg(v1)
+		v.AddArg2(x, v0)
 		return true
 	}
 	return false
@@ -6791,15 +7917,13 @@ func rewriteValueAMD64_OpAMD64ADDLconst(v *Value) bool {
 		v.AddArg2(x, y)
 		return true
 	}
-	// match: (ADDLconst [c] x)
-	// cond: c==0
+	// match: (ADDLconst [0] x)
 	// result: x
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		x := v_0
-		if !(c == 0) {
+		if auxIntToInt32(v.AuxInt) != 0 {
 			break
 		}
+		x := v_0
 		v.copyOf(x)
 		return true
 	}
@@ -8030,27 +9154,23 @@ func rewriteValueAMD64_OpAMD64ANDLconst(v *Value) bool {
 		v.AddArg(x)
 		return true
 	}
-	// match: (ANDLconst [c] _)
-	// cond: c==0
+	// match: (ANDLconst [0] _)
 	// result: (MOVLconst [0])
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		if !(c == 0) {
+		if auxIntToInt32(v.AuxInt) != 0 {
 			break
 		}
 		v.reset(OpAMD64MOVLconst)
 		v.AuxInt = int32ToAuxInt(0)
 		return true
 	}
-	// match: (ANDLconst [c] x)
-	// cond: c==-1
+	// match: (ANDLconst [-1] x)
 	// result: x
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		x := v_0
-		if !(c == -1) {
+		if auxIntToInt32(v.AuxInt) != -1 {
 			break
 		}
+		x := v_0
 		v.copyOf(x)
 		return true
 	}
@@ -8311,7 +9431,7 @@ func rewriteValueAMD64_OpAMD64ANDQ(v *Value) bool {
 		break
 	}
 	// match: (ANDQ (MOVQconst [c]) x)
-	// cond: isUnsignedPowerOfTwo(uint64(^c)) && uint64(^c) >= 1<<31
+	// cond: isPowerOfTwo(uint64(^c)) && uint64(^c) >= 1<<31
 	// result: (BTRQconst [int8(log64u(uint64(^c)))] x)
 	for {
 		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
@@ -8320,7 +9440,7 @@ func rewriteValueAMD64_OpAMD64ANDQ(v *Value) bool {
 			}
 			c := auxIntToInt64(v_0.AuxInt)
 			x := v_1
-			if !(isUnsignedPowerOfTwo(uint64(^c)) && uint64(^c) >= 1<<31) {
+			if !(isPowerOfTwo(uint64(^c)) && uint64(^c) >= 1<<31) {
 				continue
 			}
 			v.reset(OpAMD64BTRQconst)
@@ -8479,13 +9599,13 @@ func rewriteValueAMD64_OpAMD64ANDQconst(v *Value) bool {
 		return true
 	}
 	// match: (ANDQconst [0] _)
-	// result: (MOVQconst [0])
+	// result: (MOVLconst [0])
 	for {
 		if auxIntToInt32(v.AuxInt) != 0 {
 			break
 		}
-		v.reset(OpAMD64MOVQconst)
-		v.AuxInt = int64ToAuxInt(0)
+		v.reset(OpAMD64MOVLconst)
+		v.AuxInt = int32ToAuxInt(0)
 		return true
 	}
 	// match: (ANDQconst [-1] x)
@@ -9450,6 +10570,1246 @@ func rewriteValueAMD64_OpAMD64CMOVLEQ(v *Value) bool {
 		}
 		break
 	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLEQ yes no t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64CMOVLGE(v *Value) bool {
@@ -10076,6 +12436,1742 @@ func rewriteValueAMD64_OpAMD64CMOVLNE(v *Value) bool {
 		}
 		break
 	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTQ x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTL x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTW x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETEQF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETNEF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETGF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVLNE yes no t:(TESTB s:(SETGEF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVLGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVLGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64CMOVQCC(v *Value) bool {
@@ -10382,6 +14478,1246 @@ func rewriteValueAMD64_OpAMD64CMOVQEQ(v *Value) bool {
 			v0 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
 			v0.AddArg(blsr)
 			v.AddArg3(x, y, v0)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQEQ yes no t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
 			return true
 		}
 		break
@@ -11012,6 +16348,1742 @@ func rewriteValueAMD64_OpAMD64CMOVQNE(v *Value) bool {
 		}
 		break
 	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTQ x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTL x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTW x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETEQF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETNEF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETGF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVQNE yes no t:(TESTB s:(SETGEF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVQGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVQGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64CMOVWCC(v *Value) bool {
@@ -11218,6 +18290,1246 @@ func rewriteValueAMD64_OpAMD64CMOVWEQ(v *Value) bool {
 		}
 		v.copyOf(y)
 		return true
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWEQ yes no t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
 	}
 	return false
 }
@@ -11701,6 +20013,1742 @@ func rewriteValueAMD64_OpAMD64CMOVWNE(v *Value) bool {
 		}
 		v.copyOf(x)
 		return true
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTQ x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTL x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTW x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQ yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQ)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGT yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGT)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGE yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGE)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWHI yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWHI)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWCC yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWCC)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWLS yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWLS)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETEQF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWEQF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWEQF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETNEF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWNEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWNEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETGF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGTF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGTF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
+	}
+	// match: (CMOVWNE yes no t:(TESTB s:(SETGEF flags) s))
+	// cond: t.Block == s.Block
+	// result: (CMOVWGEF yes no flags)
+	for {
+		yes := v_0
+		no := v_1
+		t := v_2
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64CMOVWGEF)
+			v.AddArg3(yes, no, flags)
+			return true
+		}
+		break
 	}
 	return false
 }
@@ -13461,6 +23509,27 @@ func rewriteValueAMD64_OpAMD64CMPXCHGQlock(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64CVTSD2SS(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (CVTSD2SS (ROUNDSD [c] (CVTSS2SD x)))
+	// result: (ROUNDSS [c] x)
+	for {
+		if v_0.Op != OpAMD64ROUNDSD {
+			break
+		}
+		c := auxIntToInt8(v_0.AuxInt)
+		v_0_0 := v_0.Args[0]
+		if v_0_0.Op != OpAMD64CVTSS2SD {
+			break
+		}
+		x := v_0_0.Args[0]
+		v.reset(OpAMD64ROUNDSS)
+		v.AuxInt = int8ToAuxInt(c)
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64DIVSD(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -13685,6 +23754,54 @@ func rewriteValueAMD64_OpAMD64HMULQU(v *Value) bool {
 		}
 		v.reset(OpAMD64HMULQU)
 		v.AddArg2(y, x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64KANDB(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (KANDB (VCMPPD512 [3] x x) (VCMPPD512 [3] y y))
+	// result: (VCMPPD512 [3] x x)
+	for {
+		if v_0.Op != OpAMD64VCMPPD512 || auxIntToUint8(v_0.AuxInt) != 3 {
+			break
+		}
+		x := v_0.Args[1]
+		if x != v_0.Args[0] || v_1.Op != OpAMD64VCMPPD512 || auxIntToUint8(v_1.AuxInt) != 3 {
+			break
+		}
+		y := v_1.Args[1]
+		if y != v_1.Args[0] {
+			break
+		}
+		v.reset(OpAMD64VCMPPD512)
+		v.AuxInt = uint8ToAuxInt(3)
+		v.AddArg2(x, x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64KANDW(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (KANDW (VCMPPS512 [3] x x) (VCMPPS512 [3] y y))
+	// result: (VCMPPS512 [3] x y)
+	for {
+		if v_0.Op != OpAMD64VCMPPS512 || auxIntToUint8(v_0.AuxInt) != 3 {
+			break
+		}
+		x := v_0.Args[1]
+		if x != v_0.Args[0] || v_1.Op != OpAMD64VCMPPS512 || auxIntToUint8(v_1.AuxInt) != 3 {
+			break
+		}
+		y := v_1.Args[1]
+		if y != v_1.Args[0] {
+			break
+		}
+		v.reset(OpAMD64VCMPPS512)
+		v.AuxInt = uint8ToAuxInt(3)
+		v.AddArg2(x, y)
 		return true
 	}
 	return false
@@ -19584,24 +29701,20 @@ func rewriteValueAMD64_OpAMD64ORLconst(v *Value) bool {
 		v.AddArg(x)
 		return true
 	}
-	// match: (ORLconst [c] x)
-	// cond: c==0
+	// match: (ORLconst [0] x)
 	// result: x
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		x := v_0
-		if !(c == 0) {
+		if auxIntToInt32(v.AuxInt) != 0 {
 			break
 		}
+		x := v_0
 		v.copyOf(x)
 		return true
 	}
-	// match: (ORLconst [c] _)
-	// cond: c==-1
+	// match: (ORLconst [-1] _)
 	// result: (MOVLconst [-1])
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		if !(c == -1) {
+		if auxIntToInt32(v.AuxInt) != -1 {
 			break
 		}
 		v.reset(OpAMD64MOVLconst)
@@ -19817,7 +29930,7 @@ func rewriteValueAMD64_OpAMD64ORQ(v *Value) bool {
 		break
 	}
 	// match: (ORQ (MOVQconst [c]) x)
-	// cond: isUnsignedPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31
+	// cond: isPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31
 	// result: (BTSQconst [int8(log64u(uint64(c)))] x)
 	for {
 		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
@@ -19826,7 +29939,7 @@ func rewriteValueAMD64_OpAMD64ORQ(v *Value) bool {
 			}
 			c := auxIntToInt64(v_0.AuxInt)
 			x := v_1
-			if !(isUnsignedPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31) {
+			if !(isPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31) {
 				continue
 			}
 			v.reset(OpAMD64BTSQconst)
@@ -19868,102 +29981,6 @@ func rewriteValueAMD64_OpAMD64ORQ(v *Value) bool {
 			v.reset(OpAMD64ORQconst)
 			v.AuxInt = int32ToAuxInt(c)
 			v.AddArg(x)
-			return true
-		}
-		break
-	}
-	// match: (ORQ (SHRQ lo bits) (SHLQ hi (NEGQ bits)))
-	// result: (SHRDQ lo hi bits)
-	for {
-		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
-			if v_0.Op != OpAMD64SHRQ {
-				continue
-			}
-			bits := v_0.Args[1]
-			lo := v_0.Args[0]
-			if v_1.Op != OpAMD64SHLQ {
-				continue
-			}
-			_ = v_1.Args[1]
-			hi := v_1.Args[0]
-			v_1_1 := v_1.Args[1]
-			if v_1_1.Op != OpAMD64NEGQ || bits != v_1_1.Args[0] {
-				continue
-			}
-			v.reset(OpAMD64SHRDQ)
-			v.AddArg3(lo, hi, bits)
-			return true
-		}
-		break
-	}
-	// match: (ORQ (SHLQ lo bits) (SHRQ hi (NEGQ bits)))
-	// result: (SHLDQ lo hi bits)
-	for {
-		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
-			if v_0.Op != OpAMD64SHLQ {
-				continue
-			}
-			bits := v_0.Args[1]
-			lo := v_0.Args[0]
-			if v_1.Op != OpAMD64SHRQ {
-				continue
-			}
-			_ = v_1.Args[1]
-			hi := v_1.Args[0]
-			v_1_1 := v_1.Args[1]
-			if v_1_1.Op != OpAMD64NEGQ || bits != v_1_1.Args[0] {
-				continue
-			}
-			v.reset(OpAMD64SHLDQ)
-			v.AddArg3(lo, hi, bits)
-			return true
-		}
-		break
-	}
-	// match: (ORQ (SHRXQ lo bits) (SHLXQ hi (NEGQ bits)))
-	// result: (SHRDQ lo hi bits)
-	for {
-		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
-			if v_0.Op != OpAMD64SHRXQ {
-				continue
-			}
-			bits := v_0.Args[1]
-			lo := v_0.Args[0]
-			if v_1.Op != OpAMD64SHLXQ {
-				continue
-			}
-			_ = v_1.Args[1]
-			hi := v_1.Args[0]
-			v_1_1 := v_1.Args[1]
-			if v_1_1.Op != OpAMD64NEGQ || bits != v_1_1.Args[0] {
-				continue
-			}
-			v.reset(OpAMD64SHRDQ)
-			v.AddArg3(lo, hi, bits)
-			return true
-		}
-		break
-	}
-	// match: (ORQ (SHLXQ lo bits) (SHRXQ hi (NEGQ bits)))
-	// result: (SHLDQ lo hi bits)
-	for {
-		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
-			if v_0.Op != OpAMD64SHLXQ {
-				continue
-			}
-			bits := v_0.Args[1]
-			lo := v_0.Args[0]
-			if v_1.Op != OpAMD64SHRXQ {
-				continue
-			}
-			_ = v_1.Args[1]
-			hi := v_1.Args[0]
-			v_1_1 := v_1.Args[1]
-			if v_1_1.Op != OpAMD64NEGQ || bits != v_1_1.Args[0] {
-				continue
-			}
-			v.reset(OpAMD64SHLDQ)
-			v.AddArg3(lo, hi, bits)
 			return true
 		}
 		break
@@ -21477,6 +31494,8 @@ func rewriteValueAMD64_OpAMD64SBBQ(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
 	// match: (SBBQ x (MOVQconst [c]) borrow)
 	// cond: is32Bit(c)
 	// result: (SBBQconst x [int32(c)] borrow)
@@ -21505,6 +31524,27 @@ func rewriteValueAMD64_OpAMD64SBBQ(v *Value) bool {
 		}
 		v.reset(OpAMD64SUBQborrow)
 		v.AddArg2(x, y)
+		return true
+	}
+	// match: (SBBQ x y (InvertFlags f))
+	// result: (SBBQ x y (Select1 <types.TypeFlags> (NEGLflags (MOVBQZX <types.Types[types.TUINT32]> (SETA <types.Types[types.TUINT8]> f)))))
+	for {
+		x := v_0
+		y := v_1
+		if v_2.Op != OpAMD64InvertFlags {
+			break
+		}
+		f := v_2.Args[0]
+		v.reset(OpAMD64SBBQ)
+		v0 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
+		v1 := b.NewValue0(v.Pos, OpAMD64NEGLflags, types.NewTuple(typ.UInt32, types.TypeFlags))
+		v2 := b.NewValue0(v.Pos, OpAMD64MOVBQZX, types.Types[types.TUINT32])
+		v3 := b.NewValue0(v.Pos, OpAMD64SETA, types.Types[types.TUINT8])
+		v3.AddArg(f)
+		v2.AddArg(v3)
+		v1.AddArg(v2)
+		v0.AddArg(v1)
+		v.AddArg3(x, y, v0)
 		return true
 	}
 	return false
@@ -21566,6 +31606,8 @@ func rewriteValueAMD64_OpAMD64SBBQcarrymask(v *Value) bool {
 func rewriteValueAMD64_OpAMD64SBBQconst(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
 	// match: (SBBQconst x [c] (FlagEQ))
 	// result: (SUBQconstborrow x [c])
 	for {
@@ -21577,6 +31619,28 @@ func rewriteValueAMD64_OpAMD64SBBQconst(v *Value) bool {
 		v.reset(OpAMD64SUBQconstborrow)
 		v.AuxInt = int32ToAuxInt(c)
 		v.AddArg(x)
+		return true
+	}
+	// match: (SBBQconst x [c] (InvertFlags f))
+	// result: (SBBQconst x [c] (Select1 <types.TypeFlags> (NEGLflags (MOVBQZX <types.Types[types.TUINT32]> (SETA <types.Types[types.TUINT8]> f)))))
+	for {
+		c := auxIntToInt32(v.AuxInt)
+		x := v_0
+		if v_1.Op != OpAMD64InvertFlags {
+			break
+		}
+		f := v_1.Args[0]
+		v.reset(OpAMD64SBBQconst)
+		v.AuxInt = int32ToAuxInt(c)
+		v0 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
+		v1 := b.NewValue0(v.Pos, OpAMD64NEGLflags, types.NewTuple(typ.UInt32, types.TypeFlags))
+		v2 := b.NewValue0(v.Pos, OpAMD64MOVBQZX, types.Types[types.TUINT32])
+		v3 := b.NewValue0(v.Pos, OpAMD64SETA, types.Types[types.TUINT8])
+		v3.AddArg(f)
+		v2.AddArg(v3)
+		v1.AddArg(v2)
+		v0.AddArg(v1)
+		v.AddArg2(x, v0)
 		return true
 	}
 	return false
@@ -22784,7 +32848,7 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 		break
 	}
 	// match: (SETEQ (TESTLconst [c] x))
-	// cond: isUnsignedPowerOfTwo(uint32(c))
+	// cond: isPowerOfTwo(uint32(c))
 	// result: (SETAE (BTLconst [int8(log32u(uint32(c)))] x))
 	for {
 		if v_0.Op != OpAMD64TESTLconst {
@@ -22792,7 +32856,7 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 		}
 		c := auxIntToInt32(v_0.AuxInt)
 		x := v_0.Args[0]
-		if !(isUnsignedPowerOfTwo(uint32(c))) {
+		if !(isPowerOfTwo(uint32(c))) {
 			break
 		}
 		v.reset(OpAMD64SETAE)
@@ -22803,7 +32867,7 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 		return true
 	}
 	// match: (SETEQ (TESTQconst [c] x))
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETAE (BTQconst [int8(log32u(uint32(c)))] x))
 	for {
 		if v_0.Op != OpAMD64TESTQconst {
@@ -22811,7 +32875,7 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 		}
 		c := auxIntToInt32(v_0.AuxInt)
 		x := v_0.Args[0]
-		if !(isUnsignedPowerOfTwo(uint64(c))) {
+		if !(isPowerOfTwo(uint64(c))) {
 			break
 		}
 		v.reset(OpAMD64SETAE)
@@ -22822,7 +32886,7 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 		return true
 	}
 	// match: (SETEQ (TESTQ (MOVQconst [c]) x))
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETAE (BTQconst [int8(log64u(uint64(c)))] x))
 	for {
 		if v_0.Op != OpAMD64TESTQ {
@@ -22837,7 +32901,7 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 			}
 			c := auxIntToInt64(v_0_0.AuxInt)
 			x := v_0_1
-			if !(isUnsignedPowerOfTwo(uint64(c))) {
+			if !(isPowerOfTwo(uint64(c))) {
 				continue
 			}
 			v.reset(OpAMD64SETAE)
@@ -23370,6 +33434,1166 @@ func rewriteValueAMD64_OpAMD64SETEQ(v *Value) bool {
 		v.AddArg(v0)
 		return true
 	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETNE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETNE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETEQ flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETEQ)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETGE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETGE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETLE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETLE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETG flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETG)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETL flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETL)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETBE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETBE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETAE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETAE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETB flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETB)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETA flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETA)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETNE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETNE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETEQ flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETEQ)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETGE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETGE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETLE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETLE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETG flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETG)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETL flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETL)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETBE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETBE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETAE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETAE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETB flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETB)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETA flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETA)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETNE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETNE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETEQ flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETEQ)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETGE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETGE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETLE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETLE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETG flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETG)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETL flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETL)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETBE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETBE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETAE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETAE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETB flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETB)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: (SETA flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETA)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETNE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETNE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETEQ flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETEQ)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETGE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETGE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETLE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETLE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETG flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETG)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETL flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETL)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETBE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETBE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETAE flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETAE)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETB flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETB)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
+	// match: (SETEQ t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: (SETA flags)
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			flags := s.Args[0]
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.reset(OpAMD64SETA)
+			v.AddArg(flags)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
@@ -23445,7 +34669,7 @@ func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
 		break
 	}
 	// match: (SETEQstore [off] {sym} ptr (TESTLconst [c] x) mem)
-	// cond: isUnsignedPowerOfTwo(uint32(c))
+	// cond: isPowerOfTwo(uint32(c))
 	// result: (SETAEstore [off] {sym} ptr (BTLconst [int8(log32u(uint32(c)))] x) mem)
 	for {
 		off := auxIntToInt32(v.AuxInt)
@@ -23457,7 +34681,7 @@ func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
 		c := auxIntToInt32(v_1.AuxInt)
 		x := v_1.Args[0]
 		mem := v_2
-		if !(isUnsignedPowerOfTwo(uint32(c))) {
+		if !(isPowerOfTwo(uint32(c))) {
 			break
 		}
 		v.reset(OpAMD64SETAEstore)
@@ -23470,7 +34694,7 @@ func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
 		return true
 	}
 	// match: (SETEQstore [off] {sym} ptr (TESTQconst [c] x) mem)
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETAEstore [off] {sym} ptr (BTQconst [int8(log32u(uint32(c)))] x) mem)
 	for {
 		off := auxIntToInt32(v.AuxInt)
@@ -23482,7 +34706,7 @@ func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
 		c := auxIntToInt32(v_1.AuxInt)
 		x := v_1.Args[0]
 		mem := v_2
-		if !(isUnsignedPowerOfTwo(uint64(c))) {
+		if !(isPowerOfTwo(uint64(c))) {
 			break
 		}
 		v.reset(OpAMD64SETAEstore)
@@ -23495,7 +34719,7 @@ func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
 		return true
 	}
 	// match: (SETEQstore [off] {sym} ptr (TESTQ (MOVQconst [c]) x) mem)
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETAEstore [off] {sym} ptr (BTQconst [int8(log64u(uint64(c)))] x) mem)
 	for {
 		off := auxIntToInt32(v.AuxInt)
@@ -23514,7 +34738,7 @@ func rewriteValueAMD64_OpAMD64SETEQstore(v *Value) bool {
 			c := auxIntToInt64(v_1_0.AuxInt)
 			x := v_1_1
 			mem := v_2
-			if !(isUnsignedPowerOfTwo(uint64(c))) {
+			if !(isPowerOfTwo(uint64(c))) {
 				continue
 			}
 			v.reset(OpAMD64SETAEstore)
@@ -25014,7 +36238,7 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 		break
 	}
 	// match: (SETNE (TESTLconst [c] x))
-	// cond: isUnsignedPowerOfTwo(uint32(c))
+	// cond: isPowerOfTwo(uint32(c))
 	// result: (SETB (BTLconst [int8(log32u(uint32(c)))] x))
 	for {
 		if v_0.Op != OpAMD64TESTLconst {
@@ -25022,7 +36246,7 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 		}
 		c := auxIntToInt32(v_0.AuxInt)
 		x := v_0.Args[0]
-		if !(isUnsignedPowerOfTwo(uint32(c))) {
+		if !(isPowerOfTwo(uint32(c))) {
 			break
 		}
 		v.reset(OpAMD64SETB)
@@ -25033,7 +36257,7 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 		return true
 	}
 	// match: (SETNE (TESTQconst [c] x))
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETB (BTQconst [int8(log32u(uint32(c)))] x))
 	for {
 		if v_0.Op != OpAMD64TESTQconst {
@@ -25041,7 +36265,7 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 		}
 		c := auxIntToInt32(v_0.AuxInt)
 		x := v_0.Args[0]
-		if !(isUnsignedPowerOfTwo(uint64(c))) {
+		if !(isPowerOfTwo(uint64(c))) {
 			break
 		}
 		v.reset(OpAMD64SETB)
@@ -25052,7 +36276,7 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 		return true
 	}
 	// match: (SETNE (TESTQ (MOVQconst [c]) x))
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETB (BTQconst [int8(log64u(uint64(c)))] x))
 	for {
 		if v_0.Op != OpAMD64TESTQ {
@@ -25067,7 +36291,7 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 			}
 			c := auxIntToInt64(v_0_0.AuxInt)
 			x := v_0_1
-			if !(isUnsignedPowerOfTwo(uint64(c))) {
+			if !(isPowerOfTwo(uint64(c))) {
 				continue
 			}
 			v.reset(OpAMD64SETB)
@@ -25416,6 +36640,1518 @@ func rewriteValueAMD64_OpAMD64SETNE(v *Value) bool {
 		}
 		break
 	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTQ x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTQ {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTL x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTL {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETNE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETL flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETG flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETLE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETGE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETA flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETB flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETAE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETBE flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETEQF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETNEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETGF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTW x:(MOVBQZX s:(SETGEF flags)) x))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTW {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			x := t_0
+			if x.Op != OpAMD64MOVBQZX {
+				continue
+			}
+			s := x.Args[0]
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			if x != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETEQ flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQ {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETNE flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNE {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETL flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETL {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETG flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETG {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETLE flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETLE {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETGE flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGE {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETA flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETA {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETB flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETB {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETAE flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETAE {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETBE flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETBE {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETEQF flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETEQF {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETNEF flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETNEF {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETGF flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGF {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
+	// match: (SETNE t:(TESTB s:(SETGEF flags) s))
+	// cond: t.Block == s.Block
+	// result: s
+	for {
+		t := v_0
+		if t.Op != OpAMD64TESTB {
+			break
+		}
+		_ = t.Args[1]
+		t_0 := t.Args[0]
+		t_1 := t.Args[1]
+		for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+			s := t_0
+			if s.Op != OpAMD64SETGEF {
+				continue
+			}
+			if s != t_1 || !(t.Block == s.Block) {
+				continue
+			}
+			v.copyOf(s)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
@@ -25491,7 +38227,7 @@ func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
 		break
 	}
 	// match: (SETNEstore [off] {sym} ptr (TESTLconst [c] x) mem)
-	// cond: isUnsignedPowerOfTwo(uint32(c))
+	// cond: isPowerOfTwo(uint32(c))
 	// result: (SETBstore [off] {sym} ptr (BTLconst [int8(log32u(uint32(c)))] x) mem)
 	for {
 		off := auxIntToInt32(v.AuxInt)
@@ -25503,7 +38239,7 @@ func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
 		c := auxIntToInt32(v_1.AuxInt)
 		x := v_1.Args[0]
 		mem := v_2
-		if !(isUnsignedPowerOfTwo(uint32(c))) {
+		if !(isPowerOfTwo(uint32(c))) {
 			break
 		}
 		v.reset(OpAMD64SETBstore)
@@ -25516,7 +38252,7 @@ func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
 		return true
 	}
 	// match: (SETNEstore [off] {sym} ptr (TESTQconst [c] x) mem)
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETBstore [off] {sym} ptr (BTQconst [int8(log32u(uint32(c)))] x) mem)
 	for {
 		off := auxIntToInt32(v.AuxInt)
@@ -25528,7 +38264,7 @@ func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
 		c := auxIntToInt32(v_1.AuxInt)
 		x := v_1.Args[0]
 		mem := v_2
-		if !(isUnsignedPowerOfTwo(uint64(c))) {
+		if !(isPowerOfTwo(uint64(c))) {
 			break
 		}
 		v.reset(OpAMD64SETBstore)
@@ -25541,7 +38277,7 @@ func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
 		return true
 	}
 	// match: (SETNEstore [off] {sym} ptr (TESTQ (MOVQconst [c]) x) mem)
-	// cond: isUnsignedPowerOfTwo(uint64(c))
+	// cond: isPowerOfTwo(uint64(c))
 	// result: (SETBstore [off] {sym} ptr (BTQconst [int8(log64u(uint64(c)))] x) mem)
 	for {
 		off := auxIntToInt32(v.AuxInt)
@@ -25560,7 +38296,7 @@ func rewriteValueAMD64_OpAMD64SETNEstore(v *Value) bool {
 			c := auxIntToInt64(v_1_0.AuxInt)
 			x := v_1_1
 			mem := v_2
-			if !(isUnsignedPowerOfTwo(uint64(c))) {
+			if !(isPowerOfTwo(uint64(c))) {
 				continue
 			}
 			v.reset(OpAMD64SETBstore)
@@ -27437,15 +40173,13 @@ func rewriteValueAMD64_OpAMD64SUBL(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64SUBLconst(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (SUBLconst [c] x)
-	// cond: c==0
+	// match: (SUBLconst [0] x)
 	// result: x
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		x := v_0
-		if !(c == 0) {
+		if auxIntToInt32(v.AuxInt) != 0 {
 			break
 		}
+		x := v_0
 		v.copyOf(x)
 		return true
 	}
@@ -27625,14 +40359,14 @@ func rewriteValueAMD64_OpAMD64SUBQ(v *Value) bool {
 		return true
 	}
 	// match: (SUBQ x x)
-	// result: (MOVQconst [0])
+	// result: (MOVLconst [0])
 	for {
 		x := v_0
 		if x != v_1 {
 			break
 		}
-		v.reset(OpAMD64MOVQconst)
-		v.AuxInt = int64ToAuxInt(0)
+		v.reset(OpAMD64MOVLconst)
+		v.AuxInt = int32ToAuxInt(0)
 		return true
 	}
 	// match: (SUBQ x l:(MOVQload [off] {sym} ptr mem))
@@ -28471,6 +41205,66 @@ func rewriteValueAMD64_OpAMD64TESTWconst(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VADDPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDPD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VADDPD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VADDPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDPD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VADDPD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VADDPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -28591,6 +41385,66 @@ func rewriteValueAMD64_OpAMD64VADDPDMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VADDPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDPS128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VADDPS128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VADDPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDPS256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VADDPS256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -28723,6 +41577,697 @@ func rewriteValueAMD64_OpAMD64VADDPSMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VADDSUBPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDSUBPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDSUBPD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VADDSUBPD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VADDSUBPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDSUBPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDSUBPD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VADDSUBPD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VADDSUBPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDSUBPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDSUBPS128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VADDSUBPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VADDSUBPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VADDSUBPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VADDSUBPS256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VADDSUBPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESDEC128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESDEC128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESDEC128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESDEC128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESDEC256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESDEC256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESDEC256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESDEC256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESDECLAST128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESDECLAST128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESDECLAST128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESDECLAST128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESDECLAST256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESDECLAST256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESDECLAST256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESDECLAST256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESENC128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESENC128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESENC128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESENC128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESENC256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESENC256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESENC256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESENC256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESENCLAST128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESENCLAST128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESENCLAST128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESENCLAST128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESENCLAST256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VAESENCLAST256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESENCLAST256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESENCLAST256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESIMC128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VAESIMC128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESIMC128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESIMC128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VAESKEYGENASSIST128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VAESKEYGENASSIST128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VAESKEYGENASSIST128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VAESKEYGENASSIST128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx) && canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx) && canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSD512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSD512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSD512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSD512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSDMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSDMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSDMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSDMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSDMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSS128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSS128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx) && canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSS128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx) && canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSS256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSS256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx) && canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSS256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx) && canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSS512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSS512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSS512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSS512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSSMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSSMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSSMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSSMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSSMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSSMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSSMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSSMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VBROADCASTSSMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VBROADCASTSSMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VBROADCASTSSMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VBROADCASTSSMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCMPPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VCMPPD128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCMPPD128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCMPPD128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCMPPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VCMPPD256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCMPPD256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCMPPD256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VCMPPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -28837,6 +42382,62 @@ func rewriteValueAMD64_OpAMD64VCMPPDMasked512(v *Value) bool {
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCMPPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VCMPPS128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCMPPS128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCMPPS128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCMPPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VCMPPS256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCMPPS256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCMPPS256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -28959,6 +42560,31 @@ func rewriteValueAMD64_OpAMD64VCMPPSMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VCVTDQ2PD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTDQ2PD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTDQ2PD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTDQ2PD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VCVTDQ2PD512(v *Value) bool {
 	v_0 := v.Args[0]
 	// match: (VCVTDQ2PD512 l:(VMOVDQUload256 {sym} [off] ptr mem))
@@ -29034,6 +42660,56 @@ func rewriteValueAMD64_OpAMD64VCVTDQ2PDMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCVTDQ2PS128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTDQ2PS128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTDQ2PS128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTDQ2PS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCVTDQ2PS256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTDQ2PS256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTDQ2PS256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTDQ2PS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -29196,6 +42872,31 @@ func rewriteValueAMD64_OpAMD64VCVTPD2PSMasked256(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VCVTPD2PSX128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTPD2PSX128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTPD2PSX128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTPD2PSX128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VCVTPD2PSXMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -29223,6 +42924,31 @@ func rewriteValueAMD64_OpAMD64VCVTPD2PSXMasked128(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VCVTPD2PSY128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTPD2PSY128 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTPD2PSY128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTPD2PSY128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VCVTPD2PSYMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -29246,6 +42972,31 @@ func rewriteValueAMD64_OpAMD64VCVTPD2PSYMasked128(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCVTPS2PD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTPS2PD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTPS2PD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTPS2PD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -29693,6 +43444,31 @@ func rewriteValueAMD64_OpAMD64VCVTTPD2DQMasked256(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VCVTTPD2DQX128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTTPD2DQX128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTTPD2DQX128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTTPD2DQX128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VCVTTPD2DQXMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -29716,6 +43492,31 @@ func rewriteValueAMD64_OpAMD64VCVTTPD2DQXMasked128(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCVTTPD2DQY128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTTPD2DQY128 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTTPD2DQY128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTTPD2DQY128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -30211,6 +44012,56 @@ func rewriteValueAMD64_OpAMD64VCVTTPD2UQQMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCVTTPS2DQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTTPS2DQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTTPS2DQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTTPS2DQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VCVTTPS2DQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VCVTTPS2DQ256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VCVTTPS2DQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VCVTTPS2DQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -31257,6 +45108,60 @@ func rewriteValueAMD64_OpAMD64VCVTUQQ2PSYMasked128(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VDIVPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VDIVPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VDIVPD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VDIVPD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VDIVPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VDIVPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VDIVPD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VDIVPD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VDIVPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -31371,6 +45276,60 @@ func rewriteValueAMD64_OpAMD64VDIVPDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VDIVPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VDIVPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VDIVPS128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VDIVPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VDIVPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VDIVPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VDIVPS256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VDIVPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VDIVPS512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -31481,6 +45440,172 @@ func rewriteValueAMD64_OpAMD64VDIVPSMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VEXPANDPDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VEXPANDPDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VEXPANDPDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VEXPANDPDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VEXPANDPDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VEXPANDPDMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VEXPANDPDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VEXPANDPDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VEXPANDPSMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VEXPANDPSMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VEXPANDPSMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VEXPANDPSMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VEXPANDPSMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VEXPANDPSMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VEXPANDPSMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VEXPANDPSMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMADD213PD128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADD213PD128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADD213PD128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADD213PD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMADD213PD256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADD213PD256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADD213PD256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADD213PD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
 		return true
 	}
 	return false
@@ -31607,6 +45732,64 @@ func rewriteValueAMD64_OpAMD64VFMADD213PDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VFMADD213PS128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADD213PS128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADD213PS128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADD213PS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMADD213PS256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADD213PS256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADD213PS256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADD213PS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VFMADD213PS512(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
@@ -31725,6 +45908,64 @@ func rewriteValueAMD64_OpAMD64VFMADD213PSMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMADDSUB213PD128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADDSUB213PD128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADDSUB213PD128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADDSUB213PD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMADDSUB213PD256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADDSUB213PD256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADDSUB213PD256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADDSUB213PD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
 		return true
 	}
 	return false
@@ -31851,6 +46092,64 @@ func rewriteValueAMD64_OpAMD64VFMADDSUB213PDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VFMADDSUB213PS128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADDSUB213PS128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADDSUB213PS128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADDSUB213PS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMADDSUB213PS256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMADDSUB213PS256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMADDSUB213PS256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMADDSUB213PS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VFMADDSUB213PS512(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
@@ -31973,6 +46272,64 @@ func rewriteValueAMD64_OpAMD64VFMADDSUB213PSMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VFMSUBADD213PD128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMSUBADD213PD128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMSUBADD213PD128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMSUBADD213PD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMSUBADD213PD256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMSUBADD213PD256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMSUBADD213PD256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMSUBADD213PD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VFMSUBADD213PD512(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
@@ -32091,6 +46448,64 @@ func rewriteValueAMD64_OpAMD64VFMSUBADD213PDMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMSUBADD213PS128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMSUBADD213PS128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMSUBADD213PS128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMSUBADD213PS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VFMSUBADD213PS256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VFMSUBADD213PS256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VFMSUBADD213PS256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VFMSUBADD213PS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
 		return true
 	}
 	return false
@@ -32565,6 +46980,506 @@ func rewriteValueAMD64_OpAMD64VGF2P8AFFINEQBMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VGF2P8MULB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VGF2P8MULB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VGF2P8MULB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VGF2P8MULB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VGF2P8MULB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VGF2P8MULB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VGF2P8MULB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VGF2P8MULB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VGF2P8MULBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VGF2P8MULBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VGF2P8MULBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VGF2P8MULBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VGF2P8MULBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VGF2P8MULBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VGF2P8MULBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VGF2P8MULBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHADDPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHADDPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHADDPD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHADDPD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHADDPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHADDPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHADDPD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHADDPD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHADDPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHADDPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHADDPS128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHADDPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHADDPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHADDPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHADDPS256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHADDPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHSUBPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHSUBPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHSUBPD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHSUBPD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHSUBPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHSUBPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHSUBPD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHSUBPD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHSUBPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHSUBPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHSUBPS128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHSUBPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VHSUBPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VHSUBPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VHSUBPS256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VHSUBPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VINSERTF128256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VINSERTF128256 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VINSERTF128256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VINSERTF128256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VINSERTF64X4512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VINSERTF64X4512 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VINSERTF64X4512load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VINSERTF64X4512load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VINSERTI128256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VINSERTI128256 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VINSERTI128256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VINSERTI128256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VINSERTI64X4512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VINSERTI64X4512 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VINSERTI64X4512load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VINSERTI64X4512load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMAXPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMAXPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMAXPD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMAXPD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMAXPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMAXPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMAXPD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMAXPD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VMAXPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -32685,6 +47600,66 @@ func rewriteValueAMD64_OpAMD64VMAXPDMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMAXPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMAXPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMAXPS128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMAXPS128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMAXPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMAXPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMAXPS256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMAXPS256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -32817,6 +47792,66 @@ func rewriteValueAMD64_OpAMD64VMAXPSMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VMINPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMINPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMINPD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMINPD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMINPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMINPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMINPD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMINPD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VMINPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -32937,6 +47972,66 @@ func rewriteValueAMD64_OpAMD64VMINPDMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMINPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMINPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMINPS128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMINPS128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMINPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMINPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMINPS256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMINPS256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -33162,18 +48257,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU16Masked128(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPAVGWMasked128)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU16Masked128 (VPBROADCASTW128 x) mask)
-	// result: (VPBROADCASTWMasked128 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTW128 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTWMasked128)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU16Masked128 (VPERMI2W128 x y z) mask)
@@ -33647,6 +48730,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU16Masked128(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU16Masked128 (VPSRLW128const [a] x) mask)
+	// result: (VPSRLWMasked128const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLW128const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLWMasked128const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU16Masked256(v *Value) bool {
@@ -33714,18 +48811,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU16Masked256(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPAVGWMasked256)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU16Masked256 (VPBROADCASTW256 x) mask)
-	// result: (VPBROADCASTWMasked256 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTW256 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTWMasked256)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU16Masked256 (VPERMI2W256 x y z) mask)
@@ -34235,6 +49320,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU16Masked256(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU16Masked256 (VPSRLW256const [a] x) mask)
+	// result: (VPSRLWMasked256const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLW256const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLWMasked256const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU16Masked512(v *Value) bool {
@@ -34302,18 +49401,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU16Masked512(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPAVGWMasked512)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU16Masked512 (VPBROADCASTW512 x) mask)
-	// result: (VPBROADCASTWMasked512 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTW512 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTWMasked512)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU16Masked512 (VPERMI2W512 x y z) mask)
@@ -34751,6 +49838,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU16Masked512(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU16Masked512 (VPSRLW512const [a] x) mask)
+	// result: (VPSRLWMasked512const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLW512const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLWMasked512const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
@@ -34792,30 +49893,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPADDDMasked128)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked128 (VBROADCASTSS128 x) mask)
-	// result: (VBROADCASTSSMasked128 x mask)
-	for {
-		if v_0.Op != OpAMD64VBROADCASTSS128 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VBROADCASTSSMasked128)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked128 (VPBROADCASTD128 x) mask)
-	// result: (VPBROADCASTDMasked128 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTD128 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTDMasked128)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU32Masked128 (VRNDSCALEPS128 [a] x) mask)
@@ -35049,6 +50126,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
+	// match: (VMOVDQU32Masked128 (VFMADDSUB213PS128 x y z) mask)
+	// result: (VFMADDSUB213PSMasked128 x y z mask)
+	for {
+		if v_0.Op != OpAMD64VFMADDSUB213PS128 {
+			break
+		}
+		z := v_0.Args[2]
+		x := v_0.Args[0]
+		y := v_0.Args[1]
+		mask := v_1
+		v.reset(OpAMD64VFMADDSUB213PSMasked128)
+		v.AddArg4(x, y, z, mask)
+		return true
+	}
 	// match: (VMOVDQU32Masked128 (VFMADD213PS128 x y z) mask)
 	// result: (VFMADD213PSMasked128 x y z mask)
 	for {
@@ -35063,17 +50154,17 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
-	// match: (VMOVDQU32Masked128 (VFMADDSUB213PS128 x y z) mask)
-	// result: (VFMADDSUB213PSMasked128 x y z mask)
+	// match: (VMOVDQU32Masked128 (VFMSUBADD213PS128 x y z) mask)
+	// result: (VFMSUBADD213PSMasked128 x y z mask)
 	for {
-		if v_0.Op != OpAMD64VFMADDSUB213PS128 {
+		if v_0.Op != OpAMD64VFMSUBADD213PS128 {
 			break
 		}
 		z := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		mask := v_1
-		v.reset(OpAMD64VFMADDSUB213PSMasked128)
+		v.reset(OpAMD64VFMSUBADD213PSMasked128)
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
@@ -35103,20 +50194,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
-	// match: (VMOVDQU32Masked128 (VFMSUBADD213PS128 x y z) mask)
-	// result: (VFMSUBADD213PSMasked128 x y z mask)
-	for {
-		if v_0.Op != OpAMD64VFMSUBADD213PS128 {
-			break
-		}
-		z := v_0.Args[2]
-		x := v_0.Args[0]
-		y := v_0.Args[1]
-		mask := v_1
-		v.reset(OpAMD64VFMSUBADD213PSMasked128)
-		v.AddArg4(x, y, z, mask)
-		return true
-	}
 	// match: (VMOVDQU32Masked128 (VPOPCNTD128 x) mask)
 	// result: (VPOPCNTDMasked128 x mask)
 	for {
@@ -35126,34 +50203,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
 		x := v_0.Args[0]
 		mask := v_1
 		v.reset(OpAMD64VPOPCNTDMasked128)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked128 (VPROLD128 [a] x) mask)
-	// result: (VPROLDMasked128 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPROLD128 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPROLDMasked128)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked128 (VPRORD128 [a] x) mask)
-	// result: (VPRORDMasked128 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPRORD128 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPRORDMasked128)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -35510,6 +50559,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked128(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU32Masked128 (VPSRLD128const [a] x) mask)
+	// result: (VPSRLDMasked128const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLD128const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLDMasked128const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
@@ -35551,30 +50614,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPADDDMasked256)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked256 (VBROADCASTSS256 x) mask)
-	// result: (VBROADCASTSSMasked256 x mask)
-	for {
-		if v_0.Op != OpAMD64VBROADCASTSS256 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VBROADCASTSSMasked256)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked256 (VPBROADCASTD256 x) mask)
-	// result: (VPBROADCASTDMasked256 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTD256 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTDMasked256)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU32Masked256 (VRNDSCALEPS256 [a] x) mask)
@@ -35868,6 +50907,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
+	// match: (VMOVDQU32Masked256 (VFMADDSUB213PS256 x y z) mask)
+	// result: (VFMADDSUB213PSMasked256 x y z mask)
+	for {
+		if v_0.Op != OpAMD64VFMADDSUB213PS256 {
+			break
+		}
+		z := v_0.Args[2]
+		x := v_0.Args[0]
+		y := v_0.Args[1]
+		mask := v_1
+		v.reset(OpAMD64VFMADDSUB213PSMasked256)
+		v.AddArg4(x, y, z, mask)
+		return true
+	}
 	// match: (VMOVDQU32Masked256 (VFMADD213PS256 x y z) mask)
 	// result: (VFMADD213PSMasked256 x y z mask)
 	for {
@@ -35882,17 +50935,17 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
-	// match: (VMOVDQU32Masked256 (VFMADDSUB213PS256 x y z) mask)
-	// result: (VFMADDSUB213PSMasked256 x y z mask)
+	// match: (VMOVDQU32Masked256 (VFMSUBADD213PS256 x y z) mask)
+	// result: (VFMSUBADD213PSMasked256 x y z mask)
 	for {
-		if v_0.Op != OpAMD64VFMADDSUB213PS256 {
+		if v_0.Op != OpAMD64VFMSUBADD213PS256 {
 			break
 		}
 		z := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		mask := v_1
-		v.reset(OpAMD64VFMADDSUB213PSMasked256)
+		v.reset(OpAMD64VFMSUBADD213PSMasked256)
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
@@ -35920,20 +50973,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPMULLDMasked256)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked256 (VFMSUBADD213PS256 x y z) mask)
-	// result: (VFMSUBADD213PSMasked256 x y z mask)
-	for {
-		if v_0.Op != OpAMD64VFMSUBADD213PS256 {
-			break
-		}
-		z := v_0.Args[2]
-		x := v_0.Args[0]
-		y := v_0.Args[1]
-		mask := v_1
-		v.reset(OpAMD64VFMSUBADD213PSMasked256)
-		v.AddArg4(x, y, z, mask)
 		return true
 	}
 	// match: (VMOVDQU32Masked256 (VPOPCNTD256 x) mask)
@@ -35972,34 +51011,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPERMDMasked256)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked256 (VPROLD256 [a] x) mask)
-	// result: (VPROLDMasked256 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPROLD256 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPROLDMasked256)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked256 (VPRORD256 [a] x) mask)
-	// result: (VPRORDMasked256 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPRORD256 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPRORDMasked256)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU32Masked256 (VPROLVD256 x y) mask)
@@ -36391,6 +51402,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked256(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU32Masked256 (VPSRLD256const [a] x) mask)
+	// result: (VPSRLDMasked256const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLD256const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLDMasked256const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
@@ -36458,30 +51483,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPANDNDMasked512)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked512 (VBROADCASTSS512 x) mask)
-	// result: (VBROADCASTSSMasked512 x mask)
-	for {
-		if v_0.Op != OpAMD64VBROADCASTSS512 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VBROADCASTSSMasked512)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked512 (VPBROADCASTD512 x) mask)
-	// result: (VPBROADCASTDMasked512 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTD512 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTDMasked512)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU32Masked512 (VRNDSCALEPS512 [a] x) mask)
@@ -36775,6 +51776,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
+	// match: (VMOVDQU32Masked512 (VFMADDSUB213PS512 x y z) mask)
+	// result: (VFMADDSUB213PSMasked512 x y z mask)
+	for {
+		if v_0.Op != OpAMD64VFMADDSUB213PS512 {
+			break
+		}
+		z := v_0.Args[2]
+		x := v_0.Args[0]
+		y := v_0.Args[1]
+		mask := v_1
+		v.reset(OpAMD64VFMADDSUB213PSMasked512)
+		v.AddArg4(x, y, z, mask)
+		return true
+	}
 	// match: (VMOVDQU32Masked512 (VFMADD213PS512 x y z) mask)
 	// result: (VFMADD213PSMasked512 x y z mask)
 	for {
@@ -36789,17 +51804,17 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
-	// match: (VMOVDQU32Masked512 (VFMADDSUB213PS512 x y z) mask)
-	// result: (VFMADDSUB213PSMasked512 x y z mask)
+	// match: (VMOVDQU32Masked512 (VFMSUBADD213PS512 x y z) mask)
+	// result: (VFMSUBADD213PSMasked512 x y z mask)
 	for {
-		if v_0.Op != OpAMD64VFMADDSUB213PS512 {
+		if v_0.Op != OpAMD64VFMSUBADD213PS512 {
 			break
 		}
 		z := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		mask := v_1
-		v.reset(OpAMD64VFMADDSUB213PSMasked512)
+		v.reset(OpAMD64VFMSUBADD213PSMasked512)
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
@@ -36827,20 +51842,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPMULLDMasked512)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked512 (VFMSUBADD213PS512 x y z) mask)
-	// result: (VFMSUBADD213PSMasked512 x y z mask)
-	for {
-		if v_0.Op != OpAMD64VFMSUBADD213PS512 {
-			break
-		}
-		z := v_0.Args[2]
-		x := v_0.Args[0]
-		y := v_0.Args[1]
-		mask := v_1
-		v.reset(OpAMD64VFMSUBADD213PSMasked512)
-		v.AddArg4(x, y, z, mask)
 		return true
 	}
 	// match: (VMOVDQU32Masked512 (VPOPCNTD512 x) mask)
@@ -36915,34 +51916,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
 		x := v_0.Args[0]
 		mask := v_1
 		v.reset(OpAMD64VRSQRT14PSMasked512)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked512 (VPROLD512 [a] x) mask)
-	// result: (VPROLDMasked512 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPROLD512 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPROLDMasked512)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU32Masked512 (VPRORD512 [a] x) mask)
-	// result: (VPRORDMasked512 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPRORD512 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPRORDMasked512)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -37276,6 +52249,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU32Masked512(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU32Masked512 (VPSRLD512const [a] x) mask)
+	// result: (VPSRLDMasked512const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLD512const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLDMasked512const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
@@ -37317,18 +52304,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPADDQMasked128)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked128 (VPBROADCASTQ128 x) mask)
-	// result: (VPBROADCASTQMasked128 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTQ128 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTQMasked128)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU64Masked128 (VRNDSCALEPD128 [a] x) mask)
@@ -37658,6 +52633,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
+	// match: (VMOVDQU64Masked128 (VFMADDSUB213PD128 x y z) mask)
+	// result: (VFMADDSUB213PDMasked128 x y z mask)
+	for {
+		if v_0.Op != OpAMD64VFMADDSUB213PD128 {
+			break
+		}
+		z := v_0.Args[2]
+		x := v_0.Args[0]
+		y := v_0.Args[1]
+		mask := v_1
+		v.reset(OpAMD64VFMADDSUB213PDMasked128)
+		v.AddArg4(x, y, z, mask)
+		return true
+	}
 	// match: (VMOVDQU64Masked128 (VFMADD213PD128 x y z) mask)
 	// result: (VFMADD213PDMasked128 x y z mask)
 	for {
@@ -37672,17 +52661,17 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
-	// match: (VMOVDQU64Masked128 (VFMADDSUB213PD128 x y z) mask)
-	// result: (VFMADDSUB213PDMasked128 x y z mask)
+	// match: (VMOVDQU64Masked128 (VFMSUBADD213PD128 x y z) mask)
+	// result: (VFMSUBADD213PDMasked128 x y z mask)
 	for {
-		if v_0.Op != OpAMD64VFMADDSUB213PD128 {
+		if v_0.Op != OpAMD64VFMSUBADD213PD128 {
 			break
 		}
 		z := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		mask := v_1
-		v.reset(OpAMD64VFMADDSUB213PDMasked128)
+		v.reset(OpAMD64VFMSUBADD213PDMasked128)
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
@@ -37710,20 +52699,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPMULLQMasked128)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked128 (VFMSUBADD213PD128 x y z) mask)
-	// result: (VFMSUBADD213PDMasked128 x y z mask)
-	for {
-		if v_0.Op != OpAMD64VFMSUBADD213PD128 {
-			break
-		}
-		z := v_0.Args[2]
-		x := v_0.Args[0]
-		y := v_0.Args[1]
-		mask := v_1
-		v.reset(OpAMD64VFMSUBADD213PDMasked128)
-		v.AddArg4(x, y, z, mask)
 		return true
 	}
 	// match: (VMOVDQU64Masked128 (VPOPCNTQ128 x) mask)
@@ -37759,34 +52734,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
 		x := v_0.Args[0]
 		mask := v_1
 		v.reset(OpAMD64VRSQRT14PDMasked128)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked128 (VPROLQ128 [a] x) mask)
-	// result: (VPROLQMasked128 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPROLQ128 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPROLQMasked128)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked128 (VPRORQ128 [a] x) mask)
-	// result: (VPRORQMasked128 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPRORQ128 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPRORQMasked128)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -38139,6 +53086,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked128(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU64Masked128 (VPSRLQ128const [a] x) mask)
+	// result: (VPSRLQMasked128const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLQ128const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLQMasked128const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
@@ -38180,30 +53141,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPADDQMasked256)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked256 (VBROADCASTSD256 x) mask)
-	// result: (VBROADCASTSDMasked256 x mask)
-	for {
-		if v_0.Op != OpAMD64VBROADCASTSD256 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VBROADCASTSDMasked256)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked256 (VPBROADCASTQ256 x) mask)
-	// result: (VPBROADCASTQMasked256 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTQ256 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTQMasked256)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU64Masked256 (VRNDSCALEPD256 [a] x) mask)
@@ -38473,6 +53410,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
+	// match: (VMOVDQU64Masked256 (VFMADDSUB213PD256 x y z) mask)
+	// result: (VFMADDSUB213PDMasked256 x y z mask)
+	for {
+		if v_0.Op != OpAMD64VFMADDSUB213PD256 {
+			break
+		}
+		z := v_0.Args[2]
+		x := v_0.Args[0]
+		y := v_0.Args[1]
+		mask := v_1
+		v.reset(OpAMD64VFMADDSUB213PDMasked256)
+		v.AddArg4(x, y, z, mask)
+		return true
+	}
 	// match: (VMOVDQU64Masked256 (VFMADD213PD256 x y z) mask)
 	// result: (VFMADD213PDMasked256 x y z mask)
 	for {
@@ -38487,17 +53438,17 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
-	// match: (VMOVDQU64Masked256 (VFMADDSUB213PD256 x y z) mask)
-	// result: (VFMADDSUB213PDMasked256 x y z mask)
+	// match: (VMOVDQU64Masked256 (VFMSUBADD213PD256 x y z) mask)
+	// result: (VFMSUBADD213PDMasked256 x y z mask)
 	for {
-		if v_0.Op != OpAMD64VFMADDSUB213PD256 {
+		if v_0.Op != OpAMD64VFMSUBADD213PD256 {
 			break
 		}
 		z := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		mask := v_1
-		v.reset(OpAMD64VFMADDSUB213PDMasked256)
+		v.reset(OpAMD64VFMSUBADD213PDMasked256)
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
@@ -38525,20 +53476,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPMULLQMasked256)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked256 (VFMSUBADD213PD256 x y z) mask)
-	// result: (VFMSUBADD213PDMasked256 x y z mask)
-	for {
-		if v_0.Op != OpAMD64VFMSUBADD213PD256 {
-			break
-		}
-		z := v_0.Args[2]
-		x := v_0.Args[0]
-		y := v_0.Args[1]
-		mask := v_1
-		v.reset(OpAMD64VFMSUBADD213PDMasked256)
-		v.AddArg4(x, y, z, mask)
 		return true
 	}
 	// match: (VMOVDQU64Masked256 (VPOPCNTQ256 x) mask)
@@ -38600,34 +53537,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
 		x := v_0.Args[0]
 		mask := v_1
 		v.reset(OpAMD64VRSQRT14PDMasked256)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked256 (VPROLQ256 [a] x) mask)
-	// result: (VPROLQMasked256 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPROLQ256 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPROLQMasked256)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked256 (VPRORQ256 [a] x) mask)
-	// result: (VPRORQMasked256 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPRORQ256 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPRORQMasked256)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -39016,6 +53925,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked256(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU64Masked256 (VPSRLQ256const [a] x) mask)
+	// result: (VPSRLQMasked256const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLQ256const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLQMasked256const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
@@ -39083,30 +54006,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPANDNQMasked512)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked512 (VBROADCASTSD512 x) mask)
-	// result: (VBROADCASTSDMasked512 x mask)
-	for {
-		if v_0.Op != OpAMD64VBROADCASTSD512 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VBROADCASTSDMasked512)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked512 (VPBROADCASTQ512 x) mask)
-	// result: (VPBROADCASTQMasked512 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTQ512 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTQMasked512)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU64Masked512 (VRNDSCALEPD512 [a] x) mask)
@@ -39316,6 +54215,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
+	// match: (VMOVDQU64Masked512 (VFMADDSUB213PD512 x y z) mask)
+	// result: (VFMADDSUB213PDMasked512 x y z mask)
+	for {
+		if v_0.Op != OpAMD64VFMADDSUB213PD512 {
+			break
+		}
+		z := v_0.Args[2]
+		x := v_0.Args[0]
+		y := v_0.Args[1]
+		mask := v_1
+		v.reset(OpAMD64VFMADDSUB213PDMasked512)
+		v.AddArg4(x, y, z, mask)
+		return true
+	}
 	// match: (VMOVDQU64Masked512 (VFMADD213PD512 x y z) mask)
 	// result: (VFMADD213PDMasked512 x y z mask)
 	for {
@@ -39330,17 +54243,17 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
-	// match: (VMOVDQU64Masked512 (VFMADDSUB213PD512 x y z) mask)
-	// result: (VFMADDSUB213PDMasked512 x y z mask)
+	// match: (VMOVDQU64Masked512 (VFMSUBADD213PD512 x y z) mask)
+	// result: (VFMSUBADD213PDMasked512 x y z mask)
 	for {
-		if v_0.Op != OpAMD64VFMADDSUB213PD512 {
+		if v_0.Op != OpAMD64VFMSUBADD213PD512 {
 			break
 		}
 		z := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		mask := v_1
-		v.reset(OpAMD64VFMADDSUB213PDMasked512)
+		v.reset(OpAMD64VFMSUBADD213PDMasked512)
 		v.AddArg4(x, y, z, mask)
 		return true
 	}
@@ -39368,20 +54281,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPMULLQMasked512)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked512 (VFMSUBADD213PD512 x y z) mask)
-	// result: (VFMSUBADD213PDMasked512 x y z mask)
-	for {
-		if v_0.Op != OpAMD64VFMSUBADD213PD512 {
-			break
-		}
-		z := v_0.Args[2]
-		x := v_0.Args[0]
-		y := v_0.Args[1]
-		mask := v_1
-		v.reset(OpAMD64VFMSUBADD213PDMasked512)
-		v.AddArg4(x, y, z, mask)
 		return true
 	}
 	// match: (VMOVDQU64Masked512 (VPOPCNTQ512 x) mask)
@@ -39456,34 +54355,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
 		x := v_0.Args[0]
 		mask := v_1
 		v.reset(OpAMD64VRSQRT14PDMasked512)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked512 (VPROLQ512 [a] x) mask)
-	// result: (VPROLQMasked512 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPROLQ512 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPROLQMasked512)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg2(x, mask)
-		return true
-	}
-	// match: (VMOVDQU64Masked512 (VPRORQ512 [a] x) mask)
-	// result: (VPRORQMasked512 [a] x mask)
-	for {
-		if v_0.Op != OpAMD64VPRORQ512 {
-			break
-		}
-		a := auxIntToUint8(v_0.AuxInt)
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPRORQMasked512)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -39813,6 +54684,20 @@ func rewriteValueAMD64_OpAMD64VMOVDQU64Masked512(v *Value) bool {
 		v.AddArg2(x, mask)
 		return true
 	}
+	// match: (VMOVDQU64Masked512 (VPSRLQ512const [a] x) mask)
+	// result: (VPSRLQMasked512const [a] x mask)
+	for {
+		if v_0.Op != OpAMD64VPSRLQ512const {
+			break
+		}
+		a := auxIntToUint8(v_0.AuxInt)
+		x := v_0.Args[0]
+		mask := v_1
+		v.reset(OpAMD64VPSRLQMasked512const)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg2(x, mask)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VMOVDQU8Masked128(v *Value) bool {
@@ -39880,18 +54765,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU8Masked128(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPAVGBMasked128)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU8Masked128 (VPBROADCASTB128 x) mask)
-	// result: (VPBROADCASTBMasked128 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTB128 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTBMasked128)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU8Masked128 (VPERMI2B128 x y z) mask)
@@ -40236,18 +55109,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU8Masked256(v *Value) bool {
 		v.AddArg3(x, y, mask)
 		return true
 	}
-	// match: (VMOVDQU8Masked256 (VPBROADCASTB256 x) mask)
-	// result: (VPBROADCASTBMasked256 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTB256 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTBMasked256)
-		v.AddArg2(x, mask)
-		return true
-	}
 	// match: (VMOVDQU8Masked256 (VPERMI2B256 x y z) mask)
 	// result: (VPERMI2BMasked256 x y z mask)
 	for {
@@ -40588,18 +55449,6 @@ func rewriteValueAMD64_OpAMD64VMOVDQU8Masked512(v *Value) bool {
 		mask := v_1
 		v.reset(OpAMD64VPAVGBMasked512)
 		v.AddArg3(x, y, mask)
-		return true
-	}
-	// match: (VMOVDQU8Masked512 (VPBROADCASTB512 x) mask)
-	// result: (VPBROADCASTBMasked512 x mask)
-	for {
-		if v_0.Op != OpAMD64VPBROADCASTB512 {
-			break
-		}
-		x := v_0.Args[0]
-		mask := v_1
-		v.reset(OpAMD64VPBROADCASTBMasked512)
-		v.AddArg2(x, mask)
 		return true
 	}
 	// match: (VMOVDQU8Masked512 (VPERMI2B512 x y z) mask)
@@ -41294,6 +56143,66 @@ func rewriteValueAMD64_OpAMD64VMOVSSf2v(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VMULPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMULPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMULPD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMULPD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMULPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMULPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMULPD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMULPD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VMULPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -41414,6 +56323,66 @@ func rewriteValueAMD64_OpAMD64VMULPDMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMULPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMULPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMULPS128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMULPS128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VMULPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VMULPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VMULPS256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VMULPS256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -41543,6 +56512,160 @@ func rewriteValueAMD64_OpAMD64VMULPSMasked512(v *Value) bool {
 			return true
 		}
 		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSB128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPABSB128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSB128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSB256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPABSB256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSB256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSBMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPABSBMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSBMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSBMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPABSBMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSBMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPABSD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPABSD256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
 	}
 	return false
 }
@@ -41808,6 +56931,164 @@ func rewriteValueAMD64_OpAMD64VPABSQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPABSW128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPABSW128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSW128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSW256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPABSW256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSW256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPABSWMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSWMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPABSWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPABSWMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPABSWMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPABSWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPACKSSDW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPACKSSDW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPACKSSDW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPACKSSDW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPACKSSDW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPACKSSDW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPACKSSDW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPACKSSDW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPACKSSDW512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -41918,6 +57199,60 @@ func rewriteValueAMD64_OpAMD64VPACKSSDWMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPACKUSDW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPACKUSDW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPACKUSDW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPACKUSDW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPACKUSDW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPACKUSDW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPACKUSDW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPACKUSDW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -42033,6 +57368,190 @@ func rewriteValueAMD64_OpAMD64VPACKUSDWMasked512(v *Value) bool {
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
 		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
 	}
 	return false
 }
@@ -42156,6 +57675,66 @@ func rewriteValueAMD64_OpAMD64VPADDDMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDQ128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDQ128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDQ256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDQ256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -42288,9 +57867,843 @@ func rewriteValueAMD64_OpAMD64VPADDQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPADDSB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDSWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDUSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDUSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDUSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDUSWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPADDWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPADDWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPADDWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPADDWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPALIGNR128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPALIGNR128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPALIGNR128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPALIGNR128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPALIGNR256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPALIGNR256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPALIGNR256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPALIGNR256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPALIGNRMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPALIGNRMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPALIGNRMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPALIGNRMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPALIGNRMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPALIGNRMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPALIGNRMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPALIGNRMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPAND128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (VPAND128 (VPMOVMToVec8x16 x) (VPMOVMToVec8x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x16 (KANDW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPAND128 (VPMOVMToVec16x8 x) (VPMOVMToVec16x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x8 (KANDB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPAND128 (VPMOVMToVec32x4 x) (VPMOVMToVec32x4 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x4 (KANDB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x4 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x4 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x4)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPAND128 (VPMOVMToVec64x2 x) (VPMOVMToVec64x2 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x2 (KANDB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x2 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x2 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x2)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
 	// match: (VPAND128 x (VPMOVMToVec8x16 k))
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VMOVDQU8Masked128 x k)
@@ -42367,11 +58780,134 @@ func rewriteValueAMD64_OpAMD64VPAND128(v *Value) bool {
 		}
 		break
 	}
+	// match: (VPAND128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAND128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAND128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPAND256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (VPAND256 (VPMOVMToVec8x32 x) (VPMOVMToVec8x32 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x32 (KANDD x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x32 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x32 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x32)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDD, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPAND256 (VPMOVMToVec16x16 x) (VPMOVMToVec16x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x16 (KANDW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPAND256 (VPMOVMToVec32x8 x) (VPMOVMToVec32x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x8 (KANDB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPAND256 (VPMOVMToVec64x4 x) (VPMOVMToVec64x4 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x4 (KANDB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x4 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x4 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x4)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
 	// match: (VPAND256 x (VPMOVMToVec8x32 k))
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VMOVDQU8Masked256 x k)
@@ -42448,11 +58984,134 @@ func rewriteValueAMD64_OpAMD64VPAND256(v *Value) bool {
 		}
 		break
 	}
+	// match: (VPAND256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAND256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAND256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPANDD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (VPANDD512 (VPMOVMToVec8x64 x) (VPMOVMToVec8x64 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x64 (KANDQ x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x64 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x64 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x64)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDQ, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPANDD512 (VPMOVMToVec16x32 x) (VPMOVMToVec16x32 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x32 (KANDD x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x32 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x32 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x32)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDD, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPANDD512 (VPMOVMToVec32x16 x) (VPMOVMToVec32x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x16 (KANDW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPANDD512 (VPMOVMToVec64x8 x) (VPMOVMToVec64x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x8 (KANDB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KANDB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
 	// match: (VPANDD512 x (VPMOVMToVec64x8 k))
 	// result: (VMOVDQU64Masked512 x k)
 	for {
@@ -42633,6 +59292,60 @@ func rewriteValueAMD64_OpAMD64VPANDDMasked512(v *Value) bool {
 			return true
 		}
 		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPANDN128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPANDN128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPANDN128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPANDN128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPANDN256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPANDN256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPANDN256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPANDN256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
 	}
 	return false
 }
@@ -43050,6 +59763,254 @@ func rewriteValueAMD64_OpAMD64VPANDQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPAVGB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPAVGWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPAVGWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPAVGWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPAVGWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPBLENDMBMasked512(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
@@ -43120,22 +60081,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMBMasked512(v *Value) bool {
 		x := v_1.Args[0]
 		mask := v_2
 		v.reset(OpAMD64VPADDUSBMasked512Merging)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
-	// match: (VPBLENDMBMasked512 dst (VPALIGNR512 [a] x y) mask)
-	// result: (VPALIGNRMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPALIGNR512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPALIGNRMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
@@ -43663,21 +60608,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMDMasked512(v *Value) bool {
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
-	// match: (VPBLENDMDMasked512 dst (VPROLD512 [a] x) mask)
-	// result: (VPROLDMasked512Merging dst [a] x mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPROLD512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPROLDMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg3(dst, x, mask)
-		return true
-	}
 	// match: (VPBLENDMDMasked512 dst (VPROLVD512 x y) mask)
 	// result: (VPROLVDMasked512Merging dst x y mask)
 	for {
@@ -43692,21 +60622,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMDMasked512(v *Value) bool {
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
-	// match: (VPBLENDMDMasked512 dst (VPRORD512 [a] x) mask)
-	// result: (VPRORDMasked512Merging dst [a] x mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPRORD512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPRORDMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg3(dst, x, mask)
-		return true
-	}
 	// match: (VPBLENDMDMasked512 dst (VPRORVD512 x y) mask)
 	// result: (VPRORVDMasked512Merging dst x y mask)
 	for {
@@ -43718,38 +60633,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMDMasked512(v *Value) bool {
 		x := v_1.Args[0]
 		mask := v_2
 		v.reset(OpAMD64VPRORVDMasked512Merging)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
-	// match: (VPBLENDMDMasked512 dst (VPSHLDD512 [a] x y) mask)
-	// result: (VPSHLDDMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDD512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPSHLDDMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
-	// match: (VPBLENDMDMasked512 dst (VPSHRDD512 [a] x y) mask)
-	// result: (VPSHRDDMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDD512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPSHRDDMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
@@ -43824,6 +60707,21 @@ func rewriteValueAMD64_OpAMD64VPBLENDMDMasked512(v *Value) bool {
 		mask := v_2
 		v.reset(OpAMD64VPSRAVDMasked512Merging)
 		v.AddArg4(dst, x, y, mask)
+		return true
+	}
+	// match: (VPBLENDMDMasked512 dst (VPSRLD512const [a] x) mask)
+	// result: (VPSRLDMasked512constMerging dst [a] x mask)
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLD512const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		v.reset(OpAMD64VPSRLDMasked512constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg3(dst, x, mask)
 		return true
 	}
 	// match: (VPBLENDMDMasked512 dst (VPSRLVD512 x y) mask)
@@ -44449,21 +61347,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMQMasked512(v *Value) bool {
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
-	// match: (VPBLENDMQMasked512 dst (VPROLQ512 [a] x) mask)
-	// result: (VPROLQMasked512Merging dst [a] x mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPROLQ512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPROLQMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg3(dst, x, mask)
-		return true
-	}
 	// match: (VPBLENDMQMasked512 dst (VPROLVQ512 x y) mask)
 	// result: (VPROLVQMasked512Merging dst x y mask)
 	for {
@@ -44478,21 +61361,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMQMasked512(v *Value) bool {
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
-	// match: (VPBLENDMQMasked512 dst (VPRORQ512 [a] x) mask)
-	// result: (VPRORQMasked512Merging dst [a] x mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPRORQ512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPRORQMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg3(dst, x, mask)
-		return true
-	}
 	// match: (VPBLENDMQMasked512 dst (VPRORVQ512 x y) mask)
 	// result: (VPRORVQMasked512Merging dst x y mask)
 	for {
@@ -44504,38 +61372,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMQMasked512(v *Value) bool {
 		x := v_1.Args[0]
 		mask := v_2
 		v.reset(OpAMD64VPRORVQMasked512Merging)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
-	// match: (VPBLENDMQMasked512 dst (VPSHLDQ512 [a] x y) mask)
-	// result: (VPSHLDQMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDQ512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPSHLDQMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
-	// match: (VPBLENDMQMasked512 dst (VPSHRDQ512 [a] x y) mask)
-	// result: (VPSHRDQMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDQ512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPSHRDQMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
 		v.AddArg4(dst, x, y, mask)
 		return true
 	}
@@ -44595,6 +61431,21 @@ func rewriteValueAMD64_OpAMD64VPBLENDMQMasked512(v *Value) bool {
 		mask := v_2
 		v.reset(OpAMD64VPSRAVQMasked512Merging)
 		v.AddArg4(dst, x, y, mask)
+		return true
+	}
+	// match: (VPBLENDMQMasked512 dst (VPSRLQ512const [a] x) mask)
+	// result: (VPSRLQMasked512constMerging dst [a] x mask)
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLQ512const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		v.reset(OpAMD64VPSRLQMasked512constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg3(dst, x, mask)
 		return true
 	}
 	// match: (VPBLENDMQMasked512 dst (VPSRLVQ512 x y) mask)
@@ -45012,38 +61863,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDMWMasked512(v *Value) bool {
 		v.AddArg3(dst, x, mask)
 		return true
 	}
-	// match: (VPBLENDMWMasked512 dst (VPSHLDW512 [a] x y) mask)
-	// result: (VPSHLDWMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDW512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPSHLDWMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
-	// match: (VPBLENDMWMasked512 dst (VPSHRDW512 [a] x y) mask)
-	// result: (VPSHRDWMasked512Merging dst [a] x y mask)
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDW512 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		v.reset(OpAMD64VPSHRDWMasked512Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v.AddArg4(dst, x, y, mask)
-		return true
-	}
 	// match: (VPBLENDMWMasked512 dst (VPSHUFHW512 [a] x) mask)
 	// result: (VPSHUFHWMasked512Merging dst [a] x mask)
 	for {
@@ -45144,6 +61963,21 @@ func rewriteValueAMD64_OpAMD64VPBLENDMWMasked512(v *Value) bool {
 		mask := v_2
 		v.reset(OpAMD64VPSRLVWMasked512Merging)
 		v.AddArg4(dst, x, y, mask)
+		return true
+	}
+	// match: (VPBLENDMWMasked512 dst (VPSRLW512const [a] x) mask)
+	// result: (VPSRLWMasked512constMerging dst [a] x mask)
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLW512const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		v.reset(OpAMD64VPSRLWMasked512constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v.AddArg3(dst, x, mask)
 		return true
 	}
 	// match: (VPBLENDMWMasked512 dst (VPSUBSW512 x y) mask)
@@ -46124,28 +62958,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB128(v *Value) bool {
 		}
 		v.reset(OpAMD64VPADDWMasked128Merging)
 		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPALIGNR128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPALIGNRMasked128Merging dst [a] x y (VPMOVVec8x16ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPALIGNR128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPALIGNRMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
 		v0.AddArg(mask)
 		v.AddArg4(dst, x, y, v0)
 		return true
@@ -47904,48 +64716,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB128(v *Value) bool {
 		v.AddArg3(dst, x, v0)
 		return true
 	}
-	// match: (VPBLENDVB128 dst (VPROLD128 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPROLDMasked128Merging dst [a] x (VPMOVVec32x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPROLD128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPROLDMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPROLQ128 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPROLQMasked128Merging dst [a] x (VPMOVVec64x2ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPROLQ128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPROLQMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
 	// match: (VPBLENDVB128 dst (VPROLVD128 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPROLVDMasked128Merging dst x y (VPMOVVec32x4ToM <types.TypeMask> mask))
@@ -47986,48 +64756,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB128(v *Value) bool {
 		v.AddArg4(dst, x, y, v0)
 		return true
 	}
-	// match: (VPBLENDVB128 dst (VPRORD128 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPRORDMasked128Merging dst [a] x (VPMOVVec32x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPRORD128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPRORDMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPRORQ128 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPRORQMasked128Merging dst [a] x (VPMOVVec64x2ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPRORQ128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPRORQMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
 	// match: (VPBLENDVB128 dst (VPRORVD128 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPRORVDMasked128Merging dst x y (VPMOVVec32x4ToM <types.TypeMask> mask))
@@ -48064,138 +64792,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB128(v *Value) bool {
 		}
 		v.reset(OpAMD64VPRORVQMasked128Merging)
 		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPSHLDD128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHLDDMasked128Merging dst [a] x y (VPMOVVec32x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDD128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHLDDMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPSHLDQ128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHLDQMasked128Merging dst [a] x y (VPMOVVec64x2ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDQ128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHLDQMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPSHLDW128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHLDWMasked128Merging dst [a] x y (VPMOVVec16x8ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDW128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHLDWMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPSHRDD128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHRDDMasked128Merging dst [a] x y (VPMOVVec32x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDD128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHRDDMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPSHRDQ128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHRDQMasked128Merging dst [a] x y (VPMOVVec64x2ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDQ128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHRDQMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB128 dst (VPSHRDW128 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHRDWMasked128Merging dst [a] x y (VPMOVVec16x8ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDW128 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHRDWMasked128Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
 		v0.AddArg(mask)
 		v.AddArg4(dst, x, y, v0)
 		return true
@@ -48529,6 +65125,48 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB128(v *Value) bool {
 		v.AddArg3(dst, x, v0)
 		return true
 	}
+	// match: (VPBLENDVB128 dst (VPSRLD128const [a] x) mask)
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPSRLDMasked128constMerging dst [a] x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLD128const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLDMasked128constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg3(dst, x, v0)
+		return true
+	}
+	// match: (VPBLENDVB128 dst (VPSRLQ128const [a] x) mask)
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPSRLQMasked128constMerging dst [a] x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLQ128const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLQMasked128constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg3(dst, x, v0)
+		return true
+	}
 	// match: (VPBLENDVB128 dst (VPSRLVD128 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPSRLVDMasked128Merging dst x y (VPMOVVec32x4ToM <types.TypeMask> mask))
@@ -48587,6 +65225,27 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB128(v *Value) bool {
 		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
 		v0.AddArg(mask)
 		v.AddArg4(dst, x, y, v0)
+		return true
+	}
+	// match: (VPBLENDVB128 dst (VPSRLW128const [a] x) mask)
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPSRLWMasked128constMerging dst [a] x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLW128const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLWMasked128constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg3(dst, x, v0)
 		return true
 	}
 	// match: (VPBLENDVB128 dst (VPSUBB128 x y) mask)
@@ -49834,28 +66493,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB256(v *Value) bool {
 		v.AddArg4(dst, x, y, v0)
 		return true
 	}
-	// match: (VPBLENDVB256 dst (VPALIGNR256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPALIGNRMasked256Merging dst [a] x y (VPMOVVec8x32ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPALIGNR256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPALIGNRMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x32ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
 	// match: (VPBLENDVB256 dst (VPAVGB256 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPAVGBMasked256Merging dst x y (VPMOVVec8x32ToM <types.TypeMask> mask))
@@ -50926,48 +67563,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB256(v *Value) bool {
 		v.AddArg3(dst, x, v0)
 		return true
 	}
-	// match: (VPBLENDVB256 dst (VPROLD256 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPROLDMasked256Merging dst [a] x (VPMOVVec32x8ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPROLD256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPROLDMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x8ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPROLQ256 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPROLQMasked256Merging dst [a] x (VPMOVVec64x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPROLQ256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPROLQMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
 	// match: (VPBLENDVB256 dst (VPROLVD256 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPROLVDMasked256Merging dst x y (VPMOVVec32x8ToM <types.TypeMask> mask))
@@ -51008,48 +67603,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB256(v *Value) bool {
 		v.AddArg4(dst, x, y, v0)
 		return true
 	}
-	// match: (VPBLENDVB256 dst (VPRORD256 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPRORDMasked256Merging dst [a] x (VPMOVVec32x8ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPRORD256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPRORDMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x8ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPRORQ256 [a] x) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPRORQMasked256Merging dst [a] x (VPMOVVec64x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPRORQ256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPRORQMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg3(dst, x, v0)
-		return true
-	}
 	// match: (VPBLENDVB256 dst (VPRORVD256 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPRORVDMasked256Merging dst x y (VPMOVVec32x8ToM <types.TypeMask> mask))
@@ -51086,138 +67639,6 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB256(v *Value) bool {
 		}
 		v.reset(OpAMD64VPRORVQMasked256Merging)
 		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPSHLDD256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHLDDMasked256Merging dst [a] x y (VPMOVVec32x8ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDD256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHLDDMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x8ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPSHLDQ256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHLDQMasked256Merging dst [a] x y (VPMOVVec64x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDQ256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHLDQMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPSHLDW256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHLDWMasked256Merging dst [a] x y (VPMOVVec16x16ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHLDW256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHLDWMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x16ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPSHRDD256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHRDDMasked256Merging dst [a] x y (VPMOVVec32x8ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDD256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHRDDMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x8ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPSHRDQ256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHRDQMasked256Merging dst [a] x y (VPMOVVec64x4ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDQ256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHRDQMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x4ToM, types.TypeMask)
-		v0.AddArg(mask)
-		v.AddArg4(dst, x, y, v0)
-		return true
-	}
-	// match: (VPBLENDVB256 dst (VPSHRDW256 [a] x y) mask)
-	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
-	// result: (VPSHRDWMasked256Merging dst [a] x y (VPMOVVec16x16ToM <types.TypeMask> mask))
-	for {
-		dst := v_0
-		if v_1.Op != OpAMD64VPSHRDW256 {
-			break
-		}
-		a := auxIntToUint8(v_1.AuxInt)
-		y := v_1.Args[1]
-		x := v_1.Args[0]
-		mask := v_2
-		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
-			break
-		}
-		v.reset(OpAMD64VPSHRDWMasked256Merging)
-		v.AuxInt = uint8ToAuxInt(a)
-		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x16ToM, types.TypeMask)
 		v0.AddArg(mask)
 		v.AddArg4(dst, x, y, v0)
 		return true
@@ -51551,6 +67972,48 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB256(v *Value) bool {
 		v.AddArg3(dst, x, v0)
 		return true
 	}
+	// match: (VPBLENDVB256 dst (VPSRLD256const [a] x) mask)
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPSRLDMasked256constMerging dst [a] x (VPMOVVec32x8ToM <types.TypeMask> mask))
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLD256const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLDMasked256constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg3(dst, x, v0)
+		return true
+	}
+	// match: (VPBLENDVB256 dst (VPSRLQ256const [a] x) mask)
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPSRLQMasked256constMerging dst [a] x (VPMOVVec64x4ToM <types.TypeMask> mask))
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLQ256const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLQMasked256constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg3(dst, x, v0)
+		return true
+	}
 	// match: (VPBLENDVB256 dst (VPSRLVD256 x y) mask)
 	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
 	// result: (VPSRLVDMasked256Merging dst x y (VPMOVVec32x8ToM <types.TypeMask> mask))
@@ -51609,6 +68072,27 @@ func rewriteValueAMD64_OpAMD64VPBLENDVB256(v *Value) bool {
 		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x16ToM, types.TypeMask)
 		v0.AddArg(mask)
 		v.AddArg4(dst, x, y, v0)
+		return true
+	}
+	// match: (VPBLENDVB256 dst (VPSRLW256const [a] x) mask)
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPSRLWMasked256constMerging dst [a] x (VPMOVVec16x16ToM <types.TypeMask> mask))
+	for {
+		dst := v_0
+		if v_1.Op != OpAMD64VPSRLW256const {
+			break
+		}
+		a := auxIntToUint8(v_1.AuxInt)
+		x := v_1.Args[0]
+		mask := v_2
+		if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLWMasked256constMerging)
+		v.AuxInt = uint8ToAuxInt(a)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg3(dst, x, v0)
 		return true
 	}
 	// match: (VPBLENDVB256 dst (VPSUBB256 x y) mask)
@@ -52038,6 +68522,27 @@ func rewriteValueAMD64_OpAMD64VPBROADCASTB128(v *Value) bool {
 		v.AddArg(v0)
 		return true
 	}
+	// match: (VPBROADCASTB128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTB128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPBROADCASTB256(v *Value) bool {
@@ -52063,6 +68568,27 @@ func rewriteValueAMD64_OpAMD64VPBROADCASTB256(v *Value) bool {
 		v0 := b.NewValue0(v.Pos, OpAMD64VMOVQ, types.TypeVec128)
 		v0.AddArg(y)
 		v.AddArg(v0)
+		return true
+	}
+	// match: (VPBROADCASTB256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTB256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -52092,6 +68618,420 @@ func rewriteValueAMD64_OpAMD64VPBROADCASTB512(v *Value) bool {
 		v.AddArg(v0)
 		return true
 	}
+	// match: (VPBROADCASTB512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTB512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTB512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTBMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTBMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTBMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTBMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTBMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTBMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTBMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTBMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTBMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTBMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTD512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTD512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTD512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTD512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTDMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTDMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTDMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTDMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTDMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTQ512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTQMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTQMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTQMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTQMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPBROADCASTQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPBROADCASTQMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPBROADCASTW128(v *Value) bool {
@@ -52117,6 +69057,27 @@ func rewriteValueAMD64_OpAMD64VPBROADCASTW128(v *Value) bool {
 		v0 := b.NewValue0(v.Pos, OpAMD64VMOVQ, types.TypeVec128)
 		v0.AddArg(y)
 		v.AddArg(v0)
+		return true
+	}
+	// match: (VPBROADCASTW128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTW128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -52146,6 +69107,27 @@ func rewriteValueAMD64_OpAMD64VPBROADCASTW256(v *Value) bool {
 		v.AddArg(v0)
 		return true
 	}
+	// match: (VPBROADCASTW256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPBROADCASTW256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPBROADCASTW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPBROADCASTW512(v *Value) bool {
@@ -52171,6 +69153,122 @@ func rewriteValueAMD64_OpAMD64VPBROADCASTW512(v *Value) bool {
 		v0 := b.NewValue0(v.Pos, OpAMD64VMOVQ, types.TypeVec128)
 		v0.AddArg(y)
 		v.AddArg(v0)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCLMULQDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCLMULQDQ128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCLMULQDQ128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCLMULQDQ128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCLMULQDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCLMULQDQ256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCLMULQDQ256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCLMULQDQ256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPBMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPBMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPBMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPBMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPBMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPBMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
 		return true
 	}
 	return false
@@ -52293,6 +69391,126 @@ func rewriteValueAMD64_OpAMD64VPCMPDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPCMPEQB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPEQB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPEQD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPEQD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPCMPEQD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -52314,6 +69532,66 @@ func rewriteValueAMD64_OpAMD64VPCMPEQD512(v *Value) bool {
 				continue
 			}
 			v.reset(OpAMD64VPCMPEQD512load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPEQQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQQ128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQQ128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPEQQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQQ256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQQ256load)
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg3(x, ptr, mem)
@@ -52353,6 +69631,174 @@ func rewriteValueAMD64_OpAMD64VPCMPEQQ512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPCMPEQW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPEQW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPEQW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPEQW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPCMPEQW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPCMPGTD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -52380,6 +69826,60 @@ func rewriteValueAMD64_OpAMD64VPCMPGTD512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPCMPGTQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPCMPGTQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -52400,6 +69900,60 @@ func rewriteValueAMD64_OpAMD64VPCMPGTQ512(v *Value) bool {
 			break
 		}
 		v.reset(OpAMD64VPCMPGTQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPGTW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPGTW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPGTW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPGTW256load)
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(x, ptr, mem)
@@ -52518,6 +70072,66 @@ func rewriteValueAMD64_OpAMD64VPCMPQMasked512(v *Value) bool {
 			break
 		}
 		v.reset(OpAMD64VPCMPQMasked512load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPUBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPUBMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPUBMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPUBMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPUBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPUBMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPUBMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPUBMasked256load)
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
@@ -52761,6 +70375,184 @@ func rewriteValueAMD64_OpAMD64VPCMPUQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPCMPUWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPUWMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPUWMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPUWMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPUWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPUWMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPUWMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPUWMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPWMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPWMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPWMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPCMPWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPCMPWMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPCMPWMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPCMPWMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPDPWSSD128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPDPWSSD128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPDPWSSD128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPDPWSSD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPDPWSSD256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPDPWSSD256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPDPWSSD256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPDPWSSD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPDPWSSD512(v *Value) bool {
 	v_2 := v.Args[2]
 	v_1 := v.Args[1]
@@ -52883,6 +70675,201 @@ func rewriteValueAMD64_OpAMD64VPDPWSSDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPERM2F128256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERM2F128256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERM2F128256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERM2F128256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERM2I128256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERM2I128256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERM2I128256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERM2I128256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPERMD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -52964,6 +70951,126 @@ func rewriteValueAMD64_OpAMD64VPERMDMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2B128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2B128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2B128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2B128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2B256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2B256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2B256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2B256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2BMasked128(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2BMasked128 x y l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2BMasked128load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2BMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2BMasked256(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2BMasked256 x y l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2BMasked256load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2BMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
 		return true
 	}
 	return false
@@ -53688,6 +71795,126 @@ func rewriteValueAMD64_OpAMD64VPERMI2QMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPERMI2W128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2W128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2W128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2W128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2W256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2W256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2W256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2W256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2WMasked128(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2WMasked128 x y l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2WMasked128load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2WMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMI2WMasked256(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMI2WMasked256 x y l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMI2WMasked256load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMI2WMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPERMPD256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -53796,6 +72023,33 @@ func rewriteValueAMD64_OpAMD64VPERMPDMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMPS256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -53993,6 +72247,658 @@ func rewriteValueAMD64_OpAMD64VPERMQMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPERMWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPERMWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPERMWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPERMWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDBMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDBMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDBMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDBMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDBMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDBMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDDMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDQMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDQMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDQMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDQMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDQMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDWMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDWMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPEXPANDWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPEXPANDWMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPEXPANDWMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPEXPANDWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHADDD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHADDD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHADDD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHADDD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHADDD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHADDD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHADDD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHADDD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHADDSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHADDSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHADDSW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHADDSW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHADDSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHADDSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHADDSW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHADDSW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHADDW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHADDW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHADDW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHADDW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHADDW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHADDW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHADDW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHADDW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHSUBD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHSUBD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHSUBD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHSUBD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHSUBD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHSUBD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHSUBD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHSUBD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHSUBSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHSUBSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHSUBSW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHSUBSW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHSUBSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHSUBSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHSUBSW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHSUBSW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHSUBW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHSUBW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHSUBW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHSUBW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPHSUBW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPHSUBW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPHSUBW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPHSUBW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -54383,6 +73289,414 @@ func rewriteValueAMD64_OpAMD64VPLZCNTQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPMADDUBSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDUBSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDUBSW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDUBSW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDUBSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDUBSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDUBSW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDUBSW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDUBSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDUBSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDUBSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDUBSWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDUBSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDUBSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDUBSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDUBSWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDWD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDWD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDWD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDWD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDWD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDWD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDWD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDWD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDWDMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDWDMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDWDMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDWDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMADDWDMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMADDWDMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMADDWDMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMADDWDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPMAXSD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -54689,6 +74003,314 @@ func rewriteValueAMD64_OpAMD64VPMAXSQMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXSWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -55007,6 +74629,314 @@ func rewriteValueAMD64_OpAMD64VPMAXUQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPMAXUW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMAXUWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMAXUWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMAXUWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMAXUWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPMINSD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -55313,6 +75243,314 @@ func rewriteValueAMD64_OpAMD64VPMINSQMasked512(v *Value) bool {
 			v.AuxInt = int32ToAuxInt(off)
 			v.Aux = symToAux(sym)
 			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINSWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUB128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUB128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUB256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUB256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUBMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUBMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -55631,6 +75869,1039 @@ func rewriteValueAMD64_OpAMD64VPMINUQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPMINUW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMINUWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMINUWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMINUWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMINUWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBD512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBD512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBD512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBD512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBDMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBDMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBDMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBDMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBDMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBQ512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBQMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBW128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBW128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBW128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBW256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBW256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBW256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBW512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBW512 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBW512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBW512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBWMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBWMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBWMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBWMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXBWMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXBWMasked512 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXBWMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXBWMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXDQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXDQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXDQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXDQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXDQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXDQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXDQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXDQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXDQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXDQ512 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXDQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXDQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXDQMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXDQMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXDQMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXDQMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXDQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXDQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXDQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXDQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXDQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXDQMasked512 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXDQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXDQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWD512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWD512 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWD512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWD512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWDMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWDMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWDMasked512 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWDMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWDMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWQ512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWQMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWQMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWQMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWQMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVSXWQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVSXWQMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVSXWQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVSXWQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPMOVVec16x16ToM(v *Value) bool {
 	v_0 := v.Args[0]
 	// match: (VPMOVVec16x16ToM (VPMOVMToVec16x16 x))
@@ -55796,6 +77067,1283 @@ func rewriteValueAMD64_OpAMD64VPMOVVec8x64ToM(v *Value) bool {
 		x := v_0.Args[0]
 		v.copyOf(x)
 		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBD512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBD512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBD512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBD512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBDMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBDMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBDMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBDMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBDMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBQ512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBQMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBW128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBW128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBW128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBW256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBW256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBW256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBW512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBW512 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBW512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBW512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBWMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBWMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBWMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBWMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXBWMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXBWMasked512 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXBWMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXBWMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXDQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXDQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXDQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXDQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXDQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXDQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXDQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXDQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXDQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXDQ512 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXDQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXDQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXDQMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXDQMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXDQMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXDQMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXDQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXDQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXDQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXDQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXDQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXDQMasked512 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXDQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXDQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWD256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWD512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWD512 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWD512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWD512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWDMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWDMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWDMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWDMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWDMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWDMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWDMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWDMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWDMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWDMasked512 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWDMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWDMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWQ128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWQ128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWQ128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWQ256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWQ256 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWQ256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWQ512(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWQ512 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWQ512load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWQMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWQMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWQMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWQMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWQMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWQMasked256 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWQMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWQMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMOVZXWQMasked512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMOVZXWQMasked512 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMOVZXWQMasked512load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPMOVZXWQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULDQ128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULDQ128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULDQ256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULDQ256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHUW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHUW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHUW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHUW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHUW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHUW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHUW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHUW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHUWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHUWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHUWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHUWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHUWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHUWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHUWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHUWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULHWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULHWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULHWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULHWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULLD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULLD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULLD128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULLD128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULLD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULLD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULLD256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULLD256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
 	}
 	return false
 }
@@ -56111,6 +78659,294 @@ func rewriteValueAMD64_OpAMD64VPMULLQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPMULLW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULLW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULLW128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULLW128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULLW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULLW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULLW256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULLW256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULLWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULLWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULLWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULLWMasked128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULLWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULLWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULLWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			mask := v_2
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULLWMasked256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg4(x, ptr, mask, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULUDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULUDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULUDQ128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULUDQ128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPMULUDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPMULUDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPMULUDQ256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPMULUDQ256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTB128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPOPCNTB128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTB128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTB256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPOPCNTB256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTB256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTBMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPOPCNTBMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTBMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTBMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPOPCNTBMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTBMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPOPCNTD128(v *Value) bool {
 	v_0 := v.Args[0]
 	// match: (VPOPCNTD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
@@ -56423,9 +79259,115 @@ func rewriteValueAMD64_OpAMD64VPOPCNTQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPOPCNTW128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPOPCNTW128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTW128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTW256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPOPCNTW256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTW256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPOPCNTWMasked128 l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTWMasked128load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPOPCNTWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPOPCNTWMasked256 l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOPCNTWMasked256load {sym} [off] ptr mask mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPOPCNTWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPOR128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
 	// match: (VPOR128 (VCMPPS128 [3] x x) (VCMPPS128 [3] y y))
 	// result: (VCMPPS128 [3] x y)
 	for {
@@ -56470,11 +79412,134 @@ func rewriteValueAMD64_OpAMD64VPOR128(v *Value) bool {
 		}
 		break
 	}
+	// match: (VPOR128 (VPMOVMToVec8x16 x) (VPMOVMToVec8x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x16 (KORW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR128 (VPMOVMToVec16x8 x) (VPMOVMToVec16x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x8 (KORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR128 (VPMOVMToVec32x4 x) (VPMOVMToVec32x4 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x4 (KORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x4 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x4 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x4)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR128 (VPMOVMToVec64x2 x) (VPMOVMToVec64x2 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x2 (KORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x2 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x2 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x2)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOR128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPOR128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPOR256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
 	// match: (VPOR256 (VCMPPS256 [3] x x) (VCMPPS256 [3] y y))
 	// result: (VCMPPS256 [3] x y)
 	for {
@@ -56515,6 +79580,127 @@ func rewriteValueAMD64_OpAMD64VPOR256(v *Value) bool {
 			v.reset(OpAMD64VCMPPD256)
 			v.AuxInt = uint8ToAuxInt(3)
 			v.AddArg2(x, y)
+			return true
+		}
+		break
+	}
+	// match: (VPOR256 (VPMOVMToVec8x32 x) (VPMOVMToVec8x32 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x32 (KORD x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x32 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x32 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x32)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORD, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR256 (VPMOVMToVec16x16 x) (VPMOVMToVec16x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x16 (KORW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR256 (VPMOVMToVec32x8 x) (VPMOVMToVec32x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x8 (KORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR256 (VPMOVMToVec64x4 x) (VPMOVMToVec64x4 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x4 (KORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x4 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x4 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x4)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPOR256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPOR256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPOR256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
 			return true
 		}
 		break
@@ -56584,6 +79770,102 @@ func rewriteValueAMD64_OpAMD64VPORD512(v *Value) bool {
 			v.reset(OpAMD64VPMOVMToVec64x8)
 			v0 := b.NewValue0(v.Pos, OpAMD64VCMPPD512, typ.Mask)
 			v0.AuxInt = uint8ToAuxInt(3)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPORD512 (VPMOVMToVec8x64 x) (VPMOVMToVec8x64 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x64 (KORQ x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x64 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x64 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x64)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORQ, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPORD512 (VPMOVMToVec16x32 x) (VPMOVMToVec16x32 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x32 (KORD x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x32 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x32 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x32)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORD, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPORD512 (VPMOVMToVec32x16 x) (VPMOVMToVec32x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x16 (KORW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPORD512 (VPMOVMToVec64x8 x) (VPMOVMToVec64x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x8 (KORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KORB, typ.Mask)
 			v0.AddArg2(x, y)
 			v.AddArg(v0)
 			return true
@@ -58159,6 +81441,60 @@ func rewriteValueAMD64_OpAMD64VPRORVQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSADBW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSADBW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSADBW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSADBW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSADBW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSADBW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSADBW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSADBW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSHLDD128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -58863,6 +82199,242 @@ func rewriteValueAMD64_OpAMD64VPSHLDVQMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDVW128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDVW128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDVW128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDVW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDVW256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDVW256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDVW256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDVW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDVWMasked128(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDVWMasked128 x y l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDVWMasked128load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDVWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDVWMasked256(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDVWMasked256 x y l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDVWMasked256load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDVWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDW128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDW128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDW128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDW256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDW256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDW256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDWMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDWMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDWMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHLDWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHLDWMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHLDWMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHLDWMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
 		return true
 	}
 	return false
@@ -59575,6 +83147,406 @@ func rewriteValueAMD64_OpAMD64VPSHRDVQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSHRDVW128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDVW128 x y l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDVW128load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDVW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDVW256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDVW256 x y l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDVW256load {sym} [off] x y ptr mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDVW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, y, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDVWMasked128(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDVWMasked128 x y l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDVWMasked128load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDVWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDVWMasked256(v *Value) bool {
+	v_3 := v.Args[3]
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDVWMasked256 x y l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDVWMasked256load {sym} [off] x y ptr mask mem)
+	for {
+		x := v_0
+		y := v_1
+		l := v_2
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_3
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDVWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg5(x, y, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDW128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDW128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDW128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDW256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDW256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDW256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDWMasked128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDWMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDWMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHRDWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHRDWMasked256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHRDWMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHRDWMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSHUFD128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFD128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFD128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSHUFD256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFD256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFD256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSHUFD512(v *Value) bool {
 	v_0 := v.Args[0]
 	// match: (VPSHUFD512 [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
@@ -59685,11 +83657,389 @@ func rewriteValueAMD64_OpAMD64VPSHUFDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSHUFHW128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSHUFHW128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFHW128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFHW128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFHW256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSHUFHW256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFHW256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFHW256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFHWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFHWMasked128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFHWMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFHWMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFHWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFHWMasked256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFHWMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFHWMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFLW128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSHUFLW128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFLW128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFLW128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFLW256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSHUFLW256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFLW256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFLW256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFLWMasked128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFLWMasked128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFLWMasked128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFLWMasked128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSHUFLWMasked256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSHUFLWMasked256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSHUFLWMasked256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSHUFLWMasked256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSIGNB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSIGNB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSIGNB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSIGNB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSIGNB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSIGNB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSIGNB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSIGNB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSIGND128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSIGND128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSIGND128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSIGND128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSIGND256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSIGND256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSIGND256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSIGND256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSIGNW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSIGNW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSIGNW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSIGNW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSIGNW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSIGNW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSIGNW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSIGNW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSLLD128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLD128 x (MOVQconst [c]))
-	// result: (VPSLLD128const [uint8(c)] x)
+	// result: (VPSLLD128const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59697,8 +84047,24 @@ func rewriteValueAMD64_OpAMD64VPSLLD128(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLD128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLD128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLD128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -59707,7 +84073,7 @@ func rewriteValueAMD64_OpAMD64VPSLLD256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLD256 x (MOVQconst [c]))
-	// result: (VPSLLD256const [uint8(c)] x)
+	// result: (VPSLLD256const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59715,8 +84081,24 @@ func rewriteValueAMD64_OpAMD64VPSLLD256(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLD256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLD256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLD256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -59725,7 +84107,7 @@ func rewriteValueAMD64_OpAMD64VPSLLD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLD512 x (MOVQconst [c]))
-	// result: (VPSLLD512const [uint8(c)] x)
+	// result: (VPSLLD512const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59733,7 +84115,7 @@ func rewriteValueAMD64_OpAMD64VPSLLD512(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLD512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
 		return true
 	}
@@ -59741,6 +84123,18 @@ func rewriteValueAMD64_OpAMD64VPSLLD512(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64VPSLLD512const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSLLD512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLD512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLD512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -59770,7 +84164,7 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLDMasked128 x (MOVQconst [c]) mask)
-	// result: (VPSLLDMasked128const [uint8(c)] x mask)
+	// result: (VPSLLDMasked128const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59779,7 +84173,7 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked128(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLDMasked128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -59788,6 +84182,18 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked128(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSLLDMasked128const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSLLDMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLDMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLDMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -59818,7 +84224,7 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLDMasked256 x (MOVQconst [c]) mask)
-	// result: (VPSLLDMasked256const [uint8(c)] x mask)
+	// result: (VPSLLDMasked256const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59827,7 +84233,7 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked256(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLDMasked256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -59836,6 +84242,18 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked256(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSLLDMasked256const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSLLDMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLDMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLDMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -59866,7 +84284,7 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLDMasked512 x (MOVQconst [c]) mask)
-	// result: (VPSLLDMasked512const [uint8(c)] x mask)
+	// result: (VPSLLDMasked512const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59875,7 +84293,7 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked512(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLDMasked512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -59884,6 +84302,18 @@ func rewriteValueAMD64_OpAMD64VPSLLDMasked512(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSLLDMasked512const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSLLDMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLDMasked512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLDMasked512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -59913,7 +84343,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQ128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLQ128 x (MOVQconst [c]))
-	// result: (VPSLLQ128const [uint8(c)] x)
+	// result: (VPSLLQ128const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59921,8 +84351,24 @@ func rewriteValueAMD64_OpAMD64VPSLLQ128(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLQ128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLQ128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLQ128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -59931,7 +84377,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQ256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLQ256 x (MOVQconst [c]))
-	// result: (VPSLLQ256const [uint8(c)] x)
+	// result: (VPSLLQ256const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59939,8 +84385,24 @@ func rewriteValueAMD64_OpAMD64VPSLLQ256(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLQ256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLQ256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLQ256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -59949,7 +84411,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLQ512 x (MOVQconst [c]))
-	// result: (VPSLLQ512const [uint8(c)] x)
+	// result: (VPSLLQ512const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -59957,7 +84419,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQ512(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLQ512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
 		return true
 	}
@@ -59965,6 +84427,18 @@ func rewriteValueAMD64_OpAMD64VPSLLQ512(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64VPSLLQ512const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSLLQ512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLQ512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLQ512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -59994,7 +84468,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLQMasked128 x (MOVQconst [c]) mask)
-	// result: (VPSLLQMasked128const [uint8(c)] x mask)
+	// result: (VPSLLQMasked128const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60003,7 +84477,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked128(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLQMasked128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60012,6 +84486,18 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked128(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSLLQMasked128const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSLLQMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLQMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLQMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60042,7 +84528,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLQMasked256 x (MOVQconst [c]) mask)
-	// result: (VPSLLQMasked256const [uint8(c)] x mask)
+	// result: (VPSLLQMasked256const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60051,7 +84537,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked256(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLQMasked256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60060,6 +84546,18 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked256(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSLLQMasked256const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSLLQMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLQMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLQMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60090,7 +84588,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLQMasked512 x (MOVQconst [c]) mask)
-	// result: (VPSLLQMasked512const [uint8(c)] x mask)
+	// result: (VPSLLQMasked512const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60099,7 +84597,7 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked512(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLQMasked512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60108,6 +84606,18 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked512(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSLLQMasked512const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSLLQMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSLLQMasked512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSLLQMasked512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60129,6 +84639,60 @@ func rewriteValueAMD64_OpAMD64VPSLLQMasked512const(v *Value) bool {
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLVD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLVD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -60247,6 +84811,60 @@ func rewriteValueAMD64_OpAMD64VPSLLVDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSLLVQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLVQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSLLVQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -60361,11 +84979,123 @@ func rewriteValueAMD64_OpAMD64VPSLLVQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSLLVW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLVW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLVWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLVWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLVWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLVWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLVWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSLLW128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLW128 x (MOVQconst [c]))
-	// result: (VPSLLW128const [uint8(c)] x)
+	// result: (VPSLLW128const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60373,8 +85103,24 @@ func rewriteValueAMD64_OpAMD64VPSLLW128(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLW128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLW128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLW128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -60383,7 +85129,7 @@ func rewriteValueAMD64_OpAMD64VPSLLW256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLW256 x (MOVQconst [c]))
-	// result: (VPSLLW256const [uint8(c)] x)
+	// result: (VPSLLW256const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60391,8 +85137,24 @@ func rewriteValueAMD64_OpAMD64VPSLLW256(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLW256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLW256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLW256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -60401,7 +85163,7 @@ func rewriteValueAMD64_OpAMD64VPSLLW512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLW512 x (MOVQconst [c]))
-	// result: (VPSLLW512const [uint8(c)] x)
+	// result: (VPSLLW512const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60409,8 +85171,24 @@ func rewriteValueAMD64_OpAMD64VPSLLW512(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSLLW512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLW512const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLW512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -60420,7 +85198,7 @@ func rewriteValueAMD64_OpAMD64VPSLLWMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLWMasked128 x (MOVQconst [c]) mask)
-	// result: (VPSLLWMasked128const [uint8(c)] x mask)
+	// result: (VPSLLWMasked128const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60429,8 +85207,48 @@ func rewriteValueAMD64_OpAMD64VPSLLWMasked128(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLWMasked128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLWMasked128const(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLWMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	// match: (VPSLLWMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLWMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLWMasked128constload)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
 		return true
 	}
 	return false
@@ -60440,7 +85258,7 @@ func rewriteValueAMD64_OpAMD64VPSLLWMasked256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLWMasked256 x (MOVQconst [c]) mask)
-	// result: (VPSLLWMasked256const [uint8(c)] x mask)
+	// result: (VPSLLWMasked256const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60449,8 +85267,48 @@ func rewriteValueAMD64_OpAMD64VPSLLWMasked256(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLWMasked256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLWMasked256const(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSLLWMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	// match: (VPSLLWMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSLLWMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSLLWMasked256constload)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
 		return true
 	}
 	return false
@@ -60460,7 +85318,7 @@ func rewriteValueAMD64_OpAMD64VPSLLWMasked512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSLLWMasked512 x (MOVQconst [c]) mask)
-	// result: (VPSLLWMasked512const [uint8(c)] x mask)
+	// result: (VPSLLWMasked512const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60469,8 +85327,24 @@ func rewriteValueAMD64_OpAMD64VPSLLWMasked512(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSLLWMasked512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSLLWMasked512const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSLLWMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -60479,7 +85353,7 @@ func rewriteValueAMD64_OpAMD64VPSRAD128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAD128 x (MOVQconst [c]))
-	// result: (VPSRAD128const [uint8(c)] x)
+	// result: (VPSRAD128const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60487,8 +85361,24 @@ func rewriteValueAMD64_OpAMD64VPSRAD128(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAD128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAD128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRAD128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -60497,7 +85387,7 @@ func rewriteValueAMD64_OpAMD64VPSRAD256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAD256 x (MOVQconst [c]))
-	// result: (VPSRAD256const [uint8(c)] x)
+	// result: (VPSRAD256const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60505,8 +85395,24 @@ func rewriteValueAMD64_OpAMD64VPSRAD256(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAD256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAD256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRAD256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -60515,7 +85421,7 @@ func rewriteValueAMD64_OpAMD64VPSRAD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAD512 x (MOVQconst [c]))
-	// result: (VPSRAD512const [uint8(c)] x)
+	// result: (VPSRAD512const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60523,7 +85429,7 @@ func rewriteValueAMD64_OpAMD64VPSRAD512(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAD512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
 		return true
 	}
@@ -60531,6 +85437,18 @@ func rewriteValueAMD64_OpAMD64VPSRAD512(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64VPSRAD512const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSRAD512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAD512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAD512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -60560,7 +85478,7 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRADMasked128 x (MOVQconst [c]) mask)
-	// result: (VPSRADMasked128const [uint8(c)] x mask)
+	// result: (VPSRADMasked128const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60569,7 +85487,7 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked128(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRADMasked128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60578,6 +85496,18 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked128(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSRADMasked128const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRADMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRADMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRADMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60608,7 +85538,7 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRADMasked256 x (MOVQconst [c]) mask)
-	// result: (VPSRADMasked256const [uint8(c)] x mask)
+	// result: (VPSRADMasked256const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60617,7 +85547,7 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked256(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRADMasked256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60626,6 +85556,18 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked256(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSRADMasked256const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRADMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRADMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRADMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60656,7 +85598,7 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRADMasked512 x (MOVQconst [c]) mask)
-	// result: (VPSRADMasked512const [uint8(c)] x mask)
+	// result: (VPSRADMasked512const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60665,7 +85607,7 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked512(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRADMasked512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60674,6 +85616,18 @@ func rewriteValueAMD64_OpAMD64VPSRADMasked512(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSRADMasked512const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRADMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRADMasked512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRADMasked512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60703,7 +85657,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQ128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAQ128 x (MOVQconst [c]))
-	// result: (VPSRAQ128const [uint8(c)] x)
+	// result: (VPSRAQ128const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60711,7 +85665,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQ128(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAQ128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
 		return true
 	}
@@ -60719,6 +85673,18 @@ func rewriteValueAMD64_OpAMD64VPSRAQ128(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64VPSRAQ128const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSRAQ128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAQ128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAQ128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -60747,7 +85713,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQ256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAQ256 x (MOVQconst [c]))
-	// result: (VPSRAQ256const [uint8(c)] x)
+	// result: (VPSRAQ256const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60755,7 +85721,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQ256(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAQ256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
 		return true
 	}
@@ -60763,6 +85729,18 @@ func rewriteValueAMD64_OpAMD64VPSRAQ256(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64VPSRAQ256const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSRAQ256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAQ256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAQ256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -60791,7 +85769,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAQ512 x (MOVQconst [c]))
-	// result: (VPSRAQ512const [uint8(c)] x)
+	// result: (VPSRAQ512const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60799,7 +85777,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQ512(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAQ512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
 		return true
 	}
@@ -60807,6 +85785,18 @@ func rewriteValueAMD64_OpAMD64VPSRAQ512(v *Value) bool {
 }
 func rewriteValueAMD64_OpAMD64VPSRAQ512const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSRAQ512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAQ512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAQ512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -60836,7 +85826,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAQMasked128 x (MOVQconst [c]) mask)
-	// result: (VPSRAQMasked128const [uint8(c)] x mask)
+	// result: (VPSRAQMasked128const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60845,7 +85835,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked128(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRAQMasked128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60854,6 +85844,18 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked128(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSRAQMasked128const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRAQMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAQMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAQMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60884,7 +85886,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAQMasked256 x (MOVQconst [c]) mask)
-	// result: (VPSRAQMasked256const [uint8(c)] x mask)
+	// result: (VPSRAQMasked256const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60893,7 +85895,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked256(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRAQMasked256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60902,6 +85904,18 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked256(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSRAQMasked256const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRAQMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAQMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAQMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60932,7 +85946,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAQMasked512 x (MOVQconst [c]) mask)
-	// result: (VPSRAQMasked512const [uint8(c)] x mask)
+	// result: (VPSRAQMasked512const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -60941,7 +85955,7 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked512(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRAQMasked512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
 		return true
 	}
@@ -60950,6 +85964,18 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked512(v *Value) bool {
 func rewriteValueAMD64_OpAMD64VPSRAQMasked512const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRAQMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRAQMasked512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRAQMasked512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -60971,6 +85997,60 @@ func rewriteValueAMD64_OpAMD64VPSRAQMasked512const(v *Value) bool {
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAVD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAVD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAVD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAVD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAVD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAVD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAVD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAVD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -61257,11 +86337,123 @@ func rewriteValueAMD64_OpAMD64VPSRAVQMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRAVW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAVW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAVW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAVW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAVW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAVW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAVW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAVW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAVWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAVWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAVWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAVWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAVWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAVWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAVWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAVWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRAW128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAW128 x (MOVQconst [c]))
-	// result: (VPSRAW128const [uint8(c)] x)
+	// result: (VPSRAW128const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -61269,8 +86461,24 @@ func rewriteValueAMD64_OpAMD64VPSRAW128(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAW128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAW128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRAW128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -61279,7 +86487,7 @@ func rewriteValueAMD64_OpAMD64VPSRAW256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAW256 x (MOVQconst [c]))
-	// result: (VPSRAW256const [uint8(c)] x)
+	// result: (VPSRAW256const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -61287,8 +86495,24 @@ func rewriteValueAMD64_OpAMD64VPSRAW256(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAW256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAW256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRAW256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -61297,7 +86521,7 @@ func rewriteValueAMD64_OpAMD64VPSRAW512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAW512 x (MOVQconst [c]))
-	// result: (VPSRAW512const [uint8(c)] x)
+	// result: (VPSRAW512const [amd64CapAVXShift(c)] x)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -61305,8 +86529,24 @@ func rewriteValueAMD64_OpAMD64VPSRAW512(v *Value) bool {
 		}
 		c := auxIntToInt64(v_1.AuxInt)
 		v.reset(OpAMD64VPSRAW512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAW512const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRAW512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	return false
@@ -61316,7 +86556,7 @@ func rewriteValueAMD64_OpAMD64VPSRAWMasked128(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAWMasked128 x (MOVQconst [c]) mask)
-	// result: (VPSRAWMasked128const [uint8(c)] x mask)
+	// result: (VPSRAWMasked128const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -61325,8 +86565,48 @@ func rewriteValueAMD64_OpAMD64VPSRAWMasked128(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRAWMasked128const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAWMasked128const(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAWMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	// match: (VPSRAWMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAWMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAWMasked128constload)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
 		return true
 	}
 	return false
@@ -61336,7 +86616,7 @@ func rewriteValueAMD64_OpAMD64VPSRAWMasked256(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAWMasked256 x (MOVQconst [c]) mask)
-	// result: (VPSRAWMasked256const [uint8(c)] x mask)
+	// result: (VPSRAWMasked256const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -61345,8 +86625,48 @@ func rewriteValueAMD64_OpAMD64VPSRAWMasked256(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRAWMasked256const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAWMasked256const(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRAWMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	// match: (VPSRAWMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRAWMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRAWMasked256constload)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
 		return true
 	}
 	return false
@@ -61356,7 +86676,7 @@ func rewriteValueAMD64_OpAMD64VPSRAWMasked512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
 	// match: (VPSRAWMasked512 x (MOVQconst [c]) mask)
-	// result: (VPSRAWMasked512const [uint8(c)] x mask)
+	// result: (VPSRAWMasked512const [amd64CapAVXShift(c)] x mask)
 	for {
 		x := v_0
 		if v_1.Op != OpAMD64MOVQconst {
@@ -61365,14 +86685,128 @@ func rewriteValueAMD64_OpAMD64VPSRAWMasked512(v *Value) bool {
 		c := auxIntToInt64(v_1.AuxInt)
 		mask := v_2
 		v.reset(OpAMD64VPSRAWMasked512const)
-		v.AuxInt = uint8ToAuxInt(uint8(c))
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
 		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRAWMasked512const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRAWMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLD128 x (MOVQconst [c]))
+	// result: (VPSRLD128const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLD128const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLD128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLD128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLD256 x (MOVQconst [c]))
+	// result: (VPSRLD256const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLD256const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLD256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLD256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLD512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLD512 x (MOVQconst [c]))
+	// result: (VPSRLD512const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLD512const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
 		return true
 	}
 	return false
 }
 func rewriteValueAMD64_OpAMD64VPSRLD512const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSRLD512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLD512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLD512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -61397,9 +86831,41 @@ func rewriteValueAMD64_OpAMD64VPSRLD512const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLDMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLDMasked128 x (MOVQconst [c]) mask)
+	// result: (VPSRLDMasked128const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLDMasked128const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLDMasked128const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRLDMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLDMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLDMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -61425,9 +86891,41 @@ func rewriteValueAMD64_OpAMD64VPSRLDMasked128const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLDMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLDMasked256 x (MOVQconst [c]) mask)
+	// result: (VPSRLDMasked256const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLDMasked256const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLDMasked256const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRLDMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLDMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLDMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -61453,9 +86951,41 @@ func rewriteValueAMD64_OpAMD64VPSRLDMasked256const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLDMasked512(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLDMasked512 x (MOVQconst [c]) mask)
+	// result: (VPSRLDMasked512const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLDMasked512const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLDMasked512const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRLDMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLDMasked512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLDMasked512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -61481,8 +87011,106 @@ func rewriteValueAMD64_OpAMD64VPSRLDMasked512const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLQ128 x (MOVQconst [c]))
+	// result: (VPSRLQ128const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLQ128const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLQ128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLQ128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLQ256 x (MOVQconst [c]))
+	// result: (VPSRLQ256const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLQ256const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLQ256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLQ256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLQ512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLQ512 x (MOVQconst [c]))
+	// result: (VPSRLQ512const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLQ512const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLQ512const(v *Value) bool {
 	v_0 := v.Args[0]
+	// match: (VPSRLQ512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLQ512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLQ512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
@@ -61507,9 +87135,41 @@ func rewriteValueAMD64_OpAMD64VPSRLQ512const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLQMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLQMasked128 x (MOVQconst [c]) mask)
+	// result: (VPSRLQMasked128const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLQMasked128const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLQMasked128const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRLQMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLQMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLQMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -61535,9 +87195,41 @@ func rewriteValueAMD64_OpAMD64VPSRLQMasked128const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLQMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLQMasked256 x (MOVQconst [c]) mask)
+	// result: (VPSRLQMasked256const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLQMasked256const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLQMasked256const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRLQMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLQMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLQMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -61563,9 +87255,41 @@ func rewriteValueAMD64_OpAMD64VPSRLQMasked256const(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLQMasked512(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLQMasked512 x (MOVQconst [c]) mask)
+	// result: (VPSRLQMasked512const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLQMasked512const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLQMasked512const(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	// match: (VPSRLQMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (VPSRLQMasked512const [c] l:(VMOVDQUload512 {sym} [off] ptr mem) mask)
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPSRLQMasked512constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
@@ -61587,6 +87311,60 @@ func rewriteValueAMD64_OpAMD64VPSRLQMasked512const(v *Value) bool {
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -61705,6 +87483,60 @@ func rewriteValueAMD64_OpAMD64VPSRLVDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSRLVQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSRLVQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -61815,6 +87647,542 @@ func rewriteValueAMD64_OpAMD64VPSRLVQMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLVWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLVWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLVWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLVWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLW128 x (MOVQconst [c]))
+	// result: (VPSRLW128const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLW128const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLW128const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLW128const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLW256 x (MOVQconst [c]))
+	// result: (VPSRLW256const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLW256const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLW256const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLW256const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLW512(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLW512 x (MOVQconst [c]))
+	// result: (VPSRLW512const [amd64CapAVXShift(c)] x)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		v.reset(OpAMD64VPSRLW512const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLW512const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLW512const [a] x)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLWMasked128 x (MOVQconst [c]) mask)
+	// result: (VPSRLWMasked128const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLWMasked128const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLWMasked128const(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLWMasked128const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	// match: (VPSRLWMasked128const [c] l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLWMasked128constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLWMasked128constload)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLWMasked256 x (MOVQconst [c]) mask)
+	// result: (VPSRLWMasked256const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLWMasked256const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLWMasked256const(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLWMasked256const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	// match: (VPSRLWMasked256const [c] l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSRLWMasked256constload {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mask mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_1
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSRLWMasked256constload)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLWMasked512(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSRLWMasked512 x (MOVQconst [c]) mask)
+	// result: (VPSRLWMasked512const [amd64CapAVXShift(c)] x mask)
+	for {
+		x := v_0
+		if v_1.Op != OpAMD64MOVQconst {
+			break
+		}
+		c := auxIntToInt64(v_1.AuxInt)
+		mask := v_2
+		v.reset(OpAMD64VPSRLWMasked512const)
+		v.AuxInt = uint8ToAuxInt(amd64CapAVXShift(c))
+		v.AddArg2(x, mask)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSRLWMasked512const(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VPSRLWMasked512const [a] x mask)
+	// cond: a==0
+	// result: x
+	for {
+		a := auxIntToUint8(v.AuxInt)
+		x := v_0
+		if !(a == 0) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -61933,6 +88301,60 @@ func rewriteValueAMD64_OpAMD64VPSUBDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPSUBQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPSUBQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -62040,6 +88462,566 @@ func rewriteValueAMD64_OpAMD64VPSUBQMasked512(v *Value) bool {
 			break
 		}
 		v.reset(OpAMD64VPSUBQMasked512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBSWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSB128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSB128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSB128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSB128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSB256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSB256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSB256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSB256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSBMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSBMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSBMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSBMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSBMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSBMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSBMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSBMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBUSWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBUSWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBUSWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBUSWMasked256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBW128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBW128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBW128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBW128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBW256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBW256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBW256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBW256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBWMasked128(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBWMasked128 x l:(VMOVDQUload128 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBWMasked128load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBWMasked128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPSUBWMasked256(v *Value) bool {
+	v_2 := v.Args[2]
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPSUBWMasked256 x l:(VMOVDQUload256 {sym} [off] ptr mem) mask)
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPSUBWMasked256load {sym} [off] x ptr mask mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		mask := v_2
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPSUBWMasked256load)
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
@@ -62227,6 +89209,60 @@ func rewriteValueAMD64_OpAMD64VPTERNLOGQ512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPUNPCKHDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKHDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKHDQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKHDQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKHDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKHDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKHDQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKHDQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPUNPCKHDQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -62247,6 +89283,60 @@ func rewriteValueAMD64_OpAMD64VPUNPCKHDQ512(v *Value) bool {
 			break
 		}
 		v.reset(OpAMD64VPUNPCKHDQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKHQDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKHQDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKHQDQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKHQDQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKHQDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKHQDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKHQDQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKHQDQ256load)
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(x, ptr, mem)
@@ -62281,6 +89371,114 @@ func rewriteValueAMD64_OpAMD64VPUNPCKHQDQ512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPUNPCKHWD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKHWD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKHWD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKHWD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKHWD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKHWD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKHWD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKHWD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKLDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKLDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKLDQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKLDQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKLDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKLDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKLDQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKLDQ256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPUNPCKLDQ512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -62301,6 +89499,60 @@ func rewriteValueAMD64_OpAMD64VPUNPCKLDQ512(v *Value) bool {
 			break
 		}
 		v.reset(OpAMD64VPUNPCKLDQ512load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKLQDQ128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKLQDQ128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKLQDQ128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKLQDQ128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKLQDQ256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKLQDQ256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKLQDQ256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKLQDQ256load)
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(x, ptr, mem)
@@ -62335,9 +89587,417 @@ func rewriteValueAMD64_OpAMD64VPUNPCKLQDQ512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VPUNPCKLWD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKLWD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKLWD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKLWD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPUNPCKLWD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VPUNPCKLWD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPUNPCKLWD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VPUNPCKLWD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPXOR128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (VPXOR128 (VPMOVMToVec8x16 x) (VPMOVMToVec8x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x16 (KXORW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR128 (VPMOVMToVec16x8 x) (VPMOVMToVec16x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x8 (KXORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR128 (VPMOVMToVec32x4 x) (VPMOVMToVec32x4 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x4 (KXORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x4 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x4 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x4)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR128 (VPMOVMToVec64x2 x) (VPMOVMToVec64x2 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x2 (KXORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x2 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x2 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x2)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPXOR128load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload128 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPXOR128load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VPXOR256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (VPXOR256 (VPMOVMToVec8x32 x) (VPMOVMToVec8x32 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x32 (KXORD x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x32 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x32 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x32)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORD, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR256 (VPMOVMToVec16x16 x) (VPMOVMToVec16x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x16 (KXORW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR256 (VPMOVMToVec32x8 x) (VPMOVMToVec32x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x8 (KXORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR256 (VPMOVMToVec64x4 x) (VPMOVMToVec64x4 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x4 (KXORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x4 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x4 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x4)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXOR256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VPXOR256load {sym} [off] x ptr mem)
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			x := v_0
+			l := v_1
+			if l.Op != OpAMD64VMOVDQUload256 {
+				continue
+			}
+			off := auxIntToInt32(l.AuxInt)
+			sym := auxToSym(l.Aux)
+			mem := l.Args[1]
+			ptr := l.Args[0]
+			if !(canMergeLoad(v, l) && clobber(l)) {
+				continue
+			}
+			v.reset(OpAMD64VPXOR256load)
+			v.AuxInt = int32ToAuxInt(off)
+			v.Aux = symToAux(sym)
+			v.AddArg3(x, ptr, mem)
+			return true
+		}
+		break
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VPXORD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
+	b := v.Block
+	typ := &b.Func.Config.Types
+	// match: (VPXORD512 (VPMOVMToVec8x64 x) (VPMOVMToVec8x64 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec8x64 (KXORQ x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec8x64 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec8x64 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec8x64)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORQ, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXORD512 (VPMOVMToVec16x32 x) (VPMOVMToVec16x32 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec16x32 (KXORD x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec16x32 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec16x32 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec16x32)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORD, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXORD512 (VPMOVMToVec32x16 x) (VPMOVMToVec32x16 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec32x16 (KXORW x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec32x16 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec32x16 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec32x16)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORW, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
+	// match: (VPXORD512 (VPMOVMToVec64x8 x) (VPMOVMToVec64x8 y))
+	// cond: v.Block.CPUfeatures.hasFeature(CPUavx512)
+	// result: (VPMOVMToVec64x8 (KXORB x y))
+	for {
+		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+			if v_0.Op != OpAMD64VPMOVMToVec64x8 {
+				continue
+			}
+			x := v_0.Args[0]
+			if v_1.Op != OpAMD64VPMOVMToVec64x8 {
+				continue
+			}
+			y := v_1.Args[0]
+			if !(v.Block.CPUfeatures.hasFeature(CPUavx512)) {
+				continue
+			}
+			v.reset(OpAMD64VPMOVMToVec64x8)
+			v0 := b.NewValue0(v.Pos, OpAMD64KXORB, typ.Mask)
+			v0.AddArg2(x, y)
+			v.AddArg(v0)
+			return true
+		}
+		break
+	}
 	// match: (VPXORD512 x l:(VMOVDQUload512 {sym} [off] ptr mem))
 	// cond: canMergeLoad(v, l) && clobber(l)
 	// result: (VPXORD512load {sym} [off] x ptr mem)
@@ -62845,6 +90505,56 @@ func rewriteValueAMD64_OpAMD64VRCP14PSMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VRCPPS128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VRCPPS128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VRCPPS128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VRCPPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VRCPPS256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VRCPPS256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VRCPPS256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VRCPPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -63497,6 +91207,110 @@ func rewriteValueAMD64_OpAMD64VRNDSCALEPSMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VROUNDPD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VROUNDPD128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VROUNDPD128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VROUNDPD128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VROUNDPD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VROUNDPD256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VROUNDPD256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VROUNDPD256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VROUNDPS128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VROUNDPS128 [c] l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VROUNDPS128load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VROUNDPS128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VROUNDPS256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VROUNDPS256 [c] l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VROUNDPS256load {sym} [makeValAndOff(int32(uint8(c)),off)] ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VROUNDPS256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VRSQRT14PD128(v *Value) bool {
 	v_0 := v.Args[0]
 	// match: (VRSQRT14PD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
@@ -63755,6 +91569,56 @@ func rewriteValueAMD64_OpAMD64VRSQRT14PSMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VRSQRTPS128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VRSQRTPS128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VRSQRTPS128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VRSQRTPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VRSQRTPS256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VRSQRTPS256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VRSQRTPS256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VRSQRTPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -64095,6 +91959,62 @@ func rewriteValueAMD64_OpAMD64VSCALEFPSMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VSHUFPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSHUFPD128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSHUFPD128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSHUFPD128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSHUFPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSHUFPD256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSHUFPD256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSHUFPD256load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VSHUFPD512(v *Value) bool {
 	v_1 := v.Args[1]
 	v_0 := v.Args[0]
@@ -64116,6 +92036,62 @@ func rewriteValueAMD64_OpAMD64VSHUFPD512(v *Value) bool {
 			break
 		}
 		v.reset(OpAMD64VSHUFPD512load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSHUFPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSHUFPS128 [c] x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSHUFPS128load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSHUFPS128load)
+		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSHUFPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSHUFPS256 [c] x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSHUFPS256load {sym} [makeValAndOff(int32(uint8(c)),off)] x ptr mem)
+	for {
+		c := auxIntToUint8(v.AuxInt)
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSHUFPS256load)
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg3(x, ptr, mem)
@@ -64147,6 +92123,56 @@ func rewriteValueAMD64_OpAMD64VSHUFPS512(v *Value) bool {
 		v.AuxInt = valAndOffToAuxInt(makeValAndOff(int32(uint8(c)), off))
 		v.Aux = symToAux(sym)
 		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSQRTPD128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VSQRTPD128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSQRTPD128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSQRTPD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSQRTPD256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VSQRTPD256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSQRTPD256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSQRTPD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
 		return true
 	}
 	return false
@@ -64257,6 +92283,56 @@ func rewriteValueAMD64_OpAMD64VSQRTPDMasked512(v *Value) bool {
 	}
 	return false
 }
+func rewriteValueAMD64_OpAMD64VSQRTPS128(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VSQRTPS128 l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSQRTPS128load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSQRTPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSQRTPS256(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (VSQRTPS256 l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSQRTPS256load {sym} [off] ptr mem)
+	for {
+		l := v_0
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSQRTPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg2(ptr, mem)
+		return true
+	}
+	return false
+}
 func rewriteValueAMD64_OpAMD64VSQRTPS512(v *Value) bool {
 	v_0 := v.Args[0]
 	// match: (VSQRTPS512 l:(VMOVDQUload512 {sym} [off] ptr mem))
@@ -64359,6 +92435,60 @@ func rewriteValueAMD64_OpAMD64VSQRTPSMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg3(ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSUBPD128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSUBPD128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSUBPD128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSUBPD128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSUBPD256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSUBPD256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSUBPD256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSUBPD256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -64473,6 +92603,60 @@ func rewriteValueAMD64_OpAMD64VSUBPDMasked512(v *Value) bool {
 		v.AuxInt = int32ToAuxInt(off)
 		v.Aux = symToAux(sym)
 		v.AddArg4(x, ptr, mask, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSUBPS128(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSUBPS128 x l:(VMOVDQUload128 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSUBPS128load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload128 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSUBPS128load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueAMD64_OpAMD64VSUBPS256(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	// match: (VSUBPS256 x l:(VMOVDQUload256 {sym} [off] ptr mem))
+	// cond: canMergeLoad(v, l) && clobber(l)
+	// result: (VSUBPS256load {sym} [off] x ptr mem)
+	for {
+		x := v_0
+		l := v_1
+		if l.Op != OpAMD64VMOVDQUload256 {
+			break
+		}
+		off := auxIntToInt32(l.AuxInt)
+		sym := auxToSym(l.Aux)
+		mem := l.Args[1]
+		ptr := l.Args[0]
+		if !(canMergeLoad(v, l) && clobber(l)) {
+			break
+		}
+		v.reset(OpAMD64VSUBPS256load)
+		v.AuxInt = int32ToAuxInt(off)
+		v.Aux = symToAux(sym)
+		v.AddArg3(x, ptr, mem)
 		return true
 	}
 	return false
@@ -64966,15 +93150,13 @@ func rewriteValueAMD64_OpAMD64XORLconst(v *Value) bool {
 		v.AddArg(x)
 		return true
 	}
-	// match: (XORLconst [c] x)
-	// cond: c==0
+	// match: (XORLconst [0] x)
 	// result: x
 	for {
-		c := auxIntToInt32(v.AuxInt)
-		x := v_0
-		if !(c == 0) {
+		if auxIntToInt32(v.AuxInt) != 0 {
 			break
 		}
+		x := v_0
 		v.copyOf(x)
 		return true
 	}
@@ -65187,7 +93369,7 @@ func rewriteValueAMD64_OpAMD64XORQ(v *Value) bool {
 		break
 	}
 	// match: (XORQ (MOVQconst [c]) x)
-	// cond: isUnsignedPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31
+	// cond: isPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31
 	// result: (BTCQconst [int8(log64u(uint64(c)))] x)
 	for {
 		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
@@ -65196,7 +93378,7 @@ func rewriteValueAMD64_OpAMD64XORQ(v *Value) bool {
 			}
 			c := auxIntToInt64(v_0.AuxInt)
 			x := v_1
-			if !(isUnsignedPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31) {
+			if !(isPowerOfTwo(uint64(c)) && uint64(c) >= 1<<31) {
 				continue
 			}
 			v.reset(OpAMD64BTCQconst)
@@ -65227,14 +93409,14 @@ func rewriteValueAMD64_OpAMD64XORQ(v *Value) bool {
 		break
 	}
 	// match: (XORQ x x)
-	// result: (MOVQconst [0])
+	// result: (MOVLconst [0])
 	for {
 		x := v_0
 		if x != v_1 {
 			break
 		}
-		v.reset(OpAMD64MOVQconst)
-		v.AuxInt = int64ToAuxInt(0)
+		v.reset(OpAMD64MOVLconst)
+		v.AuxInt = int32ToAuxInt(0)
 		return true
 	}
 	// match: (XORQ x l:(MOVQload [off] {sym} ptr mem))
@@ -73608,21 +101790,9 @@ func rewriteValueAMD64_OpPopCount8(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEven(v *Value) bool {
+func rewriteValueAMD64_OpRoundFloat32x4(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEven x)
-	// result: (ROUNDSD [0] x)
-	for {
-		x := v_0
-		v.reset(OpAMD64ROUNDSD)
-		v.AuxInt = int8ToAuxInt(0)
-		v.AddArg(x)
-		return true
-	}
-}
-func rewriteValueAMD64_OpRoundToEvenFloat32x4(v *Value) bool {
-	v_0 := v.Args[0]
-	// match: (RoundToEvenFloat32x4 x)
+	// match: (RoundFloat32x4 x)
 	// result: (VROUNDPS128 [0] x)
 	for {
 		x := v_0
@@ -73632,9 +101802,9 @@ func rewriteValueAMD64_OpRoundToEvenFloat32x4(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenFloat32x8(v *Value) bool {
+func rewriteValueAMD64_OpRoundFloat32x8(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenFloat32x8 x)
+	// match: (RoundFloat32x8 x)
 	// result: (VROUNDPS256 [0] x)
 	for {
 		x := v_0
@@ -73644,9 +101814,9 @@ func rewriteValueAMD64_OpRoundToEvenFloat32x8(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenFloat64x2(v *Value) bool {
+func rewriteValueAMD64_OpRoundFloat64x2(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenFloat64x2 x)
+	// match: (RoundFloat64x2 x)
 	// result: (VROUNDPD128 [0] x)
 	for {
 		x := v_0
@@ -73656,9 +101826,9 @@ func rewriteValueAMD64_OpRoundToEvenFloat64x2(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenFloat64x4(v *Value) bool {
+func rewriteValueAMD64_OpRoundFloat64x4(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenFloat64x4 x)
+	// match: (RoundFloat64x4 x)
 	// result: (VROUNDPD256 [0] x)
 	for {
 		x := v_0
@@ -73668,9 +101838,9 @@ func rewriteValueAMD64_OpRoundToEvenFloat64x4(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledFloat32x16(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledFloat32x16(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledFloat32x16 [a] x)
+	// match: (RoundScaledFloat32x16 [a] x)
 	// result: (VRNDSCALEPS512 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73681,9 +101851,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledFloat32x16(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledFloat32x4(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledFloat32x4(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledFloat32x4 [a] x)
+	// match: (RoundScaledFloat32x4 [a] x)
 	// result: (VRNDSCALEPS128 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73694,9 +101864,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledFloat32x4(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledFloat32x8(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledFloat32x8(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledFloat32x8 [a] x)
+	// match: (RoundScaledFloat32x8 [a] x)
 	// result: (VRNDSCALEPS256 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73707,9 +101877,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledFloat32x8(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledFloat64x2(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledFloat64x2(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledFloat64x2 [a] x)
+	// match: (RoundScaledFloat64x2 [a] x)
 	// result: (VRNDSCALEPD128 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73720,9 +101890,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledFloat64x2(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledFloat64x4(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledFloat64x4(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledFloat64x4 [a] x)
+	// match: (RoundScaledFloat64x4 [a] x)
 	// result: (VRNDSCALEPD256 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73733,9 +101903,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledFloat64x4(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledFloat64x8(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledFloat64x8(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledFloat64x8 [a] x)
+	// match: (RoundScaledFloat64x8 [a] x)
 	// result: (VRNDSCALEPD512 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73746,9 +101916,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledFloat64x8(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x16(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledResidueFloat32x16(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledResidueFloat32x16 [a] x)
+	// match: (RoundScaledResidueFloat32x16 [a] x)
 	// result: (VREDUCEPS512 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73759,9 +101929,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x16(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x4(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledResidueFloat32x4(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledResidueFloat32x4 [a] x)
+	// match: (RoundScaledResidueFloat32x4 [a] x)
 	// result: (VREDUCEPS128 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73772,9 +101942,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x4(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x8(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledResidueFloat32x8(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledResidueFloat32x8 [a] x)
+	// match: (RoundScaledResidueFloat32x8 [a] x)
 	// result: (VREDUCEPS256 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73785,9 +101955,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat32x8(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x2(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledResidueFloat64x2(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledResidueFloat64x2 [a] x)
+	// match: (RoundScaledResidueFloat64x2 [a] x)
 	// result: (VREDUCEPD128 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73798,9 +101968,9 @@ func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x2(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x4(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledResidueFloat64x4(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledResidueFloat64x4 [a] x)
+	// match: (RoundScaledResidueFloat64x4 [a] x)
 	// result: (VREDUCEPD256 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
@@ -73811,15 +101981,27 @@ func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x4(v *Value) bool {
 		return true
 	}
 }
-func rewriteValueAMD64_OpRoundToEvenScaledResidueFloat64x8(v *Value) bool {
+func rewriteValueAMD64_OpRoundScaledResidueFloat64x8(v *Value) bool {
 	v_0 := v.Args[0]
-	// match: (RoundToEvenScaledResidueFloat64x8 [a] x)
+	// match: (RoundScaledResidueFloat64x8 [a] x)
 	// result: (VREDUCEPD512 [a+0] x)
 	for {
 		a := auxIntToUint8(v.AuxInt)
 		x := v_0
 		v.reset(OpAMD64VREDUCEPD512)
 		v.AuxInt = uint8ToAuxInt(a + 0)
+		v.AddArg(x)
+		return true
+	}
+}
+func rewriteValueAMD64_OpRoundToEven(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (RoundToEven x)
+	// result: (ROUNDSD [0] x)
+	for {
+		x := v_0
+		v.reset(OpAMD64ROUNDSD)
+		v.AuxInt = int8ToAuxInt(0)
 		v.AddArg(x)
 		return true
 	}
@@ -75187,7 +103369,7 @@ func rewriteValueAMD64_OpSelect0(v *Value) bool {
 		return true
 	}
 	// match: (Select0 (Add64carry x y c))
-	// result: (Select0 <typ.UInt64> (ADCQ x y (Select1 <types.TypeFlags> (NEGLflags c))))
+	// result: (Select0 (ADCQ x y (Select1 <types.TypeFlags> (NEGLflags c))))
 	for {
 		if v_0.Op != OpAdd64carry {
 			break
@@ -75196,7 +103378,6 @@ func rewriteValueAMD64_OpSelect0(v *Value) bool {
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		v.reset(OpSelect0)
-		v.Type = typ.UInt64
 		v0 := b.NewValue0(v.Pos, OpAMD64ADCQ, types.NewTuple(typ.UInt64, types.TypeFlags))
 		v1 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
 		v2 := b.NewValue0(v.Pos, OpAMD64NEGLflags, types.NewTuple(typ.UInt32, types.TypeFlags))
@@ -75207,7 +103388,7 @@ func rewriteValueAMD64_OpSelect0(v *Value) bool {
 		return true
 	}
 	// match: (Select0 (Sub64borrow x y c))
-	// result: (Select0 <typ.UInt64> (SBBQ x y (Select1 <types.TypeFlags> (NEGLflags c))))
+	// result: (Select0 (SBBQ x y (Select1 <types.TypeFlags> (NEGLflags c))))
 	for {
 		if v_0.Op != OpSub64borrow {
 			break
@@ -75216,7 +103397,6 @@ func rewriteValueAMD64_OpSelect0(v *Value) bool {
 		x := v_0.Args[0]
 		y := v_0.Args[1]
 		v.reset(OpSelect0)
-		v.Type = typ.UInt64
 		v0 := b.NewValue0(v.Pos, OpAMD64SBBQ, types.NewTuple(typ.UInt64, types.TypeFlags))
 		v1 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
 		v2 := b.NewValue0(v.Pos, OpAMD64NEGLflags, types.NewTuple(typ.UInt32, types.TypeFlags))
@@ -75331,7 +103511,7 @@ func rewriteValueAMD64_OpSelect1(v *Value) bool {
 		return true
 	}
 	// match: (Select1 (Add64carry x y c))
-	// result: (NEGQ <typ.UInt64> (SBBQcarrymask <typ.UInt64> (Select1 <types.TypeFlags> (ADCQ x y (Select1 <types.TypeFlags> (NEGLflags c))))))
+	// result: (MOVBQZX (SETB <types.Types[types.TUINT8]> (Select1 <types.TypeFlags> (ADCQ x y (Select1 <types.TypeFlags> (NEGLflags c))))))
 	for {
 		if v_0.Op != OpAdd64carry {
 			break
@@ -75339,9 +103519,8 @@ func rewriteValueAMD64_OpSelect1(v *Value) bool {
 		c := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
-		v.reset(OpAMD64NEGQ)
-		v.Type = typ.UInt64
-		v0 := b.NewValue0(v.Pos, OpAMD64SBBQcarrymask, typ.UInt64)
+		v.reset(OpAMD64MOVBQZX)
+		v0 := b.NewValue0(v.Pos, OpAMD64SETB, types.Types[types.TUINT8])
 		v1 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
 		v2 := b.NewValue0(v.Pos, OpAMD64ADCQ, types.NewTuple(typ.UInt64, types.TypeFlags))
 		v3 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
@@ -75355,7 +103534,7 @@ func rewriteValueAMD64_OpSelect1(v *Value) bool {
 		return true
 	}
 	// match: (Select1 (Sub64borrow x y c))
-	// result: (NEGQ <typ.UInt64> (SBBQcarrymask <typ.UInt64> (Select1 <types.TypeFlags> (SBBQ x y (Select1 <types.TypeFlags> (NEGLflags c))))))
+	// result: (MOVBQZX (SETB <types.Types[types.TUINT8]> (Select1 <types.TypeFlags> (SBBQ x y (Select1 <types.TypeFlags> (NEGLflags c))))))
 	for {
 		if v_0.Op != OpSub64borrow {
 			break
@@ -75363,9 +103542,8 @@ func rewriteValueAMD64_OpSelect1(v *Value) bool {
 		c := v_0.Args[2]
 		x := v_0.Args[0]
 		y := v_0.Args[1]
-		v.reset(OpAMD64NEGQ)
-		v.Type = typ.UInt64
-		v0 := b.NewValue0(v.Pos, OpAMD64SBBQcarrymask, typ.UInt64)
+		v.reset(OpAMD64MOVBQZX)
+		v0 := b.NewValue0(v.Pos, OpAMD64SETB, types.Types[types.TUINT8])
 		v1 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
 		v2 := b.NewValue0(v.Pos, OpAMD64SBBQ, types.NewTuple(typ.UInt64, types.TypeFlags))
 		v3 := b.NewValue0(v.Pos, OpSelect1, types.TypeFlags)
@@ -75391,18 +103569,18 @@ func rewriteValueAMD64_OpSelect1(v *Value) bool {
 		v.reset(OpAMD64FlagEQ)
 		return true
 	}
-	// match: (Select1 (NEGLflags (NEGQ (SBBQcarrymask x))))
+	// match: (Select1 (NEGLflags (MOVBQZX (SETB x))))
 	// result: x
 	for {
 		if v_0.Op != OpAMD64NEGLflags {
 			break
 		}
 		v_0_0 := v_0.Args[0]
-		if v_0_0.Op != OpAMD64NEGQ {
+		if v_0_0.Op != OpAMD64MOVBQZX {
 			break
 		}
 		v_0_0_0 := v_0_0.Args[0]
-		if v_0_0_0.Op != OpAMD64SBBQcarrymask {
+		if v_0_0_0.Op != OpAMD64SETB {
 			break
 		}
 		x := v_0_0_0.Args[0]
@@ -77111,6 +105289,486 @@ func rewriteValueAMD64_OpblendMaskedInt8x64(v *Value) bool {
 		return true
 	}
 }
+func rewriteValueAMD64_Opbroadcast1To16MaskedFloat32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedFloat32x4 x mask)
+	// result: (VBROADCASTSSMasked512 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VBROADCASTSSMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To16MaskedInt16x8(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedInt16x8 x mask)
+	// result: (VPBROADCASTWMasked256 x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTWMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To16MaskedInt32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedInt32x4 x mask)
+	// result: (VPBROADCASTDMasked512 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTDMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To16MaskedInt8x16(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedInt8x16 x mask)
+	// result: (VPBROADCASTBMasked128 x (VPMOVVec8x16ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTBMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To16MaskedUint16x8(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedUint16x8 x mask)
+	// result: (VPBROADCASTWMasked256 x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTWMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To16MaskedUint32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedUint32x4 x mask)
+	// result: (VPBROADCASTDMasked512 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTDMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To16MaskedUint8x16(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To16MaskedUint8x16 x mask)
+	// result: (VPBROADCASTBMasked128 x (VPMOVVec8x16ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTBMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To2MaskedFloat64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To2MaskedFloat64x2 x mask)
+	// result: (VPBROADCASTQMasked128 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To2MaskedInt64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To2MaskedInt64x2 x mask)
+	// result: (VPBROADCASTQMasked128 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To2MaskedUint64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To2MaskedUint64x2 x mask)
+	// result: (VPBROADCASTQMasked128 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To32MaskedInt16x8(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To32MaskedInt16x8 x mask)
+	// result: (VPBROADCASTWMasked512 x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTWMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To32MaskedInt8x16(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To32MaskedInt8x16 x mask)
+	// result: (VPBROADCASTBMasked256 x (VPMOVVec8x16ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTBMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To32MaskedUint16x8(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To32MaskedUint16x8 x mask)
+	// result: (VPBROADCASTWMasked512 x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTWMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To32MaskedUint8x16(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To32MaskedUint8x16 x mask)
+	// result: (VPBROADCASTBMasked256 x (VPMOVVec8x16ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTBMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To4MaskedFloat32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To4MaskedFloat32x4 x mask)
+	// result: (VBROADCASTSSMasked128 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VBROADCASTSSMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To4MaskedFloat64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To4MaskedFloat64x2 x mask)
+	// result: (VBROADCASTSDMasked256 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VBROADCASTSDMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To4MaskedInt32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To4MaskedInt32x4 x mask)
+	// result: (VPBROADCASTDMasked128 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTDMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To4MaskedInt64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To4MaskedInt64x2 x mask)
+	// result: (VPBROADCASTQMasked256 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To4MaskedUint32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To4MaskedUint32x4 x mask)
+	// result: (VPBROADCASTDMasked128 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTDMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To4MaskedUint64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To4MaskedUint64x2 x mask)
+	// result: (VPBROADCASTQMasked256 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To64MaskedInt8x16(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To64MaskedInt8x16 x mask)
+	// result: (VPBROADCASTBMasked512 x (VPMOVVec8x16ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTBMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To64MaskedUint8x16(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To64MaskedUint8x16 x mask)
+	// result: (VPBROADCASTBMasked512 x (VPMOVVec8x16ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTBMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec8x16ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedFloat32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedFloat32x4 x mask)
+	// result: (VBROADCASTSSMasked256 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VBROADCASTSSMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedFloat64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedFloat64x2 x mask)
+	// result: (VBROADCASTSDMasked512 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VBROADCASTSDMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedInt16x8(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedInt16x8 x mask)
+	// result: (VPBROADCASTWMasked128 x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTWMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedInt32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedInt32x4 x mask)
+	// result: (VPBROADCASTDMasked256 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTDMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedInt64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedInt64x2 x mask)
+	// result: (VPBROADCASTQMasked512 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedUint16x8(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedUint16x8 x mask)
+	// result: (VPBROADCASTWMasked128 x (VPMOVVec16x8ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTWMasked128)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec16x8ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedUint32x4(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedUint32x4 x mask)
+	// result: (VPBROADCASTDMasked256 x (VPMOVVec32x4ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTDMasked256)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec32x4ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
+func rewriteValueAMD64_Opbroadcast1To8MaskedUint64x2(v *Value) bool {
+	v_1 := v.Args[1]
+	v_0 := v.Args[0]
+	b := v.Block
+	// match: (broadcast1To8MaskedUint64x2 x mask)
+	// result: (VPBROADCASTQMasked512 x (VPMOVVec64x2ToM <types.TypeMask> mask))
+	for {
+		x := v_0
+		mask := v_1
+		v.reset(OpAMD64VPBROADCASTQMasked512)
+		v0 := b.NewValue0(v.Pos, OpAMD64VPMOVVec64x2ToM, types.TypeMask)
+		v0.AddArg(mask)
+		v.AddArg2(x, v0)
+		return true
+	}
+}
 func rewriteBlockAMD64(b *Block) bool {
 	typ := &b.Func.Config.Types
 	switch b.Kind {
@@ -77164,13 +105822,13 @@ func rewriteBlockAMD64(b *Block) bool {
 			break
 		}
 		// match: (EQ (TESTLconst [c] x))
-		// cond: isUnsignedPowerOfTwo(uint32(c))
+		// cond: isPowerOfTwo(uint32(c))
 		// result: (UGE (BTLconst [int8(log32u(uint32(c)))] x))
 		for b.Controls[0].Op == OpAMD64TESTLconst {
 			v_0 := b.Controls[0]
 			c := auxIntToInt32(v_0.AuxInt)
 			x := v_0.Args[0]
-			if !(isUnsignedPowerOfTwo(uint32(c))) {
+			if !(isPowerOfTwo(uint32(c))) {
 				break
 			}
 			v0 := b.NewValue0(v_0.Pos, OpAMD64BTLconst, types.TypeFlags)
@@ -77180,13 +105838,13 @@ func rewriteBlockAMD64(b *Block) bool {
 			return true
 		}
 		// match: (EQ (TESTQconst [c] x))
-		// cond: isUnsignedPowerOfTwo(uint64(c))
+		// cond: isPowerOfTwo(uint64(c))
 		// result: (UGE (BTQconst [int8(log32u(uint32(c)))] x))
 		for b.Controls[0].Op == OpAMD64TESTQconst {
 			v_0 := b.Controls[0]
 			c := auxIntToInt32(v_0.AuxInt)
 			x := v_0.Args[0]
-			if !(isUnsignedPowerOfTwo(uint64(c))) {
+			if !(isPowerOfTwo(uint64(c))) {
 				break
 			}
 			v0 := b.NewValue0(v_0.Pos, OpAMD64BTQconst, types.TypeFlags)
@@ -77196,7 +105854,7 @@ func rewriteBlockAMD64(b *Block) bool {
 			return true
 		}
 		// match: (EQ (TESTQ (MOVQconst [c]) x))
-		// cond: isUnsignedPowerOfTwo(uint64(c))
+		// cond: isPowerOfTwo(uint64(c))
 		// result: (UGE (BTQconst [int8(log64u(uint64(c)))] x))
 		for b.Controls[0].Op == OpAMD64TESTQ {
 			v_0 := b.Controls[0]
@@ -77209,7 +105867,7 @@ func rewriteBlockAMD64(b *Block) bool {
 				}
 				c := auxIntToInt64(v_0_0.AuxInt)
 				x := v_0_1
-				if !(isUnsignedPowerOfTwo(uint64(c))) {
+				if !(isPowerOfTwo(uint64(c))) {
 					continue
 				}
 				v0 := b.NewValue0(v_0.Pos, OpAMD64BTQconst, types.TypeFlags)
@@ -77709,6 +106367,1006 @@ func rewriteBlockAMD64(b *Block) bool {
 			v0.AddArg2(k, j)
 			b.resetWithControl(BlockAMD64ULT, v0)
 			return true
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETL flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETG flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETA flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETB flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETNE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETL flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETG flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETLE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETGE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETA flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETB flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETAE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTL x:(MOVBQZX s:(SETBE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETNE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETL flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETG flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETLE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETGE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETA flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETB flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETAE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTW x:(MOVBQZX s:(SETBE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETEQ flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETNE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETL flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETG flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETLE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETGE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETA flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETB flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETAE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (EQ t:(TESTB s:(SETBE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
 		}
 	case BlockAMD64GE:
 		// match: (GE c:(CMPQconst [128] z) yes no)
@@ -78328,13 +107986,13 @@ func rewriteBlockAMD64(b *Block) bool {
 			break
 		}
 		// match: (NE (TESTLconst [c] x))
-		// cond: isUnsignedPowerOfTwo(uint32(c))
+		// cond: isPowerOfTwo(uint32(c))
 		// result: (ULT (BTLconst [int8(log32u(uint32(c)))] x))
 		for b.Controls[0].Op == OpAMD64TESTLconst {
 			v_0 := b.Controls[0]
 			c := auxIntToInt32(v_0.AuxInt)
 			x := v_0.Args[0]
-			if !(isUnsignedPowerOfTwo(uint32(c))) {
+			if !(isPowerOfTwo(uint32(c))) {
 				break
 			}
 			v0 := b.NewValue0(v_0.Pos, OpAMD64BTLconst, types.TypeFlags)
@@ -78344,13 +108002,13 @@ func rewriteBlockAMD64(b *Block) bool {
 			return true
 		}
 		// match: (NE (TESTQconst [c] x))
-		// cond: isUnsignedPowerOfTwo(uint64(c))
+		// cond: isPowerOfTwo(uint64(c))
 		// result: (ULT (BTQconst [int8(log32u(uint32(c)))] x))
 		for b.Controls[0].Op == OpAMD64TESTQconst {
 			v_0 := b.Controls[0]
 			c := auxIntToInt32(v_0.AuxInt)
 			x := v_0.Args[0]
-			if !(isUnsignedPowerOfTwo(uint64(c))) {
+			if !(isPowerOfTwo(uint64(c))) {
 				break
 			}
 			v0 := b.NewValue0(v_0.Pos, OpAMD64BTQconst, types.TypeFlags)
@@ -78360,7 +108018,7 @@ func rewriteBlockAMD64(b *Block) bool {
 			return true
 		}
 		// match: (NE (TESTQ (MOVQconst [c]) x))
-		// cond: isUnsignedPowerOfTwo(uint64(c))
+		// cond: isPowerOfTwo(uint64(c))
 		// result: (ULT (BTQconst [int8(log64u(uint64(c)))] x))
 		for b.Controls[0].Op == OpAMD64TESTQ {
 			v_0 := b.Controls[0]
@@ -78373,7 +108031,7 @@ func rewriteBlockAMD64(b *Block) bool {
 				}
 				c := auxIntToInt64(v_0_0.AuxInt)
 				x := v_0_1
-				if !(isUnsignedPowerOfTwo(uint64(c))) {
+				if !(isPowerOfTwo(uint64(c))) {
 					continue
 				}
 				v0 := b.NewValue0(v_0.Pos, OpAMD64BTQconst, types.TypeFlags)
@@ -78751,6 +108409,1406 @@ func rewriteBlockAMD64(b *Block) bool {
 				v0 := b.NewValue0(t.Pos, OpSelect1, types.TypeFlags)
 				v0.AddArg(a.Args[0])
 				b.resetWithControl(BlockAMD64NE, v0)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETEQ flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETNE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETL flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETG flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETLE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETGE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETA flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETB flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETAE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETBE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETEQF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETNEF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NEF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNEF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NEF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETGF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTQ x:(MOVBQZX s:(SETGEF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTQ {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGEF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETEQ flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETNE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETL flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETG flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETLE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETGE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETA flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETB flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETAE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETBE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETEQF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETNEF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NEF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNEF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NEF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETGF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTL x:(MOVBQZX s:(SETGEF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTL {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGEF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETEQ flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETNE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETL flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETG flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETLE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETGE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETA flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETB flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETAE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETBE flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETEQF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETEQF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETNEF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (NEF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETNEF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NEF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETGF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTW x:(MOVBQZX s:(SETGEF flags)) x) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTW {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				x := t_0
+				if x.Op != OpAMD64MOVBQZX {
+					continue
+				}
+				s := x.Args[0]
+				if s.Op != OpAMD64SETGEF {
+					continue
+				}
+				flags := s.Args[0]
+				if x != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETEQ flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQ flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETEQ {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQ, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETNE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (NE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETNE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETL flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (LT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETL {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETG flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (GT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETG {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETLE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (LE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETLE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64LE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETGE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (GE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETGE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64GE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETA flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETA {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETB flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETB {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETAE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETAE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETBE flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (ULE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETBE {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64ULE, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETEQF flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (EQF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETEQF {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64EQF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETNEF flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (NEF flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETNEF {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64NEF, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETGF flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGT flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETGF {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGT, flags)
+				return true
+			}
+			break
+		}
+		// match: (NE t:(TESTB s:(SETGEF flags) s) yes no)
+		// cond: t.Block == s.Block
+		// result: (UGE flags yes no)
+		for b.Controls[0].Op == OpAMD64TESTB {
+			t := b.Controls[0]
+			_ = t.Args[1]
+			t_0 := t.Args[0]
+			t_1 := t.Args[1]
+			for _i0 := 0; _i0 <= 1; _i0, t_0, t_1 = _i0+1, t_1, t_0 {
+				s := t_0
+				if s.Op != OpAMD64SETGEF {
+					continue
+				}
+				flags := s.Args[0]
+				if s != t_1 || !(t.Block == s.Block) {
+					continue
+				}
+				b.resetWithControl(BlockAMD64UGE, flags)
 				return true
 			}
 			break

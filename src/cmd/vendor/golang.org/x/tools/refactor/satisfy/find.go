@@ -8,9 +8,7 @@
 // interface, and this fact is necessary for the package to be
 // well-typed.
 //
-// THIS PACKAGE IS EXPERIMENTAL AND MAY CHANGE AT ANY TIME.
-//
-// It is provided only for the gopls tool. It requires well-typed inputs.
+// It requires well-typed inputs.
 package satisfy // import "golang.org/x/tools/refactor/satisfy"
 
 // NOTES:
@@ -397,8 +395,11 @@ func (f *Finder) expr(e ast.Expr) types.Type {
 		f.expr(e.X)
 
 	case *ast.SelectorExpr:
-		if _, ok := f.info.Selections[e]; ok {
-			f.expr(e.X) // selection
+		if seln, ok := f.info.Selections[e]; ok {
+			// If e.X is a type (e.g., e is interface{ m() }.m), don't visit it.
+			if seln.Kind() != types.MethodExpr {
+				f.expr(e.X)
+			}
 		} else {
 			return f.info.Uses[e.Sel].Type() // qualified identifier
 		}

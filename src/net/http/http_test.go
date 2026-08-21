@@ -80,32 +80,6 @@ func TestCmdGoNoHTTPServer(t *testing.T) {
 	}
 }
 
-// Tests that the nethttpomithttp2 build tag doesn't rot too much,
-// even if there's not a regular builder on it.
-func TestOmitHTTP2(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping in short mode")
-	}
-	t.Parallel()
-	goTool := testenv.GoToolPath(t)
-	out, err := testenv.Command(t, goTool, "test", "-short", "-tags=nethttpomithttp2", "net/http").CombinedOutput()
-	if err != nil {
-		t.Fatalf("go test -short failed: %v, %s", err, out)
-	}
-}
-
-// Tests that the nethttpomithttp2 build tag at least type checks
-// in short mode.
-// The TestOmitHTTP2 test above actually runs tests (in long mode).
-func TestOmitHTTP2Vet(t *testing.T) {
-	t.Parallel()
-	goTool := testenv.GoToolPath(t)
-	out, err := testenv.Command(t, goTool, "vet", "-tags=nethttpomithttp2", "net/http").CombinedOutput()
-	if err != nil {
-		t.Fatalf("go vet failed: %v, %s", err, out)
-	}
-}
-
 var valuesCount int
 
 func BenchmarkCopyValues(b *testing.B) {
@@ -164,7 +138,7 @@ func TestNoUnicodeStrings(t *testing.T) {
 		}
 		if !strings.HasSuffix(path, ".go") ||
 			strings.HasSuffix(path, "_test.go") ||
-			path == "h2_bundle.go" ||
+			path == "internal/http2/ascii.go" ||
 			path == "internal/httpcommon/httpcommon.go" ||
 			d.IsDir() {
 			return nil
@@ -218,5 +192,24 @@ func BenchmarkHexEscapeNonASCII(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		hexEscapeNonASCII(redirectURL)
+	}
+}
+
+func TestRemovePort(t *testing.T) {
+	tests := []struct {
+		in, want string
+	}{
+		{"example.com:8080", "example.com"},
+		{"example.com", "example.com"},
+		{"[2001:db8::1]:443", "[2001:db8::1]"},
+		{"[2001:db8::1]", "[2001:db8::1]"},
+		{"192.0.2.1:8080", "192.0.2.1"},
+		{"192.0.2.1", "192.0.2.1"},
+	}
+	for _, tc := range tests {
+		got := removePort(tc.in)
+		if got != tc.want {
+			t.Errorf("removePort(%q) = %q; want %q", tc.in, got, tc.want)
+		}
 	}
 }

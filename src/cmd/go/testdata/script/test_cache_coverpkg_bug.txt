@@ -50,9 +50,9 @@ stdout 'coverage:'
 # With the bug fixed, there should be no duplicate or stale entries in the coverage profile.
 grep 'proj/sub/sub.go:' cover2.out
 # The fix should ensure that only the new line format exists, not the old one
-grep 'proj/sub/sub.go:3.24,4.35' cover2.out
+grep 'proj/sub/sub.go:4.2,4.35' cover2.out
 # This should fail if the stale coverage line exists (the bug is present)
-! grep 'proj/sub/sub.go:3.24,4.22' cover2.out
+! grep 'proj/sub/sub.go:4.2,4.22' cover2.out
 
 -- proj/go.mod --
 module proj

@@ -9,15 +9,15 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"log"
 
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
-	"golang.org/x/tools/go/ast/edge"
-	"golang.org/x/tools/go/ast/inspector"
 	"golang.org/x/tools/go/types/typeutil"
 	"golang.org/x/tools/internal/analysis/analyzerutil"
 	typeindexanalyzer "golang.org/x/tools/internal/analysis/typeindex"
 	"golang.org/x/tools/internal/astutil"
+	"golang.org/x/tools/internal/typeparams"
 	"golang.org/x/tools/internal/typesinternal"
 	"golang.org/x/tools/internal/typesinternal/typeindex"
 	"golang.org/x/tools/internal/versions"
@@ -110,7 +110,7 @@ func rangeint(pass *analysis.Pass) (any, error) {
 							// limit is a local or unexported global var.
 							// (An exported global may have uses we can't see.)
 							for cur := range typeindex.Uses(v) {
-								if isScalarLvalue(info, cur) {
+								if typesinternal.IsAssignedOrAddressTaken(info, cur) {
 									// Limit var is assigned or address-taken.
 									continue nextLoop
 								}
@@ -122,17 +122,34 @@ func rangeint(pass *analysis.Pass) (any, error) {
 						continue nextLoop
 					}
 
+					validIncrement := false
 					if inc, ok := loop.Post.(*ast.IncDecStmt); ok &&
 						inc.Tok == token.INC &&
 						astutil.EqualSyntax(compare.X, inc.X) {
+						// Have: i++
+						validIncrement = true
+					} else if assign, ok := loop.Post.(*ast.AssignStmt); ok &&
+						assign.Tok == token.ADD_ASSIGN &&
+						len(assign.Rhs) == 1 && isIntLiteral(info, assign.Rhs[0], 1) &&
+						len(assign.Lhs) == 1 && astutil.EqualSyntax(compare.X, assign.Lhs[0]) {
+						// Have: i += 1
+						validIncrement = true
+					}
+
+					if validIncrement {
 						// Have: for i = 0; i < limit; i++ {}
 
 						// Find references to i within the loop body.
 						v := info.ObjectOf(index).(*types.Var)
-						// TODO(adonovan): use go1.25 v.Kind() == types.PackageVar
-						if typesinternal.IsPackageLevel(v) {
+						switch v.Kind() {
+						case types.PackageVar:
+							continue nextLoop
+						case types.ResultVar:
+							// If v is a named result, it is implicitly
+							// used after the loop (go.dev/issue/76880).
 							continue nextLoop
 						}
+
 						used := false
 						for curId := range curLoop.Child(loop.Body).Preorder((*ast.Ident)(nil)) {
 							id := curId.Node().(*ast.Ident)
@@ -142,7 +159,7 @@ func rangeint(pass *analysis.Pass) (any, error) {
 								// Reject if any is an l-value (assigned or address-taken):
 								// a "for range int" loop does not respect assignments to
 								// the loop variable.
-								if isScalarLvalue(info, curId) {
+								if typesinternal.IsAssignedOrAddressTaken(info, curId) {
 									continue nextLoop
 								}
 							}
@@ -193,6 +210,36 @@ func rangeint(pass *analysis.Pass) (any, error) {
 											continue nextLoop
 										}
 									}
+								}
+							}
+						}
+
+						// The loop index (v) must not be a type parameter constrained by
+						// multiple distinct integer types, or a type parameter constrained
+						// by non-integer types. Transforming such instances to a range loop
+						// would result in a compiler error.
+						// See golang/go#78571.
+						terms, err := typeparams.NormalTerms(v.Type()) // NormalTerms works for any type
+						if err != nil {
+							log.Fatalf("internal error: cannot compute type set of loop var %v: %v", v, err)
+						}
+						if len(terms) != 0 {
+							// From the spec (https://go.dev/ref/spec#For_range):
+							// "If the type of the range expression is a type parameter, all
+							// types in its type set must have the same underlying type and the
+							// range expression must be valid for that type."
+							//
+							// Check if all terms have the same underlying type by comparing
+							// them to the first term.
+							u := terms[0].Type().Underlying()
+							// If the constraint has any non-integer terms, skip. (Range over
+							// float is not allowed.)
+							if !isInteger(u) {
+								continue nextLoop
+							}
+							for _, term := range terms[1:] {
+								if !types.Identical(u, term.Type().Underlying()) {
+									continue nextLoop
 								}
 							}
 						}
@@ -252,7 +299,7 @@ func rangeint(pass *analysis.Pass) (any, error) {
 
 						pass.Report(analysis.Diagnostic{
 							Pos:     init.Pos(),
-							End:     inc.End(),
+							End:     loop.Post.End(),
 							Message: "for loop can be modernized using range over int",
 							SuggestedFixes: []analysis.SuggestedFix{{
 								Message: fmt.Sprintf("Replace for loop with range %s",
@@ -278,7 +325,7 @@ func rangeint(pass *analysis.Pass) (any, error) {
 									// Delete inc.
 									{
 										Pos: limit.End(),
-										End: inc.End(),
+										End: loop.Post.End(),
 									},
 									// Add ")" after limit, if needed.
 									{
@@ -295,53 +342,4 @@ func rangeint(pass *analysis.Pass) (any, error) {
 		}
 	}
 	return nil, nil
-}
-
-// isScalarLvalue reports whether the specified identifier is
-// address-taken or appears on the left side of an assignment.
-//
-// This function is valid only for scalars (x = ...),
-// not for aggregates (x.a[i] = ...)
-func isScalarLvalue(info *types.Info, curId inspector.Cursor) bool {
-	// Unfortunately we can't simply use info.Types[e].Assignable()
-	// as it is always true for a variable even when that variable is
-	// used only as an r-value. So we must inspect enclosing syntax.
-
-	cur := curId
-
-	// Strip enclosing parens.
-	ek, _ := cur.ParentEdge()
-	for ek == edge.ParenExpr_X {
-		cur = cur.Parent()
-		ek, _ = cur.ParentEdge()
-	}
-
-	switch ek {
-	case edge.AssignStmt_Lhs:
-		assign := cur.Parent().Node().(*ast.AssignStmt)
-		if assign.Tok != token.DEFINE {
-			return true // i = j or i += j
-		}
-		id := curId.Node().(*ast.Ident)
-		if v, ok := info.Defs[id]; ok && v.Pos() != id.Pos() {
-			return true // reassignment of i (i, j := 1, 2)
-		}
-	case edge.RangeStmt_Key:
-		rng := cur.Parent().Node().(*ast.RangeStmt)
-		if rng.Tok == token.ASSIGN {
-			return true // "for k, v = range x" is like an AssignStmt to k, v
-		}
-	case edge.IncDecStmt_X:
-		return true // i++, i--
-	case edge.UnaryExpr_X:
-		if cur.Parent().Node().(*ast.UnaryExpr).Op == token.AND {
-			return true // &i
-		}
-	}
-	return false
-}
-
-func isInteger(t types.Type) bool {
-	basic, ok := t.Underlying().(*types.Basic)
-	return ok && basic.Info()&types.IsInteger != 0
 }

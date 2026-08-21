@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 21 Aug 2026 17:07:57 +1000
+Date: Fri, 21 Aug 2026 18:10:00 +1000
 Subject: [PATCH] Roll back race_windows.syso and drop TSAN And/Or instrumentation
 
 Keep public sync/atomic And/Or. Race-mode And/Or are provided by
@@ -7783,13 +7783,13 @@ index 9992a519..915cffc9 100644
 -// And
 -TEXT	sync∕atomic·AndInt32(SB), NOSPLIT, $0-20
 -	GO_ARGS
--	MOV	$__tsan_go_atomic32_fetch_and(SB), X5
+-	MOV	$__tsan_go_atomic32_fetch_and(SB), X23
 -	CALL	racecallatomic<>(SB)
 -	RET
 -
 -TEXT	sync∕atomic·AndInt64(SB), NOSPLIT, $0-24
 -	GO_ARGS
--	MOV	$__tsan_go_atomic64_fetch_and(SB), X5
+-	MOV	$__tsan_go_atomic64_fetch_and(SB), X23
 -	CALL	racecallatomic<>(SB)
 -	RET
 -
@@ -7808,13 +7808,13 @@ index 9992a519..915cffc9 100644
 -// Or
 -TEXT	sync∕atomic·OrInt32(SB), NOSPLIT, $0-20
 -	GO_ARGS
--	MOV	$__tsan_go_atomic32_fetch_or(SB), X5
+-	MOV	$__tsan_go_atomic32_fetch_or(SB), X23
 -	CALL	racecallatomic<>(SB)
 -	RET
 -
 -TEXT	sync∕atomic·OrInt64(SB), NOSPLIT, $0-24
 -	GO_ARGS
--	MOV	$__tsan_go_atomic64_fetch_or(SB), X5
+-	MOV	$__tsan_go_atomic64_fetch_or(SB), X23
 -	CALL	racecallatomic<>(SB)
 -	RET
 -

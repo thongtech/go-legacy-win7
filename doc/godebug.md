@@ -85,6 +85,9 @@ if the work module's `go.mod` or the workspace's `go.work`
 says `go` `1.20`, then the program defaults to `panicnil=1`,
 matching Go 1.20 instead of Go 1.21.
 
+As an exception, GODEBUGs introduced for security releases
+will have the new behavior apply to all versions.
+
 Because this method of setting GODEBUG defaults was introduced only in Go 1.21,
 programs listing versions of Go earlier than Go 1.20 are configured to match Go 1.20,
 not the older version.
@@ -151,16 +154,48 @@ for example,
 see the [runtime documentation](/pkg/runtime#hdr-Environment_Variables)
 and the [go command documentation](/cmd/go#hdr-Build_and_test_caching).
 
-### Go 1.26
+### Go 1.27
 
-Go 1.26.6 added a `fips140ems` setting that when set to `0` disables the
-enforcement of Extended Master Secret in FIPS 140-3 mode. There is no change in
-default behavior.
+Go 1.27 removed the `gotypesalias` setting, as noted in the [Go 1.22](#go-122) section.
 
-Go 1.26.1 added a new `htmlmetacontenturlescape` setting that controls whether
+Go 1.27 removed the `tlsunsafeekm` setting, as noted in the [Go 1.22](#go-122) section.
+
+Go 1.27 removed the `tlsrsakex` setting, as noted in the [Go 1.22](#go-122) section.
+
+Go 1.27 removed the `tls3des` setting, as noted in the [Go 1.23](#go-123) section.
+
+Go 1.27 removed the `tls10server` setting, as noted in the [Go 1.22](#go-122) section.
+
+Go 1.27 removed the `x509keypairleaf` setting, as noted in the [Go 1.23](#go-123) section.
+
+Go 1.27 removed the `asynctimerchan` setting, as noted in the [Go 1.23](#go-123) section.
+
+Go 1.27 added a new `htmlmetacontenturlescape` setting that controls whether
 html/template will escape URLs in the `url=` portion of the content attribute of
 HTML meta tags. The default `htmlmetacontentescape=1` will cause URLs to be
-escaped. Setting `htmlmetacontentescape=0` disables this behavior.
+escaped. Setting `htmlmetacontentescape=0` disables this behavior. To avoid
+content injection attacks, this setting and default was backported to Go 1.25.8
+and Go 1.26.1.
+
+Go 1.27 changes the default for `tracebacklabels` (added in [Go 1.26](#go-126))
+to `1`. This opt-out is expected to be kept indefinitely in case goroutine
+labels acquire sensitive information that shouldn't be made available in
+tracebacks.
+
+Go 1.27 added a new `x509sslcertoverrideplatform` setting that controls whether
+crypto/x509 will load roots from disk on Windows and Darwin when `SSL_CERT_FILE`
+or `SSL_CERT_DIR` are set. The default value `x509sslcertoverrideplatform=1` will
+cause roots to be loaded from disk when these environment variables are set.
+Setting `x509sslcertoverrideplatform=0` disables this behavior in favor of using
+the platform certificate store instead of honoring the environment variables. We
+plan to remove this setting in Go 1.31.
+
+Go 1.27 added a `fips140ems` setting that when set to `0` disables the
+enforcement of Extended Master Secret in FIPS 140-3 mode. There is no change in
+default behavior. This setting was backported to Go 1.26.6 and Go 1.25.13.
+We plan to remove this setting in Go 1.31.
+
+### Go 1.26
 
 Go 1.26 added a new `httpcookiemaxnum` setting that controls the maximum number
 of cookies that net/http will accept when parsing HTTP headers. If the number of
@@ -319,7 +354,7 @@ Go 1.23 changed the channels created by package time to be unbuffered
 (synchronous), which makes correct use of the [`Timer.Stop`](/pkg/time/#Timer.Stop)
 and [`Timer.Reset`](/pkg/time/#Timer.Reset) method results much easier.
 The [`asynctimerchan` setting](/pkg/time/#NewTimer) disables this change.
-There are no runtime metrics for this change,
+There are no runtime metrics for this change.
 This setting will be removed in Go 1.27.
 
 Go 1.23 changed the mode bits reported by [`os.Lstat`](/pkg/os#Lstat) and [`os.Stat`](/pkg/os#Stat)

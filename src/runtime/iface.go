@@ -217,12 +217,12 @@ func itabInit(m *itab, firstTime bool) string {
 	// the loop is O(ni+nt) not O(ni*nt).
 	ni := len(inter.Methods)
 	nt := int(x.Mcount)
-	xmhdr := (*[1 << 16]abi.Method)(add(unsafe.Pointer(x), uintptr(x.Moff)))[:nt:nt]
+	xmhdr := unsafe.Slice((*abi.Method)(add(unsafe.Pointer(x), uintptr(x.Moff))), nt)
 	j := 0
 	// These are code pointers, not heap pointers. Use a uintptr slice so the
 	// store emits no write barrier: on wasm a code pointer can look like a
 	// heap pointer and make the GC crash (see issue 80472).
-	methods := (*[1 << 16]uintptr)(unsafe.Pointer(&m.Fun[0]))[:ni:ni]
+	methods := unsafe.Slice(&m.Fun[0], ni)
 	var fun0 unsafe.Pointer
 imethods:
 	for k := 0; k < ni; k++ {
@@ -268,11 +268,21 @@ func itabsinit() {
 	lockInit(&itabLock, lockRankItab)
 	lock(&itabLock)
 	for _, md := range activeModules() {
-		for _, i := range md.itablinks {
-			itabAdd(i)
-		}
+		addModuleItabs(md)
 	}
 	unlock(&itabLock)
+}
+
+// addModuleItabs adds the pre-compiled itabs from md to the itab hash table.
+// This is an optimization to let us skip creating itabs we already have.
+func addModuleItabs(md *moduledata) {
+	p := md.types + md.itaboffset
+	end := p + md.itabsize
+	for p < end {
+		itab := (*itab)(unsafe.Pointer(p))
+		itabAdd(itab)
+		p += uintptr(itab.Size())
+	}
 }
 
 // panicdottypeE is called when doing an e.(T) conversion and the conversion fails.

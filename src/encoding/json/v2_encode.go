@@ -8,8 +8,7 @@
 // RFC 7159. The mapping between JSON and Go values is described
 // in the documentation for the Marshal and Unmarshal functions.
 //
-// See "JSON and Go" for an introduction to this package:
-// https://golang.org/doc/articles/json_and_go.html
+// See [JSON and Go] for an introduction to this package.
 //
 // # Security Considerations
 //
@@ -18,6 +17,8 @@
 // For historical reasons, the default behavior of v1 [encoding/json]
 // unfortunately operates with less secure defaults.
 // New usages of JSON in Go are encouraged to use [encoding/json/v2] instead.
+//
+// [JSON and Go]: https://go.dev/blog/json
 package json
 
 import (
@@ -30,14 +31,24 @@ import (
 // Marshal returns the JSON encoding of v.
 //
 // Marshal traverses the value v recursively.
-// If an encountered value implements [Marshaler]
-// and is not a nil pointer, Marshal calls [Marshaler.MarshalJSON]
-// to produce JSON. If no [Marshaler.MarshalJSON] method is present but the
-// value implements [encoding.TextMarshaler] instead, Marshal calls
-// [encoding.TextMarshaler.MarshalText] and encodes the result as a JSON string.
-// The nil pointer exception is not strictly necessary
-// but mimics a similar, necessary exception in the behavior of
-// [Unmarshaler.UnmarshalJSON].
+//
+// The input value is encoded as JSON according the following rules:
+//
+//   - If the value type implements [jsonv2.MarshalerTo],
+//     then the MarshalJSONTo method is called to encode the value.
+//     If the method returns [errors.ErrUnsupported],
+//     then the input is encoded according to subsequent rules.
+//
+//   - If the value type implements [Marshaler],
+//     then the MarshalJSON method is called to encode the value.
+//
+//   - If the value type implements [encoding.TextAppender],
+//     then the AppendText method is called to encode the value and
+//     subsequently encode its result as a JSON string.
+//
+//   - If the value type implements [encoding.TextMarshaler],
+//     then the MarshalText method is called to encode the value and
+//     subsequently encode its result as a JSON string.
 //
 // Otherwise, Marshal uses the following type-dependent default encodings:
 //

@@ -13,6 +13,7 @@ import (
 	"iter"
 	"maps"
 	"net"
+	"net/netip"
 	"runtime"
 	"slices"
 	"strings"
@@ -388,7 +389,12 @@ func parseRFC2821Mailbox(in string) (mailbox rfc2821Mailbox, ok bool) {
 	// The RFC species a format for domains, but that's known to be
 	// violated in practice so we accept that anything after an '@' is the
 	// domain part.
-	if _, ok := domainToReverseLabels(in); !ok {
+	if !domainNameValid(in, false) {
+		return mailbox, false
+	}
+
+	// Reject domain names containing @.
+	if strings.ContainsRune(in, '@') {
 		return mailbox, false
 	}
 
@@ -690,7 +696,7 @@ func alreadyInChain(candidate *Certificate, chain []*Certificate) bool {
 			continue
 		}
 		// We enforce the canonical encoding of SPKI (by only allowing the
-		// correct AI paremeter encodings in parseCertificate), so it's safe to
+		// correct AI parameter encodings in parseCertificate), so it's safe to
 		// directly compare the raw bytes.
 		if !bytes.Equal(candidate.RawSubjectPublicKeyInfo, cert.RawSubjectPublicKeyInfo) {
 			continue
@@ -939,15 +945,17 @@ func (c *Certificate) VerifyHostname(h string) error {
 	if len(h) >= 3 && h[0] == '[' && h[len(h)-1] == ']' {
 		candidateIP = h[1 : len(h)-1]
 	}
-	if ip := net.ParseIP(candidateIP); ip != nil {
+	// We use netip.ParseAddr() to allow IPv6 scoped addresses.
+	if addr, err := netip.ParseAddr(candidateIP); err == nil {
 		// We only match IP addresses against IP SANs.
 		// See RFC 6125, Appendix B.2.
+		ip := net.IP(addr.AsSlice())
 		for _, candidate := range c.IPAddresses {
 			if ip.Equal(candidate) {
 				return nil
 			}
 		}
-		return HostnameError{c, candidateIP}
+		return HostnameError{c, ip.String()}
 	}
 
 	candidateName := toLowerCaseASCII(h) // Save allocations inside the loop.

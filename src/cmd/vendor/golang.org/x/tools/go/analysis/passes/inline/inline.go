@@ -324,18 +324,37 @@ func (a *analyzer) inlineAlias(tn *types.TypeName, curId inspector.Cursor) {
 	//   pkg.Id[T]
 	//   pkg.Id[K, V]
 	var expr ast.Expr = id
-	if astutil.IsChildOf(curId, edge.SelectorExpr_Sel) {
+	if curId.ParentEdgeKind() == edge.SelectorExpr_Sel {
 		curId = curId.Parent()
 		expr = curId.Node().(ast.Expr)
 	}
 	// If expr is part of an IndexExpr or IndexListExpr, we'll need that node.
 	// Given C[int], TypeOf(C) is generic but TypeOf(C[int]) is instantiated.
-	switch ek, _ := curId.ParentEdge(); ek {
+	switch curId.ParentEdgeKind() {
 	case edge.IndexExpr_X:
-		expr = curId.Parent().Node().(*ast.IndexExpr)
+		curId = curId.Parent()
+		expr = curId.Node().(*ast.IndexExpr)
 	case edge.IndexListExpr_X:
-		expr = curId.Parent().Node().(*ast.IndexListExpr)
+		curId = curId.Parent()
+		expr = curId.Node().(*ast.IndexListExpr)
 	}
+
+	// Reject inlining of a type alias used to declare an embedded
+	// struct field if doing so would change the field's name.
+	if v, ok := a.pass.TypesInfo.Defs[id].(*types.Var); ok && v.Embedded() {
+		identicalName := false
+		// TODO(adonovan): should we allow a pointer (type A = *pkg.A)?
+		if rhs, ok := alias.Rhs().(*types.Named); ok {
+			identicalName = alias.Obj().Name() == rhs.Obj().Name()
+		}
+		if !identicalName {
+			// Type is embedded, inlining the alias will cause
+			// the field name to be changed, which might break
+			// programs in terms of backwards compatibility.
+			return
+		}
+	}
+
 	t := a.pass.TypesInfo.TypeOf(expr).(*types.Alias) // type of entire identifier
 	if targs := t.TypeArgs(); targs.Len() > 0 {
 		// Instantiate the alias with the type args from this use.
@@ -529,7 +548,7 @@ func (a *analyzer) inlineConst(con *types.Const, cur inspector.Cursor) {
 	}
 	// If n is qualified by a package identifier, we'll need the full selector expression.
 	var expr ast.Expr = n
-	if astutil.IsChildOf(cur, edge.SelectorExpr_Sel) {
+	if cur.ParentEdgeKind() == edge.SelectorExpr_Sel {
 		expr = cur.Parent().Node().(ast.Expr)
 	}
 	a.reportInline("constant", "Constant", expr, edits, importPrefix+incon.RHSName)

@@ -60,7 +60,9 @@ func pedanticReadAll(r io.Reader) (b []byte, err error) {
 	}
 }
 
-func TestClient(t *testing.T) { run(t, testClient) }
+func TestClient(t *testing.T) {
+	run(t, testClient, []testMode{http1Mode, https1Mode, http2UnencryptedMode, http2Mode})
+}
 func testClient(t *testing.T, mode testMode) {
 	ts := newClientServerTest(t, mode, robotsTxtHandler).ts
 
@@ -357,7 +359,7 @@ func TestPostRedirects(t *testing.T) {
 	want := strings.Join(wantSegments, "\n")
 	run(t, func(t *testing.T, mode testMode) {
 		testRedirectsByMethod(t, mode, "POST", postRedirectTests, want)
-	})
+	}, http3SkippedMode)
 }
 
 func TestDeleteRedirects(t *testing.T) {
@@ -396,7 +398,7 @@ func TestDeleteRedirects(t *testing.T) {
 	want := strings.Join(wantSegments, "\n")
 	run(t, func(t *testing.T, mode testMode) {
 		testRedirectsByMethod(t, mode, "DELETE", deleteRedirectTests, want)
-	})
+	}, http3SkippedMode)
 }
 
 func testRedirectsByMethod(t *testing.T, mode testMode, method string, table []redirectTest, want string) {
@@ -438,7 +440,6 @@ func testRedirectsByMethod(t *testing.T, mode testMode, method string, table []r
 		req, _ := NewRequest(method, ts.URL+tt.suffix, strings.NewReader(content))
 		req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(strings.NewReader(content)), nil }
 		res, err := c.Do(req)
-
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -483,7 +484,11 @@ func testClientRedirectUseResponse(t *testing.T, mode testMode) {
 		if strings.Contains(r.URL.Path, "/other") {
 			io.WriteString(w, "wrong body")
 		} else {
-			w.Header().Set("Location", ts.URL+"/other")
+			scheme := "http"
+			if r.TLS != nil {
+				scheme = "https"
+			}
+			w.Header().Set("Location", fmt.Sprintf("%s://%s/other", scheme, r.Host))
 			w.WriteHeader(StatusFound)
 			io.WriteString(w, body)
 		}
@@ -1196,7 +1201,7 @@ func TestStripPasswordFromError(t *testing.T) {
 	}
 }
 
-func TestClientTimeout(t *testing.T) { run(t, testClientTimeout) }
+func TestClientTimeout(t *testing.T) { run(t, testClientTimeout, http3SkippedMode) }
 func testClientTimeout(t *testing.T, mode testMode) {
 	var (
 		mu           sync.Mutex
@@ -1341,7 +1346,7 @@ func testClientTimeout_Headers(t *testing.T, mode testMode) {
 
 // Issue 16094: if Client.Timeout is set but not hit, a Timeout error shouldn't be
 // returned.
-func TestClientTimeoutCancel(t *testing.T) { run(t, testClientTimeoutCancel) }
+func TestClientTimeoutCancel(t *testing.T) { run(t, testClientTimeoutCancel, http3SkippedMode) }
 func testClientTimeoutCancel(t *testing.T, mode testMode) {
 	testDone := make(chan struct{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1506,7 +1511,9 @@ func TestClientRedirectResponseWithoutRequest(t *testing.T) {
 // Issue 35104: Since both URLs have the same host (localhost)
 // but different ports, sensitive headers like Cookie and Authorization
 // are preserved.
-func TestClientCopyHeadersOnRedirect(t *testing.T) { run(t, testClientCopyHeadersOnRedirect) }
+func TestClientCopyHeadersOnRedirect(t *testing.T) {
+	run(t, testClientCopyHeadersOnRedirect, http3SkippedMode)
+}
 func testClientCopyHeadersOnRedirect(t *testing.T, mode testMode) {
 	const (
 		ua   = "some-agent/1.2"
@@ -1572,7 +1579,7 @@ func testClientCopyHeadersOnRedirect(t *testing.T, mode testMode) {
 // Issue #70530: Once we strip a header on a redirect to a different host,
 // the header should stay stripped across any further redirects.
 func TestClientStripHeadersOnRepeatedRedirect(t *testing.T) {
-	run(t, testClientStripHeadersOnRepeatedRedirect)
+	run(t, testClientStripHeadersOnRepeatedRedirect, http3SkippedMode)
 }
 func testClientStripHeadersOnRepeatedRedirect(t *testing.T, mode testMode) {
 	var proto string
@@ -1853,6 +1860,12 @@ func TestShouldCopyHeaderOnRedirect(t *testing.T) {
 		{"http://foo.com:443/", "https://foo.com/", true},
 		{"http://foo.com:443/", "https://sub.foo.com/", true},
 		{"http://foo.com:1234/", "http://foo.com/", true},
+
+		{"http://foobar.com/", "http://fooBAR.com/", true},
+
+		{"http://example.com/", "http://evil。example.com/", false},
+		{"http://example.com/", "http://ｅxample.com/", false},
+		{"http://süb.example.com/", "http://sÜb.example.com/", false},
 	}
 	for i, tt := range tests {
 		u0, err := url.Parse(tt.initialURL)
@@ -2215,7 +2228,10 @@ func TestClientPopulatesNilResponseBody(t *testing.T) {
 }
 
 // Issue 40382: Client calls Close multiple times on Request.Body.
-func TestClientCallsCloseOnlyOnce(t *testing.T) { run(t, testClientCallsCloseOnlyOnce) }
+func TestClientCallsCloseOnlyOnce(t *testing.T) {
+	// Flaky on HTTP/3.
+	run(t, testClientCallsCloseOnlyOnce, http3SkippedMode)
+}
 func testClientCallsCloseOnlyOnce(t *testing.T, mode testMode) {
 	cst := newClientServerTest(t, mode, HandlerFunc(func(w ResponseWriter, r *Request) {
 		w.WriteHeader(StatusNoContent)
@@ -2224,7 +2240,7 @@ func testClientCallsCloseOnlyOnce(t *testing.T, mode testMode) {
 	// Issue occurred non-deterministically: needed to occur after a successful
 	// write (into TCP buffer) but before end of body.
 	for i := 0; i < 50 && !t.Failed(); i++ {
-		body := &issue40382Body{t: t, n: 300000}
+		body := &issue40382Body{t: t, n: 256 << 10} // maxPostHandlerReadBytes large
 		req, err := NewRequest(MethodPost, cst.ts.URL, body)
 		if err != nil {
 			t.Fatal(err)
@@ -2287,6 +2303,11 @@ func testProbeZeroLengthBody(t *testing.T, mode testMode) {
 		defer wg.Done()
 		req, _ := NewRequest("GET", cst.ts.URL, bodyr)
 		res, err := cst.c.Do(req)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		defer res.Body.Close()
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
 			t.Error(err)

@@ -157,6 +157,9 @@ func rewriteValueLOONG64(v *Value) bool {
 	case OpBswap64:
 		v.Op = OpLOONG64REVBV
 		return true
+	case OpCeil:
+		v.Op = OpLOONG64FRINTPD
+		return true
 	case OpClosureCall:
 		v.Op = OpLOONG64CALLclosure
 		return true
@@ -286,6 +289,9 @@ func rewriteValueLOONG64(v *Value) bool {
 	case OpFMA:
 		v.Op = OpLOONG64FMADDD
 		return true
+	case OpFloor:
+		v.Op = OpLOONG64FRINTMD
+		return true
 	case OpGetCallerPC:
 		v.Op = OpLOONG64LoweredGetCallerPC
 		return true
@@ -360,6 +366,8 @@ func rewriteValueLOONG64(v *Value) bool {
 		return rewriteValueLOONG64_OpLOONG64MOVBstore(v)
 	case OpLOONG64MOVBstoreidx:
 		return rewriteValueLOONG64_OpLOONG64MOVBstoreidx(v)
+	case OpLOONG64MOVDF:
+		return rewriteValueLOONG64_OpLOONG64MOVDF(v)
 	case OpLOONG64MOVDload:
 		return rewriteValueLOONG64_OpLOONG64MOVDload(v)
 	case OpLOONG64MOVDloadidx:
@@ -694,6 +702,9 @@ func rewriteValueLOONG64(v *Value) bool {
 	case OpRound64F:
 		v.Op = OpLOONG64LoweredRound64F
 		return true
+	case OpRoundToEven:
+		v.Op = OpLOONG64FRINTND
+		return true
 	case OpRsh16Ux16:
 		return rewriteValueLOONG64_OpRsh16Ux16(v)
 	case OpRsh16Ux32:
@@ -818,6 +829,12 @@ func rewriteValueLOONG64(v *Value) bool {
 		return true
 	case OpTailCall:
 		v.Op = OpLOONG64CALLtail
+		return true
+	case OpTailCallInter:
+		v.Op = OpLOONG64CALLtailinter
+		return true
+	case OpTrunc:
+		v.Op = OpLOONG64FRINTZD
 		return true
 	case OpTrunc16to8:
 		v.Op = OpCopy
@@ -2677,6 +2694,21 @@ func rewriteValueLOONG64_OpLOONG64MOVBUreg(v *Value) bool {
 		v.AddArg(x)
 		return true
 	}
+	// match: (MOVBUreg x:(SRLconst [c] y))
+	// cond: c >= 24
+	// result: x
+	for {
+		x := v_0
+		if x.Op != OpLOONG64SRLconst {
+			break
+		}
+		c := auxIntToInt64(x.AuxInt)
+		if !(c >= 24) {
+			break
+		}
+		v.copyOf(x)
+		return true
+	}
 	// match: (MOVBUreg x:(ANDconst [c] y))
 	// cond: c >= 0 && int64(uint8(c)) == c
 	// result: x
@@ -3163,6 +3195,40 @@ func rewriteValueLOONG64_OpLOONG64MOVBstoreidx(v *Value) bool {
 		v.reset(OpLOONG64MOVBstore)
 		v.AuxInt = int32ToAuxInt(int32(c))
 		v.AddArg3(idx, val, mem)
+		return true
+	}
+	return false
+}
+func rewriteValueLOONG64_OpLOONG64MOVDF(v *Value) bool {
+	v_0 := v.Args[0]
+	// match: (MOVDF (ABSD (MOVFD x)))
+	// result: (ABSF x)
+	for {
+		if v_0.Op != OpLOONG64ABSD {
+			break
+		}
+		v_0_0 := v_0.Args[0]
+		if v_0_0.Op != OpLOONG64MOVFD {
+			break
+		}
+		x := v_0_0.Args[0]
+		v.reset(OpLOONG64ABSF)
+		v.AddArg(x)
+		return true
+	}
+	// match: (MOVDF (SQRTD (MOVFD x)))
+	// result: (SQRTF x)
+	for {
+		if v_0.Op != OpLOONG64SQRTD {
+			break
+		}
+		v_0_0 := v_0.Args[0]
+		if v_0_0.Op != OpLOONG64MOVFD {
+			break
+		}
+		x := v_0_0.Args[0]
+		v.reset(OpLOONG64SQRTF)
+		v.AddArg(x)
 		return true
 	}
 	return false
@@ -4065,6 +4131,21 @@ func rewriteValueLOONG64_OpLOONG64MOVHUreg(v *Value) bool {
 		c := auxIntToInt64(v_0.AuxInt)
 		v.reset(OpLOONG64MOVVconst)
 		v.AuxInt = int64ToAuxInt(int64(uint16(c)))
+		return true
+	}
+	// match: (MOVHUreg x:(SRLconst [c] y))
+	// cond: c >= 16
+	// result: x
+	for {
+		x := v_0
+		if x.Op != OpLOONG64SRLconst {
+			break
+		}
+		c := auxIntToInt64(x.AuxInt)
+		if !(c >= 16) {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	// match: (MOVHUreg x:(ANDconst [c] y))
@@ -5299,6 +5380,16 @@ func rewriteValueLOONG64_OpLOONG64MOVWUreg(v *Value) bool {
 		c := auxIntToInt64(v_0.AuxInt)
 		v.reset(OpLOONG64MOVVconst)
 		v.AuxInt = int64ToAuxInt(int64(uint32(c)))
+		return true
+	}
+	// match: (MOVWUreg x:(SRLconst [c] y))
+	// result: x
+	for {
+		x := v_0
+		if x.Op != OpLOONG64SRLconst {
+			break
+		}
+		v.copyOf(x)
 		return true
 	}
 	// match: (MOVWUreg x:(ANDconst [c] y))

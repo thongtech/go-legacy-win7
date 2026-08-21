@@ -61,18 +61,18 @@ func (check *Checker) basicLit(x *operand, e *ast.BasicLit) {
 		const limit = 10000
 		if len(e.Value) > limit {
 			check.errorf(e, InvalidConstVal, "excessively long constant: %s... (%d chars)", e.Value[:10], len(e.Value))
-			x.mode = invalid
+			x.invalidate()
 			return
 		}
 	}
 	x.setConst(e.Kind, e.Value)
-	if x.mode == invalid {
+	if !x.isValid() {
 		// The parser already establishes syntactic correctness.
 		// If we reach here it's because of number under-/overflow.
 		// TODO(gri) setConst (and in turn the go/constant package)
 		// should return an error describing the issue.
 		check.errorf(e, InvalidConstVal, "malformed constant: %s", e.Value)
-		x.mode = invalid
+		x.invalidate()
 		return
 	}
 	// Ensure that integer values don't overflow (go.dev/issue/54280).
@@ -100,11 +100,11 @@ func (check *Checker) funcLit(x *operand, e *ast.FuncLit) {
 				check.funcBody(decl, "<function literal>", sig, e.Body, iota)
 			}).describef(e, "func literal")
 		}
-		x.mode = value
-		x.typ = sig
+		x.mode_ = value
+		x.typ_ = sig
 	} else {
 		check.errorf(e, InvalidSyntaxTree, "invalid function literal %v", e)
-		x.mode = invalid
+		x.invalidate()
 	}
 }
 
@@ -147,6 +147,12 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 		base = typ
 	}
 
+	// We cannot create a literal of an incomplete type; make sure it's complete.
+	if !check.isComplete(base) {
+		x.invalidate()
+		return
+	}
+
 	switch u, _ := commonUnder(base, nil); utyp := u.(type) {
 	case *Struct:
 		if len(e.Elts) == 0 {
@@ -158,7 +164,7 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 		fields := utyp.fields
 		if _, ok := e.Elts[0].(*ast.KeyValueExpr); ok {
 			// all elements must have keys
-			visited := make([]bool, len(fields))
+			visited := make(trie[*Var])
 			for _, e := range e.Elts {
 				kv, _ := e.(*ast.KeyValueExpr)
 				if kv == nil {
@@ -168,31 +174,42 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 				key, _ := kv.Key.(*ast.Ident)
 				// do all possible checks early (before exiting due to errors)
 				// so we don't drop information on the floor
-				check.expr(nil, x, kv.Value)
+				check.genericExpr(x, kv.Value, nil)
 				if key == nil {
 					check.errorf(kv, InvalidLitField, "invalid field name %s in struct literal", kv.Key)
 					continue
 				}
-				i := fieldIndex(fields, check.pkg, key.Name, false)
-				if i < 0 {
-					var alt Object
-					if j := fieldIndex(fields, check.pkg, key.Name, true); j >= 0 {
-						alt = fields[j]
-					}
+				obj, index, indirect := lookupFieldOrMethod(utyp, false, check.pkg, key.Name, false)
+				if obj == nil {
+					alt, _, _ := lookupFieldOrMethod(utyp, false, check.pkg, key.Name, true)
 					msg := check.lookupError(base, key.Name, alt, true)
 					check.error(kv.Key, MissingLitField, msg)
 					continue
 				}
-				fld := fields[i]
+				fld, _ := obj.(*Var)
+				if fld == nil {
+					check.errorf(kv.Key, MissingLitField, "%s is not a field", kv.Key)
+					continue
+				}
+				if len(index) > 1 && !check.verifyVersionf(kv.Key, go1_27, "use of promoted field %s in struct literal of type %s", fieldPath(utyp, index), base) {
+					continue
+				}
+				if indirect {
+					check.errorf(kv.Key, InvalidLitField, "invalid implicit pointer indirection to reach %s", kv.Key)
+					continue
+				}
 				check.recordUse(key, fld)
 				etyp := fld.typ
 				check.assignment(x, etyp, "struct literal")
-				// 0 <= i < len(fields)
-				if visited[i] {
-					check.errorf(kv, DuplicateLitField, "duplicate field name %s in struct literal", key.Name)
-					continue
+				if alt, n := visited.insert(index, fld); n != 0 {
+					if fld == alt {
+						check.errorf(kv, DuplicateLitField, "duplicate field name %s in struct literal", fld.name)
+					} else if n < len(index) {
+						check.errorf(kv, DuplicateLitField, "cannot specify promoted field %s and enclosing embedded field %s", fld.name, alt.name)
+					} else { // n > len(index)
+						check.errorf(kv, DuplicateLitField, "cannot specify embedded field %s and enclosed promoted field %s", fld.name, alt.name)
+					}
 				}
-				visited[i] = true
 			}
 		} else {
 			// no element must have a key
@@ -201,7 +218,7 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 					check.error(kv, MixedStructLit, "mixture of field:value and value elements in struct literal")
 					continue
 				}
-				check.expr(nil, x, e)
+				check.genericExpr(x, e, nil)
 				if i >= len(fields) {
 					check.errorf(x, InvalidStructLit, "too many values in struct literal of type %s", base)
 					break // cannot continue
@@ -216,7 +233,14 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 				check.assignment(x, etyp, "struct literal")
 			}
 			if len(e.Elts) < len(fields) {
-				check.errorf(inNode(e, e.Rbrace), InvalidStructLit, "too few values in struct literal of type %s", base)
+				var hint string
+				for _, fld := range fields {
+					if !fld.Exported() && fld.pkg != check.pkg {
+						hint = " (type has unexported fields - use key:value pairs)"
+						break
+					}
+				}
+				check.errorf(inNode(e, e.Rbrace), InvalidStructLit, "too few values in struct literal of type %s%s", base, hint)
 				// ok to continue
 			}
 		}
@@ -257,22 +281,22 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 				check.error(e, MissingLitKey, "missing key in map literal")
 				continue
 			}
-			check.exprWithHint(x, kv.Key, utyp.key)
+			check.genericExpr(x, kv.Key, utyp.key)
 			check.assignment(x, utyp.key, "map literal")
-			if x.mode == invalid {
+			if !x.isValid() {
 				continue
 			}
-			if x.mode == constant_ {
+			if x.mode() == constant_ {
 				duplicate := false
 				xkey := keyVal(x.val)
 				if keyIsInterface {
 					for _, vtyp := range visited[xkey] {
-						if Identical(vtyp, x.typ) {
+						if Identical(vtyp, x.typ()) {
 							duplicate = true
 							break
 						}
 					}
-					visited[xkey] = append(visited[xkey], x.typ)
+					visited[xkey] = append(visited[xkey], x.typ())
 				} else {
 					_, duplicate = visited[xkey]
 					visited[xkey] = nil
@@ -282,7 +306,7 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 					continue
 				}
 			}
-			check.exprWithHint(x, kv.Value, utyp.elem)
+			check.genericExpr(x, kv.Value, utyp.elem)
 			check.assignment(x, utyp.elem, "map literal")
 		}
 
@@ -309,13 +333,13 @@ func (check *Checker) compositeLit(x *operand, e *ast.CompositeLit, hint Type) {
 				cause = " (no common underlying type)"
 			}
 			check.errorf(e, InvalidLit, "invalid composite literal%s type %s%s", qualifier, typ, cause)
-			x.mode = invalid
+			x.invalidate()
 			return
 		}
 	}
 
-	x.mode = value
-	x.typ = typ
+	x.mode_ = value
+	x.typ_ = typ
 }
 
 // indexedElts checks the elements (elts) of an array or slice composite literal
@@ -359,7 +383,7 @@ func (check *Checker) indexedElts(elts []ast.Expr, typ Type, length int64) int64
 
 		// check element against composite literal element type
 		var x operand
-		check.exprWithHint(&x, eval, typ)
+		check.genericExpr(&x, eval, typ)
 		check.assignment(&x, typ, "array or slice literal")
 	}
 	return max

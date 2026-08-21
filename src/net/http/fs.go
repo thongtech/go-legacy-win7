@@ -14,6 +14,7 @@ import (
 	"io/fs"
 	"mime"
 	"mime/multipart"
+	"net/http/internal"
 	"net/textproto"
 	"net/url"
 	"os"
@@ -288,7 +289,7 @@ func serveContent(w ResponseWriter, r *Request, name string, modtime time.Time, 
 		ctype = mime.TypeByExtension(filepath.Ext(name))
 		if ctype == "" {
 			// read a chunk to decide between utf-8 text and binary
-			var buf [sniffLen]byte
+			var buf [internal.SniffLen]byte
 			n, _ := io.ReadFull(content, buf[:])
 			ctype = DetectContentType(buf[:n])
 			_, err := content.Seek(0, io.SeekStart) // rewind to output whole file
@@ -783,6 +784,12 @@ func toHTTPError(err error) (msg string, httpStatus int) {
 // localRedirect gives a Moved Permanently response.
 // It does not convert relative paths to absolute paths like Redirect does.
 func localRedirect(w ResponseWriter, r *Request, newPath string) {
+	// There is no reliable way for us to redirect correctly when the path has
+	// escaped slashes, since StripPrefix might be in use. Just return 404.
+	if p := r.URL.EscapedPath(); strings.Contains(p, "%2f") || strings.Contains(p, "%2F") {
+		NotFound(w, r)
+		return
+	}
 	if q := r.URL.RawQuery; q != "" {
 		newPath += "?" + q
 	}

@@ -81,7 +81,7 @@ func readHeader(r *textproto.Reader) (map[string][]string, error) {
 		if err != nil {
 			return m, err
 		}
-		return m, errors.New("malformed initial line: " + line)
+		return m, fmt.Errorf("malformed initial line: %q", line)
 	}
 
 	for {
@@ -93,7 +93,7 @@ func readHeader(r *textproto.Reader) (map[string][]string, error) {
 		// Key ends at first colon.
 		k, v, ok := strings.Cut(kv, ":")
 		if !ok {
-			return m, errors.New("malformed header line: " + kv)
+			return m, fmt.Errorf("malformed header line: %q", kv)
 		}
 		key := textproto.CanonicalMIMEHeaderKey(k)
 
@@ -764,7 +764,12 @@ func (p *addrParser) consumeDomainLiteral() (string, error) {
 	}
 
 	// Check if the domain literal is an IP address
-	if net.ParseIP(dtext) == nil {
+	if addr, ok := strings.CutPrefix(dtext, "IPv6:"); ok {
+		if len(net.ParseIP(addr)) != net.IPv6len {
+			return "", fmt.Errorf("mail: invalid IPv6 address in domain-literal: %q", dtext)
+		}
+
+	} else if net.ParseIP(dtext).To4() == nil {
 		return "", fmt.Errorf("mail: invalid IP address in domain-literal: %q", dtext)
 	}
 

@@ -15,6 +15,7 @@ import (
 	"go/format"
 	"io"
 	"os"
+	"simd/archsimd/_gen/sgutil"
 	"strings"
 	"text/template"
 )
@@ -36,6 +37,24 @@ type shapeAndTemplate struct {
 	t *template.Template
 }
 
+func Map[T, U any](f func(T) U, in []T) []U {
+	x := make([]U, len(in))
+	for i, v := range in {
+		x[i] = f(v)
+	}
+	return x
+}
+
+// shapeFilter specifies how helper templates are filtered based on their size.
+// It applies to both input and output vector shapes.
+type shapeFilter int
+
+const (
+	filterAll       shapeFilter = iota
+	filterSmallOnly             // both input and output vectors are <= 128 bits
+	filterLarge                 // either input or output vector is > 128 bits
+)
+
 func (sat shapeAndTemplate) target(outType string, width int) shapeAndTemplate {
 	newSat := sat
 	newShape := *sat.s
@@ -43,6 +62,23 @@ func (sat shapeAndTemplate) target(outType string, width int) shapeAndTemplate {
 		oc = c
 		if width*c > 512 {
 			oc = 512 / width
+		} else if width*c < 128 {
+			oc = 128 / width
+		}
+		return outType, width, oc
+	}
+	newSat.s = &newShape
+	return newSat
+}
+
+// arm64Target is like target but caps output at 128 bits (ARM64 NEON has no wider vectors).
+func (sat shapeAndTemplate) arm64Target(outType string, width int) shapeAndTemplate {
+	newSat := sat
+	newShape := *sat.s
+	newShape.output = func(t string, w, c int) (ot string, ow int, oc int) {
+		oc = c
+		if width*c > 128 {
+			oc = 128 / width
 		} else if width*c < 128 {
 			oc = 128 / width
 		}
@@ -136,9 +172,55 @@ var avx2MaskedLoadShapes = &shapes{
 	floats: []int{32, 64},
 }
 
+// arm64Shapes defines the SIMD shapes for ARM64 NEON (128-bit only)
+var arm64Shapes = &shapes{
+	vecs:   []int{128},
+	ints:   []int{8, 16, 32, 64},
+	uints:  []int{8, 16, 32, 64},
+	floats: []int{32, 64},
+}
+
+// arm64IntegerShapes defines ARM64 NEON integer shapes (128-bit only, no float)
+var arm64IntegerShapes = &shapes{
+	vecs:  []int{128},
+	ints:  []int{8, 16, 32, 64},
+	uints: []int{8, 16, 32, 64},
+}
+
+var arm64IntShapes = &shapes{
+	vecs: []int{128},
+	ints: []int{8, 16, 32, 64},
+}
+
+// arm64ReduceIntegerShapes defines ARM64 NEON integer shapes that support horizontal reduce (no 64-bit).
+var arm64ReduceIntegerShapes = &shapes{
+	vecs:  []int{128},
+	ints:  []int{8, 16, 32},
+	uints: []int{8, 16, 32},
+}
+
+// arm64ReduceAllShapes includes float32 in addition to integer reduce shapes.
+var arm64ReduceAllShapes = &shapes{
+	vecs:   []int{128},
+	ints:   []int{8, 16, 32},
+	uints:  []int{8, 16, 32},
+	floats: []int{32},
+}
+
+// arm64UintToIntShapes maps unsigned shapes to signed output type for mixed-type shift helpers.
+// The output function maps uint→int so templates can use OVType/OEtype for the second operand type.
+var arm64UintToIntShapes = &shapes{
+	vecs:  []int{128},
+	uints: []int{8, 16, 32, 64},
+	output: func(t string, w, c int) (string, int, int) {
+		return "int", w, c // uint → int, same width and count
+	},
+}
+
 var avx2SmallLoadPunShapes = &shapes{
 	// ints are done by hand, these are type-punned to int.
-	vecs:  []int{128, 256},
+	// 128-bit puns are now cross-platform and in a hand-written file.
+	vecs:  []int{256},
 	uints: []int{8, 16},
 }
 
@@ -149,7 +231,7 @@ var unaryFlaky = &shapes{ // for tests that support flaky equality
 
 var ternaryFlaky = &shapes{ // for tests that support flaky equality
 	vecs:   []int{128, 256, 512},
-	floats: []int{32},
+	floats: []int{32, 64},
 }
 
 var avx2SignedComparisons = &shapes{
@@ -159,6 +241,27 @@ var avx2SignedComparisons = &shapes{
 
 var avx2UnsignedComparisons = &shapes{
 	vecs:  []int{128, 256},
+	uints: []int{8, 16, 32, 64},
+}
+
+// The shift-all shapes are for rotate emulation
+var amdIntShiftAllShapes = &shapes{
+	vecs: []int{128, 256, 512},
+	ints: []int{16, 32, 64}, // has 32 and 64 rotate on AVX512 that is too hard to use, and no 8-bit shiftall
+}
+
+var amdUintShiftAllShapes = &shapes{
+	vecs:  []int{128, 256, 512},
+	uints: []int{16, 32, 64}, // has 32 and 64 rotate on AVX512 that is too hard to use, and no 8-bit shiftall
+}
+
+var neonIntShiftAllShapes = &shapes{
+	vecs: []int{128},
+	ints: []int{8, 16, 32, 64},
+}
+
+var neonUintShiftAllShapes = &shapes{
+	vecs:  []int{128},
 	uints: []int{8, 16, 32, 64},
 }
 
@@ -184,7 +287,7 @@ func (t templateData) As128BitVec() string {
 	return fmt.Sprintf("%s%dx%d", t.Base, t.EWidth, 128/t.EWidth)
 }
 
-func oneTemplate(t *template.Template, baseType string, width, count int, out io.Writer, rtf resultTypeFunc) {
+func oneTemplate(t *template.Template, baseType string, width, count int, out io.Writer, rtf resultTypeFunc, filter shapeFilter) {
 	b := width * count
 	if b < 128 || b > 512 {
 		return
@@ -200,7 +303,24 @@ func oneTemplate(t *template.Template, baseType string, width, count int, out io
 		if ot == "float" && ow < 32 {
 			return
 		}
+		if ot == baseType && ow == width && oc == count && strings.Contains(t.Name(), "convert_helpers") {
+			return
+		}
 	}
+
+	ob := ow * oc
+	isSmall := (b <= 128) && (ob <= 128)
+	switch filter {
+	case filterSmallOnly:
+		if !isSmall {
+			return
+		}
+	case filterLarge:
+		if isSmall {
+			return
+		}
+	}
+
 	ovType := fmt.Sprintf("%s%dx%d", strings.ToUpper(ot[:1])+ot[1:], ow, oc)
 	oeType := fmt.Sprintf("%s%d", ot, ow)
 	oEType := fmt.Sprintf("%s%d", strings.ToUpper(ot[:1])+ot[1:], ow)
@@ -216,7 +336,7 @@ func oneTemplate(t *template.Template, baseType string, width, count int, out io
 		aOrAn = "an"
 	}
 	oxFF := fmt.Sprintf("0x%x", uint64((1<<count)-1))
-	t.Execute(out, templateData{
+	err := t.Execute(out, templateData{
 		VType:  vType,
 		AOrAn:  aOrAn,
 		EWidth: width,
@@ -232,11 +352,14 @@ func oneTemplate(t *template.Template, baseType string, width, count int, out io
 		OCount: oc,
 		OEType: oEType,
 	})
+	if err != nil {
+		panic(fmt.Errorf("template execute failed, %v", err))
+	}
 }
 
 // forTemplates expands the template sat.t for each shape
 // in sat.s, writing to out.
-func (sat shapeAndTemplate) forTemplates(out io.Writer) {
+func (sat shapeAndTemplate) forTemplates(out io.Writer, filter shapeFilter) {
 	t, s := sat.t, sat.s
 	vecs := s.vecs
 	ints := s.ints
@@ -245,20 +368,20 @@ func (sat shapeAndTemplate) forTemplates(out io.Writer) {
 	for _, v := range vecs {
 		for _, w := range ints {
 			c := v / w
-			oneTemplate(t, "int", w, c, out, sat.s.output)
+			oneTemplate(t, "int", w, c, out, sat.s.output, filter)
 		}
 		for _, w := range uints {
 			c := v / w
-			oneTemplate(t, "uint", w, c, out, sat.s.output)
+			oneTemplate(t, "uint", w, c, out, sat.s.output, filter)
 		}
 		for _, w := range floats {
 			c := v / w
-			oneTemplate(t, "float", w, c, out, sat.s.output)
+			oneTemplate(t, "float", w, c, out, sat.s.output, filter)
 		}
 	}
 }
 
-func prologue(s string, out io.Writer) {
+func prologue(s, ba string, out io.Writer) {
 	fmt.Fprintf(out,
 		`// Code generated by '%s'; DO NOT EDIT.
 
@@ -278,7 +401,7 @@ package ssa
 `, s)
 }
 
-func unsafePrologue(s string, out io.Writer) {
+func unsafePrologue(s, ba string, out io.Writer) {
 	fmt.Fprintf(out,
 		`// Code generated by '%s'; DO NOT EDIT.
 
@@ -291,11 +414,11 @@ import "unsafe"
 `, s)
 }
 
-func testPrologue(t, s string, out io.Writer) {
+func testPrologue(t, s, ba string, out io.Writer) {
 	fmt.Fprintf(out,
 		`// Code generated by '%s'; DO NOT EDIT.
 
-//go:build goexperiment.simd && amd64
+//go:build goexperiment.simd && %s
 
 // This file contains functions testing %s.
 // Each function in this file is specialized for a
@@ -308,12 +431,12 @@ import (
 	"testing"
 )
 
-`, s, t)
+`, s, ba, t)
 }
 
-func curryTestPrologue(t string) func(s string, out io.Writer) {
-	return func(s string, out io.Writer) {
-		testPrologue(t, s, out)
+func curryTestPrologue(t string) func(s, ba string, out io.Writer) {
+	return func(s, ba string, out io.Writer) {
+		testPrologue(t, s, ba, out)
 	}
 }
 
@@ -327,33 +450,41 @@ func shapedTemplateOf(s *shapes, name, temp string) shapeAndTemplate {
 		t: template.Must(template.New(name).Parse(temp))}
 }
 
-var sliceTemplate = templateOf("slice", `
-// Load{{.VType}}Slice loads {{.AOrAn}} {{.VType}} from a slice of at least {{.Count}} {{.Etype}}s.
-func Load{{.VType}}Slice(s []{{.Etype}}) {{.VType}} {
-	return Load{{.VType}}((*[{{.Count}}]{{.Etype}})(s))
+const sliceTemplateText = `
+// Load{{.VType}} loads {{.AOrAn}} {{.VType}} from a slice of elements.
+// If s does not have at least {{.Count}} elements, it panics.
+func Load{{.VType}}(s []{{.Etype}}) {{.VType}} {
+	return Load{{.VType}}Array((*[{{.Count}}]{{.Etype}})(s))
 }
 
-// StoreSlice stores x into a slice of at least {{.Count}} {{.Etype}}s.
-func (x {{.VType}}) StoreSlice(s []{{.Etype}}) {
-	x.Store((*[{{.Count}}]{{.Etype}})(s))
+// Store stores the elements of x into a slice.
+// If s does not have at least {{.Count}} elements, it panics.
+func (x {{.VType}}) Store(s []{{.Etype}}) {
+	x.StoreArray((*[{{.Count}}]{{.Etype}})(s))
 }
-`)
+`
 
-var unaryTemplate = templateOf("unary_helpers", `
+var sliceTemplate = templateOf("slice", sliceTemplateText)
+var sliceTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_slice", sliceTemplateText)
+
+const unaryTestTemplate = `
 // test{{.VType}}Unary tests the simd unary method f against the expected behavior generated by want
 func test{{.VType}}Unary(t *testing.T, f func(_ archsimd.{{.VType}}) archsimd.{{.VType}}, want func(_ []{{.Etype}}) []{{.Etype}}) {
 	n := {{.Count}}
 	t.Helper()
 	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
+		a := archsimd.Load{{.VType}}(x)
 		g := make([]{{.Etype}}, n)
-		f(a).StoreSlice(g)
+		f(a).Store(g)
 		w := want(x)
 		return checkSlicesLogInput(t, g, w, 0.0, func() {t.Helper(); t.Logf("x=%v", x)})
 	})
 }
-`)
+`
+
+var unaryTemplate = templateOf("unary_helpers", unaryTestTemplate)
+var unaryTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_unary_helpers", unaryTestTemplate)
 
 var unaryFlakyTemplate = shapedTemplateOf(unaryFlaky, "unary_flaky_helpers", `
 // test{{.VType}}UnaryFlaky tests the simd unary method f against the expected behavior generated by want,
@@ -363,9 +494,9 @@ func test{{.VType}}UnaryFlaky(t *testing.T, f func(x archsimd.{{.VType}}) archsi
 	t.Helper()
 	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
+		a := archsimd.Load{{.VType}}(x)
 		g := make([]{{.Etype}}, n)
-		f(a).StoreSlice(g)
+		f(a).Store(g)
 		w := want(x)
 		return checkSlicesLogInput(t, g, w, flakiness, func() {t.Helper(); t.Logf("x=%v", x)})
 	})
@@ -381,9 +512,9 @@ func test{{.VType}}ConvertTo{{.OEType}}(t *testing.T, f func(x archsimd.{{.VType
 	t.Helper()
 	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
+		a := archsimd.Load{{.VType}}(x)
 		g := make([]{{.OEtype}}, {{.OCount}})
-		f(a).StoreSlice(g)
+		f(a).Store(g)
 		w := want(x)
 		return checkSlicesLogInput(t, g, w, 0.0, func() {t.Helper(); t.Logf("x=%v", x)})
 	})
@@ -406,7 +537,7 @@ var (
 	unaryToFloat64 = convertTemplate.target("float", 64)
 )
 
-var convertLoTemplate = shapedTemplateOf(integerShapes, "convert_lo_helpers", `
+var convertLoTemplate = shapedTemplateOf(allShapes, "convert_lo_helpers", `
 // test{{.VType}}ConvertLoTo{{.OVType}} tests the simd conversion method f against the expected behavior generated by want.
 // This converts only the low {{.OCount}} elements.
 func test{{.VType}}ConvertLoTo{{.OVType}}(t *testing.T, f func(x archsimd.{{.VType}}) archsimd.{{.OVType}}, want func(x []{{.Etype}}) []{{.OEtype}}) {
@@ -414,9 +545,9 @@ func test{{.VType}}ConvertLoTo{{.OVType}}(t *testing.T, f func(x archsimd.{{.VTy
 	t.Helper()
 	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
+		a := archsimd.Load{{.VType}}(x)
 		g := make([]{{.OEtype}}, {{.OCount}})
-		f(a).StoreSlice(g)
+		f(a).Store(g)
 		w := want(x)
 		return checkSlicesLogInput(t, g, w, 0.0, func() {t.Helper(); t.Logf("x=%v", x)})
 	})
@@ -429,54 +560,100 @@ var (
 	// regular convertTemplate covers that).
 	// TODO: this includes shapes where in and out have the same element
 	// type or length, which are not needed.
-	unaryToInt64x2  = convertLoTemplate.targetFixed("int", 64, 2)
-	unaryToInt64x4  = convertLoTemplate.targetFixed("int", 64, 4)
-	unaryToUint64x2 = convertLoTemplate.targetFixed("uint", 64, 2)
-	unaryToUint64x4 = convertLoTemplate.targetFixed("uint", 64, 4)
-	unaryToInt32x4  = convertLoTemplate.targetFixed("int", 32, 4)
-	unaryToInt32x8  = convertLoTemplate.targetFixed("int", 32, 8)
-	unaryToUint32x4 = convertLoTemplate.targetFixed("uint", 32, 4)
-	unaryToUint32x8 = convertLoTemplate.targetFixed("uint", 32, 8)
-	unaryToInt16x8  = convertLoTemplate.targetFixed("int", 16, 8)
-	unaryToUint16x8 = convertLoTemplate.targetFixed("uint", 16, 8)
+	unaryToInt64x2   = convertLoTemplate.targetFixed("int", 64, 2)
+	unaryToInt64x4   = convertLoTemplate.targetFixed("int", 64, 4)
+	unaryToUint64x2  = convertLoTemplate.targetFixed("uint", 64, 2)
+	unaryToUint64x4  = convertLoTemplate.targetFixed("uint", 64, 4)
+	unaryToInt32x4   = convertLoTemplate.targetFixed("int", 32, 4)
+	unaryToInt32x8   = convertLoTemplate.targetFixed("int", 32, 8)
+	unaryToUint32x4  = convertLoTemplate.targetFixed("uint", 32, 4)
+	unaryToUint32x8  = convertLoTemplate.targetFixed("uint", 32, 8)
+	unaryToInt16x8   = convertLoTemplate.targetFixed("int", 16, 8)
+	unaryToUint16x8  = convertLoTemplate.targetFixed("uint", 16, 8)
+	unaryToFloat64x2 = convertLoTemplate.targetFixed("float", 64, 2)
+	unaryToFloat64x4 = convertLoTemplate.targetFixed("float", 64, 4)
 )
 
-var binaryTemplate = templateOf("binary_helpers", `
+const binaryTestTemplate = `
 // test{{.VType}}Binary tests the simd binary method f against the expected behavior generated by want
 func test{{.VType}}Binary(t *testing.T, f func(_, _ archsimd.{{.VType}}) archsimd.{{.VType}}, want func(_, _ []{{.Etype}}) []{{.Etype}}) {
 	n := {{.Count}}
 	t.Helper()
 	forSlicePair(t, {{.Etype}}s, n, func(x, y []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
-		b := archsimd.Load{{.VType}}Slice(y)
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.VType}}(y)
 		g := make([]{{.Etype}}, n)
-		f(a, b).StoreSlice(g)
+		f(a, b).Store(g)
 		w := want(x, y)
 		return checkSlicesLogInput(t, g, w, 0.0, func() {t.Helper(); t.Logf("x=%v", x); t.Logf("y=%v", y); })
 	})
 }
+`
+
+var binaryTemplate = templateOf("binary_helpers", binaryTestTemplate)
+var binaryTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_binary_helpers", binaryTestTemplate)
+
+// ARM64 shift test helper templates
+
+var shiftAllTestTemplate = shapedTemplateOf(integerShapes, "shift_all_helpers", `
+// test{{.VType}}ShiftAll tests a shift-all method (unary + scalar uint64).
+func test{{.VType}}ShiftAll(t *testing.T, f func(_ archsimd.{{.VType}}, _ uint64) archsimd.{{.VType}}, want func(_ []{{.Etype}}, _ uint64) []{{.Etype}}) {
+	n := {{.Count}}
+	t.Helper()
+	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
+		t.Helper()
+		for _, amt := range testShiftAllAmts {
+			a := archsimd.Load{{.VType}}(x)
+			g := make([]{{.Etype}}, n)
+			f(a, amt).Store(g)
+			w := want(x, amt)
+			if !checkSlicesLogInput(t, g, w, 0.0, func() { t.Helper(); t.Logf("x=%v, amt=%d", x, amt) }) {
+				return false
+			}
+		}
+		return true
+	})
+}
 `)
 
-var ternaryTemplate = templateOf("ternary_helpers", `
+var shiftMixedTestTemplateArm64 = shapedTemplateOf(arm64UintToIntShapes, "arm64_shift_mixed_helpers", `
+// test{{.VType}}Shift tests a shift-like method where the first operand is {{.VType}}
+// and the second operand is {{.OVType}} (mixed-type shift).
+func test{{.VType}}Shift(t *testing.T, f func(_ archsimd.{{.VType}}, _ archsimd.{{.OVType}}) archsimd.{{.VType}}, want func(_ []{{.Etype}}, _ []{{.OEtype}}) []{{.Etype}}) {
+	n := {{.Count}}
+	t.Helper()
+	forSliceMixed(t, {{.Etype}}s, {{.OEtype}}s, n, func(x []{{.Etype}}, y []{{.OEtype}}) bool {
+		t.Helper()
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.OVType}}(y)
+		g := make([]{{.Etype}}, n)
+		f(a, b).Store(g)
+		w := want(x, y)
+		return checkSlicesLogInput(t, g, w, 0.0, func() { t.Helper(); t.Logf("x=%v", x); t.Logf("y=%v", y) })
+	})
+}
+`)
+
+const ternaryTestTemplateText = `
 // test{{.VType}}Ternary tests the simd ternary method f against the expected behavior generated by want
 func test{{.VType}}Ternary(t *testing.T, f func(_, _, _ archsimd.{{.VType}}) archsimd.{{.VType}}, want func(_, _, _ []{{.Etype}}) []{{.Etype}}) {
 	n := {{.Count}}
 	t.Helper()
 	forSliceTriple(t, {{.Etype}}s, n, func(x, y, z []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
-		b := archsimd.Load{{.VType}}Slice(y)
-		c := archsimd.Load{{.VType}}Slice(z)
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.VType}}(y)
+		c := archsimd.Load{{.VType}}(z)
 		g := make([]{{.Etype}}, n)
-		f(a, b, c).StoreSlice(g)
+		f(a, b, c).Store(g)
 		w := want(x, y, z)
 		return checkSlicesLogInput(t, g, w, 0.0, func() {t.Helper(); t.Logf("x=%v", x); t.Logf("y=%v", y); t.Logf("z=%v", z); })
 	})
 }
-`)
+`
 
-var ternaryFlakyTemplate = shapedTemplateOf(ternaryFlaky, "ternary_helpers", `
+const ternaryFlakyTestTemplateText = `
 // test{{.VType}}TernaryFlaky tests the simd ternary method f against the expected behavior generated by want,
 // but using a flakiness parameter because we haven't exactly figured out how simd floating point works
 func test{{.VType}}TernaryFlaky(t *testing.T, f func(x, y, z archsimd.{{.VType}}) archsimd.{{.VType}}, want func(x, y, z []{{.Etype}}) []{{.Etype}}, flakiness float64) {
@@ -484,16 +661,63 @@ func test{{.VType}}TernaryFlaky(t *testing.T, f func(x, y, z archsimd.{{.VType}}
 	t.Helper()
 	forSliceTriple(t, {{.Etype}}s, n, func(x, y, z []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
-		b := archsimd.Load{{.VType}}Slice(y)
-		c := archsimd.Load{{.VType}}Slice(z)
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.VType}}(y)
+		c := archsimd.Load{{.VType}}(z)
 		g := make([]{{.Etype}}, n)
-		f(a, b, c).StoreSlice(g)
+		f(a, b, c).Store(g)
 		w := want(x, y, z)
 		return checkSlicesLogInput(t, g, w, flakiness, func() {t.Helper(); t.Logf("x=%v", x); t.Logf("y=%v", y); t.Logf("z=%v", z); })
 	})
 }
-`)
+`
+
+var ternaryTemplate = templateOf("ternary_helpers", ternaryTestTemplateText)
+var ternaryFlakyTemplate = shapedTemplateOf(ternaryFlaky, "ternary_helpers", ternaryFlakyTestTemplateText)
+
+const reduceTestTemplateText = `
+func test{{.VType}}Reduce(t *testing.T, f func(_ archsimd.{{.VType}}) {{.Etype}}, want func(_ []{{.Etype}}) {{.Etype}}) {
+	n := {{.Count}}
+	t.Helper()
+	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
+	 	t.Helper()
+		a := archsimd.Load{{.VType}}(x)
+		g := f(a)
+		w := want(x)
+{{- if eq .Base "Float" }}
+		if g != w && !(math.IsNaN(float64(g)) && math.IsNaN(float64(w))) {
+{{- else}}
+		if g != w {
+{{- end}}
+			t.Errorf("got %v, want %v, input %v", g, w, x)
+			return false
+		}
+		return true
+	})
+}
+`
+
+var reduceTestTemplateArm64 = shapedTemplateOf(arm64ReduceAllShapes, "reduce_arm64_helpers", reduceTestTemplateText)
+
+func reduceTestPrologue(s, ba string, out io.Writer) {
+	fmt.Fprintf(out,
+		`// Code generated by '%s'; DO NOT EDIT.
+
+//go:build goexperiment.simd && %s
+
+// This file contains functions testing %s.
+// Each function in this file is specialized for a
+// particular simd type <BaseType><Width>x<Count>.
+
+package simd_test
+
+import (
+	"math"
+	"simd/archsimd"
+	"testing"
+)
+`, "tmplgen", ba, "simd reduce methods")
+}
 
 var compareTemplate = templateOf("compare_helpers", `
 // test{{.VType}}Compare tests the simd comparison method f against the expected behavior generated by want
@@ -502,10 +726,10 @@ func test{{.VType}}Compare(t *testing.T, f func(_, _ archsimd.{{.VType}}) archsi
 	t.Helper()
 	forSlicePair(t, {{.Etype}}s, n, func(x, y []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
-		b := archsimd.Load{{.VType}}Slice(y)
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.VType}}(y)
 		g := make([]int{{.EWidth}}, n)
-		f(a, b).ToInt{{.WxC}}().StoreSlice(g)
+		f(a, b).ToInt{{.WxC}}().Store(g)
 		w := want(x, y)
 		return checkSlicesLogInput(t, s64(g), w, 0.0, func() {t.Helper(); t.Logf("x=%v", x); t.Logf("y=%v", y); })
 	})
@@ -519,9 +743,9 @@ func test{{.VType}}UnaryCompare(t *testing.T, f func(x archsimd.{{.VType}}) arch
 	t.Helper()
 	forSlice(t, {{.Etype}}s, n, func(x []{{.Etype}}) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
+		a := archsimd.Load{{.VType}}(x)
 		g := make([]int{{.EWidth}}, n)
-		f(a).ToInt{{.WxC}}().StoreSlice(g)
+		f(a).ToInt{{.WxC}}().Store(g)
 		w := want(x)
 		return checkSlicesLogInput(t, s64(g), w, 0.0, func() {t.Helper(); t.Logf("x=%v", x)})
 	})
@@ -539,11 +763,11 @@ func test{{.VType}}CompareMasked(t *testing.T,
 	t.Helper()
 	forSlicePairMasked(t, {{.Etype}}s, n, func(x, y []{{.Etype}}, m []bool) bool {
 	 	t.Helper()
-		a := archsimd.Load{{.VType}}Slice(x)
-		b := archsimd.Load{{.VType}}Slice(y)
-		k := archsimd.LoadInt{{.WxC}}Slice(toVect[int{{.EWidth}}](m)).ToMask()
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.VType}}(y)
+		k := archsimd.LoadInt{{.WxC}}(toVect[int{{.EWidth}}](m)).ToMask()
 		g := make([]int{{.EWidth}}, n)
-		f(a, b, k).ToInt{{.WxC}}().StoreSlice(g)
+		f(a, b, k).ToInt{{.WxC}}().Store(g)
 		w := want(x, y)
 		for i := range m {
 			if !m[i] {
@@ -555,96 +779,102 @@ func test{{.VType}}CompareMasked(t *testing.T,
 }
 `)
 
-var avx512MaskedLoadSlicePartTemplate = shapedTemplateOf(avx512Shapes, "avx 512 load slice part", `
-// Load{{.VType}}SlicePart loads a {{.VType}} from the slice s.
+var avx512MaskedLoadSliceTemplate = shapedTemplateOf(avx512Shapes, "avx 512 load slice part", `
+// Load{{.VType}}Part loads a {{.VType}} from the slice s, it returns the loaded vector and the
+// number of elements loaded.
 // If s has fewer than {{.Count}} elements, the remaining elements of the vector are filled with zeroes.
-// If s has {{.Count}} or more elements, the function is equivalent to Load{{.VType}}Slice.
-func Load{{.VType}}SlicePart(s []{{.Etype}}) {{.VType}} {
+// If s has {{.Count}} or more elements, the function is equivalent to Load{{.VType}}.
+func Load{{.VType}}Part(s []{{.Etype}}) ({{.VType}}, int) {
 	l := len(s)
 	if l >= {{.Count}} {
-		return Load{{.VType}}Slice(s)
+		return Load{{.VType}}(s), {{.Count}}
 	}
 	if l == 0 {
 		var x {{.VType}}
-		return x
+		return x, 0
 	}
 	mask := Mask{{.WxC}}FromBits({{.OxFF}} >> ({{.Count}} - l))
-	return LoadMasked{{.VType}}(pa{{.VType}}(s), mask)
+	return Load{{.VType}}Array(pa{{.VType}}(s)).Masked(mask), l
 }
 
-// StoreSlicePart stores the {{.Count}} elements of x into the slice s.
+// StorePart stores the {{.Count}} elements of x into the slice s.
 // It stores as many elements as will fit in s.
-// If s has {{.Count}} or more elements, the method is equivalent to x.StoreSlice.
-func (x {{.VType}}) StoreSlicePart(s []{{.Etype}}) {
+// If s has {{.Count}} or more elements, the method is equivalent to x.Store.
+func (x {{.VType}}) StorePart(s []{{.Etype}}) int {
 	l := len(s)
 	if l >= {{.Count}} {
-		x.StoreSlice(s)
-		return
+		x.Store(s)
+		return {{.Count}}
 	}
 	if l == 0 {
-		return
+		return 0
 	}
 	mask := Mask{{.WxC}}FromBits({{.OxFF}} >> ({{.Count}} - l))
-	x.StoreMasked(pa{{.VType}}(s), mask)
+	x.StoreArrayMasked(pa{{.VType}}(s), mask)
+	return l
 }
 `)
 
-var avx2MaskedLoadSlicePartTemplate = shapedTemplateOf(avx2MaskedLoadShapes, "avx 2 load slice part", `
-// Load{{.VType}}SlicePart loads a {{.VType}} from the slice s.
+var avx2MaskedLoadSliceTemplate = shapedTemplateOf(avx2MaskedLoadShapes, "avx 2 load slice part", `
+// Load{{.VType}}Part loads a {{.VType}} from the slice s, it returns the loaded vector and the
+// number of elements loaded.
 // If s has fewer than {{.Count}} elements, the remaining elements of the vector are filled with zeroes.
-// If s has {{.Count}} or more elements, the function is equivalent to Load{{.VType}}Slice.
-func Load{{.VType}}SlicePart(s []{{.Etype}}) {{.VType}} {
+// If s has {{.Count}} or more elements, the function is equivalent to Load{{.VType}}.
+func Load{{.VType}}Part(s []{{.Etype}}) ({{.VType}}, int) {
 	l := len(s)
 	if l >= {{.Count}} {
-		return Load{{.VType}}Slice(s)
+		return Load{{.VType}}(s), {{.Count}}
 	}
 	if l == 0 {
 		var x {{.VType}}
-		return x
+		return x, 0
 	}
 	mask := vecMask{{.EWidth}}[len(vecMask{{.EWidth}})/2-l:]
-	return LoadMasked{{.VType}}(pa{{.VType}}(s), LoadInt{{.WxC}}Slice(mask).asMask())
+	return Load{{.VType}}Array(pa{{.VType}}(s)).Masked(LoadInt{{.WxC}}(mask).asMask()), l
 }
 
-// StoreSlicePart stores the {{.Count}} elements of x into the slice s.
+// StorePart stores the {{.Count}} elements of x into the slice s.
 // It stores as many elements as will fit in s.
-// If s has {{.Count}} or more elements, the method is equivalent to x.StoreSlice.
-func (x {{.VType}}) StoreSlicePart(s []{{.Etype}}) {
+// If s has {{.Count}} or more elements, the method is equivalent to x.Store.
+func (x {{.VType}}) StorePart(s []{{.Etype}}) int {
 	l := len(s)
 	if l >= {{.Count}} {
-		x.StoreSlice(s)
-		return
+		x.Store(s)
+		return {{.Count}}
 	}
 	if l == 0 {
-		return
+		return 0
 	}
 	mask := vecMask{{.EWidth}}[len(vecMask{{.EWidth}})/2-l:]
-	x.StoreMasked(pa{{.VType}}(s), LoadInt{{.WxC}}Slice(mask).asMask())
+	x.StoreArrayMasked(pa{{.VType}}(s), LoadInt{{.WxC}}(mask).asMask())
+	return l
 }
 `)
 
-var avx2SmallLoadSlicePartTemplate = shapedTemplateOf(avx2SmallLoadPunShapes, "avx 2 small load slice part", `
-// Load{{.VType}}SlicePart loads a {{.VType}} from the slice s.
+var avx2SmallLoadSliceTemplate = shapedTemplateOf(avx2SmallLoadPunShapes, "avx 2 small load slice part", `
+// Load{{.VType}}Part loads a {{.VType}} from the slice s, it returns the loaded vector and the
+// number of elements loaded.
 // If s has fewer than {{.Count}} elements, the remaining elements of the vector are filled with zeroes.
-// If s has {{.Count}} or more elements, the function is equivalent to Load{{.VType}}Slice.
-func Load{{.VType}}SlicePart(s []{{.Etype}}) {{.VType}} {
+// If s has {{.Count}} or more elements, the function is equivalent to Load{{.VType}}.
+func Load{{.VType}}Part(s []{{.Etype}}) ({{.VType}}, int) {
 	if len(s) == 0 {
 		var zero {{.VType}}
-		return zero
+		return zero, 0
 	}
 	t := unsafe.Slice((*int{{.EWidth}})(unsafe.Pointer(&s[0])), len(s))
-	return LoadInt{{.WxC}}SlicePart(t).As{{.VType}}()
+	v, l := LoadInt{{.WxC}}Part(t)
+	return v.As{{.VType}}(), l
 }
 
-// StoreSlicePart stores the {{.Count}} elements of x into the slice s.
+// StorePart stores the {{.Count}} elements of x into the slice s.
 // It stores as many elements as will fit in s.
-// If s has {{.Count}} or more elements, the method is equivalent to x.StoreSlice.
-func (x {{.VType}}) StoreSlicePart(s []{{.Etype}}) {
+// If s has {{.Count}} or more elements, the method is equivalent to x.Store.
+func (x {{.VType}}) StorePart(s []{{.Etype}}) int {
 	if len(s) == 0 {
-		return
+		return 0
 	}
 	t := unsafe.Slice((*int{{.EWidth}})(unsafe.Pointer(&s[0])), len(s))
-	x.AsInt{{.WxC}}().StoreSlicePart(t)
+	return x.AsInt{{.WxC}}().StorePart(t)
 }
 `)
 
@@ -693,6 +923,46 @@ func (x {{.VType}}) NotEqual(y {{.VType}}) Mask{{.WxC}} {
 }
 `)
 
+var intRotateAllTemplate = sgutil.TemplateNamed("intRotateAll", `
+// RotateAllLeft rotates all elements left by the specified amount
+//
+// Emulated
+func (x {{.VType}}) RotateAllLeft(dist uint64) {{.VType}} {
+	dist = dist & ({{.EWidth}}-1)
+	ndist := {{.EWidth}} - dist
+	return x.ToBits().ShiftAllLeft(dist).Or(x.ToBits().ShiftAllRight(ndist)).BitsToInt{{.EWidth}}()
+}
+
+// RotateAllRight rotates all elements right by the specified amount
+//
+// Emulated
+func (x {{.VType}}) RotateAllRight(dist uint64) {{.VType}} {
+	dist = dist & ({{.EWidth}}-1)
+	ndist := {{.EWidth}} - dist
+	return x.ToBits().ShiftAllLeft(ndist).Or(x.ToBits().ShiftAllRight(dist)).BitsToInt{{.EWidth}}()
+}
+`)
+
+var uintRotateAllTemplate = sgutil.TemplateNamed("intRotateAll", `
+// RotateAllLeft rotates all elements left by the specified amount
+//
+// Emulated
+func (x {{.VType}}) RotateAllLeft(dist uint64) {{.VType}} {
+	dist = dist & ({{.EWidth}}-1)
+	ndist := {{.EWidth}} - dist
+	return x.ShiftAllLeft(dist).Or(x.ShiftAllRight(ndist))
+}
+
+// RotateAllRight rotates all elements right by the specified amount
+//
+// Emulated
+func (x {{.VType}}) RotateAllRight(dist uint64) {{.VType}} {
+	dist = dist & ({{.EWidth}}-1)
+	ndist := {{.EWidth}} - dist
+	return x.ShiftAllLeft(ndist).Or(x.ShiftAllRight(dist))
+}
+`)
+
 var bitWiseIntTemplate = shapedTemplateOf(intShapes, "bitwise int complement", `
 // Not returns the bitwise complement of x.
 //
@@ -700,6 +970,15 @@ var bitWiseIntTemplate = shapedTemplateOf(intShapes, "bitwise int complement", `
 func (x {{.VType}}) Not() {{.VType}} {
 	return x.Xor(x.Equal(x).ToInt{{.WxC}}())
 }
+
+// Neg returns the element-wise negation of x.
+//
+// Emulated, CPU Feature: {{.CPUfeature}}
+func (x {{.VType}}) Neg() {{.VType}} {
+	var zero {{.VType}}
+	return zero.Sub(x)
+}
+
 `)
 
 var bitWiseUintTemplate = shapedTemplateOf(uintShapes, "bitwise uint complement", `
@@ -794,6 +1073,8 @@ var unsafePATemplate = templateOf("unsafe PA helper", `
 // pa{{.VType}} returns a type-unsafe pointer to array that can
 // only be used with partial load/store operations that only
 // access the known-safe portions of the array.
+//
+//go:nocheckptr
 func pa{{.VType}}(s []{{.Etype}}) *[{{.Count}}]{{.Etype}} {
 	return (*[{{.Count}}]{{.Etype}})(unsafe.Pointer(&s[0]))
 }
@@ -815,7 +1096,18 @@ func (x {{.VType}}) Masked(mask Mask{{.WxC}}) {{.VType}} {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: {{.CPUfeature}}
+//
+// Deprecated: use x.IfElse(mask, y)
+//
+//go:fix inline
 func (x {{.VType}}) Merge(y {{.VType}}, mask Mask{{.WxC}}) {{.VType}} {
+   return x.IfElse(mask, y)
+}
+
+// IfElse returns x but with elements set to y where mask is false.
+//
+// Emulated, CPU Feature: {{.CPUfeature}}
+func (x {{.VType}}) IfElse(mask Mask{{.WxC}}, y {{.VType}}) {{.VType}} {
 {{- if eq .BxC .WxC -}}
 	im := mask.ToInt{{.BxC}}()
 {{- else}}
@@ -848,7 +1140,18 @@ func (x {{.VType}}) Masked(mask Mask{{.WxC}}) {{.VType}} {
 // Merge returns x but with elements set to y where mask is false.
 //
 // Emulated, CPU Feature: AVX512
+//
+// Deprecated: use x.IfElse(mask, y)
+//
+//go:fix inline
 func (x {{.VType}}) Merge(y {{.VType}}, mask Mask{{.WxC}}) {{.VType}} {
+   return x.IfElse(mask, y)
+}
+
+// IfElse returns x but with elements set to y where mask is false.
+//
+// Emulated, CPU Feature: AVX512
+func (x {{.VType}}) IfElse(mask Mask{{.WxC}}, y {{.VType}}) {{.VType}} {
 {{- if eq .Base "Int" }}
 	return y.blendMasked(x, mask)
 {{- else}}
@@ -881,14 +1184,177 @@ var broadcastTemplate = templateOf("Broadcast functions", `
 // Emulated, CPU Feature: {{.CPUfeatureBC}}
 func Broadcast{{.VType}}(x {{.Etype}}) {{.VType}} {
 	var z {{.As128BitVec }}
-	return z.SetElem(0, x).Broadcast1To{{.Count}}()
+	return z.SetElem(0, x).broadcast1To{{.Count}}()
+}
+`)
+
+var broadcastTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_broadcast", `
+// Broadcast{{.VType}} returns a vector with the input
+// x assigned to all elements of the output.
+func Broadcast{{.VType}}(x {{.Etype}}) {{.VType}} {
+	var z {{.VType}}
+	return z.SetElem(0, x).broadcast1To{{.Count}}()
+}
+`)
+
+var stringTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_String methods", `
+// String returns a string representation of SIMD vector x.
+func (x {{.VType}}) String() string {
+	var s [{{.Count}}]{{.Etype}}
+	x.StoreArray(&s)
+	return sliceToString(s[:])
+}
+`)
+
+var getHiTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_HiToLo methods", `
+// HiToLo returns a vector with the upper 64 bits zeroed and the lower
+// 64 bits replaced with the upper 64 bits of x.
+func (x {{.VType}}) HiToLo() {{.VType}} {
+	var z {{.VType}}
+{{- if and (eq .Base "Float") (eq .EWidth 64)}}
+	return z.SetElem(0, x.GetElem(1))
+{{- else if (eq .EWidth 64)}}
+{{-  if (eq .Base "Uint")}}
+	return z.BitsToFloat64().SetElem(0, x.BitsToFloat64().GetElem(1)).ToBits()
+{{-  else}}
+	return z.ToBits().BitsToFloat64().SetElem(0, x.ToBits().BitsToFloat64().GetElem(1)).ToBits().BitsTo{{.Base}}{{.EWidth}}()
+{{-  end}}
+{{- else}}
+{{-  if (eq .Base "Uint")}}
+	return z.ReshapeToUint64s().BitsToFloat64().SetElem(0, x.ReshapeToUint64s().BitsToFloat64().GetElem(1)).ToBits().ReshapeToUint{{.EWidth}}s()
+{{-  else}}
+	return z.ToBits().ReshapeToUint64s().BitsToFloat64().SetElem(0, x.ToBits().ReshapeToUint64s().BitsToFloat64().GetElem(1)).ToBits().ReshapeToUint{{.EWidth}}s().BitsTo{{.Base}}{{.EWidth}}()
+{{-  end}}
+{{- end}}
+}
+`)
+
+var reduceSumTemplateArm64 = shapedTemplateOf(arm64ReduceIntegerShapes, "arm64_ReduceSum methods", `
+// ReduceSum reduces x by summing all elements.
+//
+// Emulated, CPU Feature: NEON
+func (x {{.VType}}) ReduceSum() {{.Etype}} {
+	return x.reduceSum().GetElem(0)
+}
+`)
+
+var reduceMinMaxTemplateArm64 = shapedTemplateOf(arm64ReduceAllShapes, "arm64_ReduceMax/Min methods", `
+// ReduceMax reduces x by taking the maximum of all elements.
+//
+// Emulated, CPU Feature: NEON
+func (x {{.VType}}) ReduceMax() {{.Etype}} {
+	return x.reduceMax().GetElem(0)
+}
+
+// ReduceMin reduces x by taking the minimum of all elements.
+//
+// Emulated, CPU Feature: NEON
+func (x {{.VType}}) ReduceMin() {{.Etype}} {
+	return x.reduceMin().GetElem(0)
 }
 `)
 
 var maskCvtTemplate = shapedTemplateOf(intShapes, "Mask conversions", `
-// ToMask converts from {{.Base}}{{.WxC}} to Mask{{.WxC}}, mask element is set to true when the corresponding vector element is non-zero.
+// ToMask returns a mask whose i'th element is set if x[i] is non-zero.
 func (from {{.Base}}{{.WxC}}) ToMask() (to Mask{{.WxC}}) {
 	return from.NotEqual({{.Base}}{{.WxC}}{})
+}
+`)
+
+var arm64MaskCvtTemplate = shapedTemplateOf(arm64IntShapes, "Mask conversions", `
+// ToMask returns a mask whose i'th element is set if x[i] is non-zero.
+func (from {{.Base}}{{.WxC}}) ToMask() (to Mask{{.WxC}}) {
+	return from.NotEqual({{.Base}}{{.WxC}}{})
+}
+`)
+
+// ARM64 derived comparison templates.
+// On ARM64 NEON, Equal, Greater, and GreaterEqual are hardware-backed.
+// Less, LessEqual, and NotEqual are derived.
+
+var arm64LessTemplate = shapedTemplateOf(arm64Shapes, "arm64_less", `
+// Less returns a mask whose elements indicate whether x < y.
+func (x {{.VType}}) Less(y {{.VType}}) Mask{{.WxC}} {
+	return y.Greater(x)
+}
+`)
+
+var arm64LessEqualTemplate = shapedTemplateOf(arm64Shapes, "arm64_less_equal", `
+// LessEqual returns a mask whose elements indicate whether x <= y.
+func (x {{.VType}}) LessEqual(y {{.VType}}) Mask{{.WxC}} {
+	return y.GreaterEqual(x)
+}
+`)
+
+var arm64NotEqualTemplate = shapedTemplateOf(arm64Shapes, "arm64_not_equal", `
+// NotEqual returns a mask whose elements indicate whether x != y.
+func (x {{.VType}}) NotEqual(y {{.VType}}) Mask{{.WxC}} {
+	return x.Equal(y).Not()
+}
+`)
+
+// ARM64 Masked/Merge templates using bitSelect (picks y's bits where mask=1, keeps x's bits where mask=0).
+
+var arm64MaskedMergeTemplate = shapedTemplateOf(arm64Shapes, "arm64_masked_merge", `
+// Masked returns x but with elements zeroed where mask is false.
+func (x {{.VType}}) Masked(mask Mask{{.WxC}}) {{.VType}} {
+	im := mask.ToInt{{.WxC}}()
+{{- if eq .Base "Int" }}
+	return im.And(x)
+{{- else if eq .Base "Uint" }}
+	return im.And(x.BitsToInt{{.EWidth}}()).ToBits()
+{{- else }}
+	return im.And(x.ToBits().BitsToInt{{.EWidth}}()).ToBits().BitsTo{{.Base}}{{.EWidth}}()
+{{- end }}
+}
+
+// IfElse returns x but with elements set to y where mask is false.
+func (x {{.VType}}) IfElse(mask Mask{{.WxC}}, y {{.VType}}) {{.VType}} {
+{{- if eq .WxC "8x16" }}
+{{-   if eq .Base "Int" }}
+	return x.bitSelect(y, mask.ToInt8x16())
+{{- else if eq .Base "Uint" }}
+	return x.BitsToInt8().bitSelect(y.BitsToInt8(), mask.ToInt8x16()).ToBits()
+{{-   else }}
+	return x.ToBits().BitsToInt8().bitSelect(y.ToBits().BitsToInt8(), mask.ToInt8x16()).ToBits().BitsTo{{.Base}}{{.EWidth}}()
+{{-   end }}
+{{- else if eq .Base "Uint" }}
+	im := mask.ToInt{{.WxC}}().ToBits().ReshapeToUint8s().BitsToInt8()
+	ix := x.ReshapeToUint8s().BitsToInt8()
+	iy := y.ReshapeToUint8s().BitsToInt8()
+	return ix.bitSelect(iy, im).ToBits().ReshapeToUint{{.EWidth}}s()
+{{- else }}
+	im := mask.ToInt{{.WxC}}().ToBits().ReshapeToUint8s().BitsToInt8()
+	ix := x.ToBits().ReshapeToUint8s().BitsToInt8()
+	iy := y.ToBits().ReshapeToUint8s().BitsToInt8()
+	return ix.bitSelect(iy, im).ToBits().ReshapeToUint{{.EWidth}}s().BitsTo{{.Base}}{{.EWidth}}()
+{{- end }}
+}
+`)
+
+var compareTemplateArm64 = shapedTemplateOf(arm64Shapes, "arm64_compare_helpers", `
+// test{{.VType}}Compare tests the simd comparison method f against the expected behavior generated by want
+func test{{.VType}}Compare(t *testing.T, f func(_, _ archsimd.{{.VType}}) archsimd.Mask{{.WxC}}, want func(_, _ []{{.Etype}}) []int64) {
+	n := {{.Count}}
+	t.Helper()
+	forSlicePair(t, {{.Etype}}s, n, func(x, y []{{.Etype}}) bool {
+	 	t.Helper()
+		a := archsimd.Load{{.VType}}(x)
+		b := archsimd.Load{{.VType}}(y)
+		g := make([]int{{.EWidth}}, n)
+		f(a, b).ToInt{{.WxC}}().Store(g)
+		w := want(x, y)
+		return checkSlicesLogInput(t, s64(g), w, 0.0, func() {t.Helper(); t.Logf("x=%v", x); t.Logf("y=%v", y); })
+	})
+}
+`)
+
+var arm64MaskToString = shapedTemplateOf(arm64IntShapes, "arm64_maskToString", `
+// String returns a string representation of SIMD mask x.
+func (x Mask{{.WxC}}) String() string {
+	var s [{{.Count}}]{{.Etype}}
+	x.ToInt{{.WxC}}().Neg().StoreArray(&s)
+	return sliceToString(s[:])
 }
 `)
 
@@ -896,7 +1362,16 @@ var stringTemplate = shapedTemplateOf(allShapes, "String methods", `
 // String returns a string representation of SIMD vector x.
 func (x {{.VType}}) String() string {
 	var s [{{.Count}}]{{.Etype}}
-	x.Store(&s)
+	x.StoreArray(&s)
+	return sliceToString(s[:])
+}
+`)
+
+var maskToString = shapedTemplateOf(intShapes, "maskToString", `
+// String returns a string representation of SIMD mask x.
+func (x Mask{{.WxC}}) String() string {
+	var s [{{.Count}}]{{.Etype}}
+	x.ToInt{{.WxC}}().Neg().StoreArray(&s)
 	return sliceToString(s[:])
 }
 `)
@@ -911,19 +1386,28 @@ func main() {
 	mm := flag.String("mm", SIMD+"maskmerge_gen_amd64.go", "file name for mask/merge operations")
 	op := flag.String("op", SIMD+"other_gen_amd64.go", "file name for other operations")
 	ush := flag.String("ush", SIMD+"unsafe_helpers.go", "file name for unsafe helpers")
-	bh := flag.String("bh", TD+"binary_helpers_test.go", "file name for binary test helpers")
-	uh := flag.String("uh", TD+"unary_helpers_test.go", "file name for unary test helpers")
-	th := flag.String("th", TD+"ternary_helpers_test.go", "file name for ternary test helpers")
-	ch := flag.String("ch", TD+"compare_helpers_test.go", "file name for compare test helpers")
+	bh := flag.String("bh", TD+"binary_helpers_%W_test.go", "file name for binary test helpers")
+	uh := flag.String("uh", TD+"unary_helpers_%W_test.go", "file name for unary test helpers")
+	cvh := flag.String("cvh", TD+"convert_helpers_%W_test.go", "file name for conversion test helpers")
+	th := flag.String("th", TD+"ternary_helpers_%W_test.go", "file name for ternary test helpers")
+	ch := flag.String("ch", TD+"compare_helpers_%W_test.go", "file name for compare test helpers")
 	cmh := flag.String("cmh", TD+"comparemasked_helpers_test.go", "file name for compare-masked test helpers")
+	sh := flag.String("sh", TD+"shift_helpers_%W_test.go", "file name for shift test helpers")
+	// ARM64-specific
+	slArm64 := flag.String("slArm64", SIMD+"slice_gen_arm64.go", "file name for ARM64 slice operations")
+	opArm64 := flag.String("opArm64", SIMD+"other_gen_arm64.go", "file name for ARM64 other operations")
+	shArm64 := flag.String("shArm64", TD+"shift_helpers_arm64_test.go", "file name for ARM64 shift test helpers")
+	cmArm64 := flag.String("cmArm64", SIMD+"compare_gen_arm64.go", "file name for ARM64 comparison operations")
+	mmArm64 := flag.String("mmArm64", SIMD+"maskmerge_gen_arm64.go", "file name for ARM64 mask/merge operations")
+	rhArm64 := flag.String("rhArm64", TD+"reduce_helpers_arm64_test.go", "file name for ARM64 reduce test helpers")
 	flag.Parse()
 
 	if *sl != "" {
 		one(*sl, unsafePrologue,
 			sliceTemplate,
-			avx512MaskedLoadSlicePartTemplate,
-			avx2MaskedLoadSlicePartTemplate,
-			avx2SmallLoadSlicePartTemplate,
+			avx512MaskedLoadSliceTemplate,
+			avx2MaskedLoadSliceTemplate,
+			avx2SmallLoadSliceTemplate,
 		)
 	}
 	if *cm != "" {
@@ -945,13 +1429,19 @@ func main() {
 			bitWiseIntTemplate,
 			bitWiseUintTemplate,
 			stringTemplate,
+			maskToString,
+			shapeAndTemplate{amdIntShiftAllShapes, intRotateAllTemplate},
+			shapeAndTemplate{amdUintShiftAllShapes, uintRotateAllTemplate},
 		)
 	}
 	if *ush != "" {
 		one(*ush, unsafePrologue, unsafePATemplate)
 	}
 	if *uh != "" {
-		one(*uh, curryTestPrologue("unary simd methods"), unaryTemplate,
+		one(*uh, curryTestPrologue("unary simd methods"), unaryTemplate)
+	}
+	if *cvh != "" {
+		one(*cvh, curryTestPrologue("conversion simd methods"),
 			unaryToInt8, unaryToUint8, unaryToInt16, unaryToUint16,
 			unaryToInt32, unaryToUint32, unaryToInt64, unaryToUint64,
 			unaryToFloat32, unaryToFloat64,
@@ -960,6 +1450,7 @@ func main() {
 			unaryToInt32x4, unaryToInt32x8,
 			unaryToUint32x4, unaryToUint32x8,
 			unaryToInt16x8, unaryToUint16x8,
+			unaryToFloat64x2, unaryToFloat64x4,
 			unaryFlakyTemplate,
 		)
 	}
@@ -974,6 +1465,48 @@ func main() {
 	}
 	if *cmh != "" {
 		one(*cmh, curryTestPrologue("simd methods that compare two operands under a mask"), compareMaskedTemplate)
+	}
+	if *sh != "" {
+		one(*sh, curryTestPrologue("shift simd methods"),
+			shiftAllTestTemplate,
+		)
+	}
+
+	// ARM64-specific generation
+	if *slArm64 != "" {
+		one(*slArm64, prologue, sliceTemplateArm64)
+	}
+	if *opArm64 != "" {
+		one(*opArm64, prologue,
+			broadcastTemplateArm64,
+			stringTemplateArm64,
+			getHiTemplateArm64,
+			arm64MaskCvtTemplate,
+			shapeAndTemplate{neonIntShiftAllShapes, intRotateAllTemplate},
+			shapeAndTemplate{neonUintShiftAllShapes, uintRotateAllTemplate},
+			reduceSumTemplateArm64,
+			reduceMinMaxTemplateArm64)
+	}
+	if *shArm64 != "" {
+		oneArch(*shArm64, "arm64", curryTestPrologue("shift simd methods"), filterAll,
+			shiftMixedTestTemplateArm64,
+		)
+	}
+	if *cmArm64 != "" {
+		one(*cmArm64, prologue,
+			arm64LessTemplate,
+			arm64LessEqualTemplate,
+			arm64NotEqualTemplate,
+		)
+	}
+	if *mmArm64 != "" {
+		one(*mmArm64, prologue,
+			arm64MaskedMergeTemplate,
+			arm64MaskToString,
+		)
+	}
+	if *rhArm64 != "" {
+		oneArch(*rhArm64, "arm64", reduceTestPrologue, filterAll, reduceTestTemplateArm64)
 	}
 
 	nonTemplateRewrites(SSA+"tern_helpers.go", ssaPrologue, classifyBooleanSIMD, ternOpForLogical)
@@ -1135,10 +1668,22 @@ func nonTemplateRewrites(filename string, prologue func(s string, out io.Writer)
 
 }
 
-func one(filename string, prologue func(s string, out io.Writer), sats ...shapeAndTemplate) {
+func one(filename string, prologue func(s, buildArch string, out io.Writer), sats ...shapeAndTemplate) {
 	if filename == "" {
 		return
 	}
+
+	if strings.Contains(filename, "%W") {
+		smallFile := strings.ReplaceAll(filename, "%W", "128")
+		largeFile := strings.ReplaceAll(filename, "%W", "wider")
+		oneArch(smallFile, "(amd64 || wasm || arm64)", prologue, filterSmallOnly, sats...)
+		oneArch(largeFile, "amd64", prologue, filterLarge, sats...)
+		return
+	}
+	oneArch(filename, "amd64", prologue, filterAll, sats...)
+}
+
+func oneArch(filename, buildArch string, prologue func(s, buildArch string, out io.Writer), filter shapeFilter, sats ...shapeAndTemplate) {
 
 	ofile := os.Stdout
 
@@ -1153,9 +1698,9 @@ func one(filename string, prologue func(s string, out io.Writer), sats ...shapeA
 
 	out := new(bytes.Buffer)
 
-	prologue("tmplgen", out)
+	prologue("tmplgen", buildArch, out)
 	for _, sat := range sats {
-		sat.forTemplates(out)
+		sat.forTemplates(out, filter)
 	}
 
 	b, err := format.Source(out.Bytes())

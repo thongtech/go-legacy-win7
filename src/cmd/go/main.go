@@ -62,13 +62,13 @@ func init() {
 		work.CmdInstall,
 		list.CmdList,
 		modcmd.CmdMod,
-		workcmd.CmdWork,
 		run.CmdRun,
 		telemetrycmd.CmdTelemetry,
 		test.CmdTest,
 		tool.CmdTool,
 		version.CmdVersion,
 		vet.CmdVet,
+		workcmd.CmdWork,
 
 		help.HelpBuildConstraint,
 		help.HelpBuildJSON,
@@ -122,7 +122,7 @@ func main() {
 	}
 
 	if args[0] == "get" || args[0] == "help" {
-		s := modload.NewState()
+		s := modload.NewLoader()
 		if !s.WillBeEnabled() {
 			// Replace module-aware get with GOPATH get if appropriate.
 			*modget.CmdGet = *get.CmdGet

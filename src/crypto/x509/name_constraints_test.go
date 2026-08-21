@@ -1039,22 +1039,6 @@ var nameConstraintsTests = []nameConstraintsTest{
 		},
 	},
 	{
-		name: "IPv4-mapped-IPv6 exclusion does not affect IPv4",
-		roots: []constraintsSpec{
-			{
-				bad: []string{"ip:::ffff:1.2.3.4/128"},
-			},
-		},
-		intermediates: [][]constraintsSpec{
-			{
-				{},
-			},
-		},
-		leaf: leafSpec{
-			sans: []string{"ip:1.2.3.4"},
-		},
-	},
-	{
 		name: "URI constraint not matched by URN",
 		roots: []constraintsSpec{
 			{
@@ -1656,6 +1640,174 @@ var nameConstraintsTests = []nameConstraintsTest{
 			sans: []string{"dns:"},
 		},
 	},
+
+	{
+		name: "subdomain excluded constraints preclude outer wildcard names",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.example.com"},
+		},
+		expectedError: "\"*.example.com\" is excluded by constraint \"foo.example.com\"",
+	},
+	{
+		name: "subdomain excluded constraints do not preclude far outer wildcard names",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.com"},
+		},
+	},
+	{
+		name: "subdomain excluded constraints preclude inner wildcard names",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.foo.example.com"},
+		},
+		expectedError: "\"*.foo.example.com\" is excluded by constraint \"foo.example.com\"",
+	},
+	{
+		name: "subdomain excluded constraints preclude far inner wildcard names",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.bar.foo.example.com"},
+		},
+		expectedError: "\"*.bar.foo.example.com\" is excluded by constraint \"foo.example.com\"",
+	},
+	{
+		name: "outer wildcard names are not matched by subdomain permitted constraints",
+		roots: []constraintsSpec{
+			{
+				ok: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.example.com"},
+		},
+		expectedError: "\"*.example.com\" is not permitted",
+	},
+	{
+		name: "far outer wildcard names are not matched by subdomain permitted constraints",
+		roots: []constraintsSpec{
+			{
+				ok: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.com"},
+		},
+		expectedError: "\"*.com\" is not permitted",
+	},
+	{
+		name: "inner wildcard names are matched by subdomain permitted constraints",
+		roots: []constraintsSpec{
+			{
+				ok: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.foo.example.com"},
+		},
+	},
+	{
+		name: "far inner wildcard names are matched by subdomain permitted constraints",
+		roots: []constraintsSpec{
+			{
+				ok: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.bar.foo.example.com"},
+		},
+	},
+
+	{
+		name: "cross include should not match",
+		roots: []constraintsSpec{
+			{
+				ok: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.bar.example.com"},
+		},
+		expectedError: "\"*.bar.example.com\" is not permitted by any constraint",
+	},
+	{
+		name: "cross exclude should not match",
+		roots: []constraintsSpec{
+			{
+				bad: []string{"dns:foo.example.com"},
+			},
+		},
+		intermediates: [][]constraintsSpec{
+			{
+				{},
+			},
+		},
+		leaf: leafSpec{
+			sans: []string{"dns:*.bar.example.com"},
+		},
+	},
 	{
 		name: "subdomain exclusion blocks uppercase wildcard",
 		roots: []constraintsSpec{{
@@ -2067,6 +2219,74 @@ func TestConstraintCases(t *testing.T) {
 	}
 }
 
+func TestNameConstraintIPNonZeroHostBits(t *testing.T) {
+	rootKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	leafKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Two excluded iPAddress subtrees: a lower-addressed range that takes the
+	// binary-search neighbor slot, and one whose address has host bits set
+	// (10.10.10.10/16, i.e. network 10.10.0.0/16).
+	subtree := func(b ...byte) []byte {
+		gn := append([]byte{0x87, byte(len(b))}, b...)
+		return append([]byte{0x30, byte(len(gn))}, gn...)
+	}
+	var subtrees []byte
+	subtrees = append(subtrees, subtree(10, 0, 0, 0, 255, 255, 255, 252)...)
+	subtrees = append(subtrees, subtree(10, 10, 10, 10, 255, 255, 0, 0)...)
+	excluded := append([]byte{0xa1, byte(len(subtrees))}, subtrees...)
+	ncValue := append([]byte{0x30, byte(len(excluded))}, excluded...)
+
+	var serial [16]byte
+	rand.Read(serial[:])
+	rootTmpl := &Certificate{
+		SerialNumber:          new(big.Int).SetBytes(serial[:]),
+		Subject:               pkix.Name{CommonName: "Root"},
+		NotBefore:             time.Unix(1000, 0),
+		NotAfter:              time.Unix(2000, 0),
+		KeyUsage:              KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		ExtraExtensions: []pkix.Extension{
+			{Id: []int{2, 5, 29, 30}, Critical: true, Value: ncValue},
+		},
+	}
+	rootDER, err := CreateCertificate(rand.Reader, rootTmpl, rootTmpl, &rootKey.PublicKey, rootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, err := ParseCertificate(rootDER)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The parsed range must keep the address as encoded, host bits and all.
+	if len(root.ExcludedIPRanges) != 2 {
+		t.Fatalf("got %d excluded IP ranges, want 2", len(root.ExcludedIPRanges))
+	}
+	if got := root.ExcludedIPRanges[1].IP; !got.Equal(net.IP{10, 10, 10, 10}) {
+		t.Errorf("excluded range IP = %v, want 10.10.10.10", got)
+	}
+
+	leaf, err := makeConstraintsLeafCert(leafSpec{sans: []string{"ip:10.10.0.1"}}, leafKey, root, rootKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	roots := NewCertPool()
+	roots.AddCert(root)
+	if _, err := leaf.Verify(VerifyOptions{Roots: roots, CurrentTime: time.Unix(1500, 0)}); err == nil {
+		t.Error("leaf with IP SAN inside excluded range was accepted")
+	} else if !strings.Contains(err.Error(), "excluded by constraint") {
+		t.Errorf("got error %q, want excluded-by-constraint", err)
+	}
+}
+
 func writePEMsToTempFile(certs []*Certificate) *os.File {
 	file, err := os.CreateTemp("", "name_constraints_test")
 	if err != nil {
@@ -2131,6 +2351,7 @@ var rfc2821Tests = []struct {
 	{".foo.bar@example.com", "", ""},
 	{"foo.bar.@example.com", "", ""},
 	{"|{}?'@example.com", "|{}?'", "example.com"},
+	{"a@b@c.com", "", ""},
 
 	// Examples from RFC 3696
 	{"Abc\\@def@example.com", "Abc@def", "example.com"},

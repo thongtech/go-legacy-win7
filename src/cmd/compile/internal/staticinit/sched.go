@@ -113,7 +113,7 @@ func (s *Schedule) tryStaticInit(n ir.Node) bool {
 		// "var a, b = f()" that needs type conversion, which is not static.
 		n := n.(*ir.AssignListStmt)
 		for _, rhs := range n.Rhs {
-			for rhs.Op() == ir.OCONVNOP {
+			for rhs.Op() == ir.OCONVNOP || rhs.Op() == ir.OCONVIFACE {
 				rhs = rhs.(*ir.ConvExpr).X
 			}
 			if name, ok := rhs.(*ir.Name); !ok || !name.AutoTemp() {
@@ -545,7 +545,7 @@ func (s *Schedule) initplan(n ir.Node) {
 			if a.Sym().IsBlank() {
 				continue
 			}
-			s.addvalue(p, a.Field.Offset, a.Value)
+			s.addvalue(p, typecheck.FieldOffset(n.Type(), a.Field), a.Value)
 		}
 
 	case ir.OMAPLIT:
@@ -763,6 +763,8 @@ func StaticName(t *types.Type) *ir.Name {
 	typecheck.Target.Externs = append(typecheck.Target.Externs, n)
 
 	n.Linksym().Set(obj.AttrStatic, true)
+	n.Linksym().Align = int16(t.Alignment())
+
 	return n
 }
 

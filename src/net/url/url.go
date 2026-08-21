@@ -837,6 +837,13 @@ func (u *URL) String() string {
 			}
 		}
 		path := u.EscapedPath()
+		if u.OmitHost && u.Host == "" && u.User == nil && strings.HasPrefix(path, "//") {
+			// Escape the first / in a path starting with "//" and no authority
+			// so that re-parsing the URL doesn't turn the path into an authority
+			// (e.g., Path="//host/p" producing "http://host/p").
+			buf.WriteString("%2F")
+			path = path[1:]
+		}
 		if path != "" && path[0] != '/' && u.Host != "" {
 			buf.WriteByte('/')
 		}
@@ -917,6 +924,19 @@ func (v Values) Del(key string) {
 func (v Values) Has(key string) bool {
 	_, ok := v[key]
 	return ok
+}
+
+// Clone creates a deep copy of the subject [Values].
+func (vs Values) Clone() Values {
+	if vs == nil {
+		return nil
+	}
+
+	newVals := make(Values, len(vs))
+	for k, v := range vs {
+		newVals[k] = slices.Clone(v)
+	}
+	return newVals
 }
 
 // ParseQuery parses the URL-encoded query string and returns
@@ -1317,4 +1337,17 @@ func JoinPath(base string, elem ...string) (result string, err error) {
 		return "", err
 	}
 	return res.String(), nil
+}
+
+// Clone creates a deep copy of the fields of the subject [URL].
+func (u *URL) Clone() *URL {
+	if u == nil {
+		return nil
+	}
+
+	uc := new(*u)
+	if u.User != nil {
+		uc.User = new(*u.User)
+	}
+	return uc
 }
