@@ -48,20 +48,10 @@ We now provide two build options for Windows amd64:
 
 ### Binary Distributions
 
-> Note: The table below shows the latest Go stable version. For previous versions, including other stable releases, visit the [Releases](https://github.com/thongtech/go-legacy-win7/releases) page and select the one matching your desired Go version.
+Download builds from GitHub Releases:
 
-| OS | Architecture | Filename | SHA‑256 Hash |
-|----|--------------|----------|--------------|
-| macOS | Intel (amd64) | [go-legacy-win7-1.26.6-1.darwin_amd64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.darwin_amd64.tar.gz) | `180fb8c3c43afb8bb16750ca57a7e8258d9a626835b4fd2f053b08f147095a4a` |
-| **macOS** | **Apple (ARM64)** | [go-legacy-win7-1.26.6-1.darwin_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.darwin_arm64.tar.gz) | `1085bd01dfdbe05945f4240bee7184efe5b83539b8d7c0fe7e5953ba9073847a` |
-| Linux | x86 (386) | [go-legacy-win7-1.26.6-1.linux_386.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.linux_386.tar.gz) | `6b98e65f2bbca13e2f0cf949238b26adf61dc5330ad8f15551d7f5009b59b636` |
-| **Linux** | **x64 (amd64)** | [go-legacy-win7-1.26.6-1.linux_amd64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.linux_amd64.tar.gz) | `a197a93c1ec009f600155d20f4c8cc388560cbc55748f99c1c0dd5b29ef52c05` |
-| Linux | ARM (32‑bit) | [go-legacy-win7-1.26.6-1.linux_arm.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.linux_arm.tar.gz) | `efcf3b8e57af25f0e803021e7ff7f2fb73773aa7a4b6ffd357527b7a7ba14824` |
-| Linux | ARM64 | [go-legacy-win7-1.26.6-1.linux_arm64.tar.gz](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.linux_arm64.tar.gz) | `c0d7f875d1583d99c0d3ae8da3c8ff4cc3766faabca18e5ba42939a38f9539d4` |
-| Windows | x86 (386) | [go-legacy-win7-1.26.6-1.windows_386.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.windows_386.zip) | `0dc25c0424a8d8f5acb16202b8d0111beac144bccf61a4c8562a33118e3fe2a0` |
-| **Windows** | **x64 (amd64)** | [go-legacy-win7-1.26.6-1.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.windows_amd64.zip) | `a0fb26ae90b33dd223da09f5f4476237d65bb185acbf12e57cdaba90d32257f3` |
-| Windows | x64 (amd64) - Race | [go-legacy-win7-1.26.6-1-race.windows_amd64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1-race.windows_amd64.zip) | `e66828bb47f498c15cc4b38d9fec35c0ec6f05d2b56e84644f5bd12c7f59d37a` |
-| Windows | ARM64 | [go-legacy-win7-1.26.6-1.windows_arm64.zip](https://github.com/thongtech/go-legacy-win7/releases/download/v1.26.6-1/go-legacy-win7-1.26.6-1.windows_arm64.zip) | `ecc66707bdbb24215e01446427bd485029635ae4e9b919f6e66d9b7025bf4582` |
+- **[Latest release](https://github.com/thongtech/go-legacy-win7/releases/latest)** — current recommended version
+- **[All releases](https://github.com/thongtech/go-legacy-win7/releases)** — every published version, including older Go lines
 
 ### Before you begin
 To avoid PATH/GOROOT conflicts and mixed toolchains, uninstall any existing Go installation first.
@@ -120,6 +110,29 @@ go version
 ### Install From Source
 
 To install from source, please follow the steps on the [official website](https://go.dev/doc/install/source).
+
+## FAQ
+
+**Is this official Go?**  
+No. It is an independent fork. Bug reports for this fork belong here. Language and spec issues still belong with upstream Go.
+
+**Why not just use an old Go release?**  
+Old releases miss years of fixes and language/runtime updates. This fork tracks current Go releases while retaining the legacy Windows and `go get` support.
+
+**Will you drop Windows 7 or raise system requirements?**  
+No. Supporting Windows 7 and later is a standing promise. We aim to keep things working. We do not “fix” what is not broken.
+
+**What about security on legacy Windows?**  
+Older Windows already has a large attack surface. Hardening individual legacy APIs here would not make those systems meaningfully safer. We prioritise stable behaviour instead. Prefer a Windows version Microsoft still supports when you can. This fork exists for cases where you cannot.
+
+**Is this safe to use on modern Windows?**  
+Usually yes. Legacy APIs we keep still work on current Windows, but that is not guaranteed forever. Some patches reimplement behaviour that newer Windows provides natively, so there can be a small performance cost. If you want the full modern Windows/API path, build with the [official Go toolchain](https://go.dev/dl/) and use this fork only for legacy targets.
+
+**Should I use the standard build or the `-race` build?**  
+Use the **standard** build for maximum legacy Windows compatibility (including the reverted race detector). Use the **`-race`** Windows amd64 build on Windows 10+ when you need race testing with upstream’s newer race detector.
+
+**Can I mix this with an official Go install?**  
+Avoid it. Uninstall other Go installs first (or keep isolated `GOROOT`/`PATH`) so tools do not pick the wrong binary.
 
 ## Contributing
 
