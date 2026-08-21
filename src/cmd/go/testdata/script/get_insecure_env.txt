@@ -26,4 +26,3 @@ go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
 # GOPATH: Try updating with GOINSECURE base URL (should succeed).
 env GOINSECURE=insecure.go-get-issue-15410.appspot.com
 go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
-

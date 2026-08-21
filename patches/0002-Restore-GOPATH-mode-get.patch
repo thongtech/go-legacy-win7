@@ -24,7 +24,7 @@ Subject: [PATCH] Restore GOPATH-mode get
  src/cmd/go/testdata/script/get_goroot.txt     |  53 ++
  src/cmd/go/testdata/script/get_insecure.txt   |  16 +
  .../script/get_insecure_custom_domain.txt     |   8 +
- .../go/testdata/script/get_insecure_env.txt   |  29 +
+ .../go/testdata/script/get_insecure_env.txt   |  28 +
  .../testdata/script/get_insecure_redirect.txt |  14 +
  .../testdata/script/get_insecure_update.txt   |  14 +
  .../testdata/script/get_internal_wildcard.txt |   6 +
@@ -51,7 +51,7 @@ Subject: [PATCH] Restore GOPATH-mode get
  .../script/vendor_test_issue11864.txt         |  79 +--
  .../script/vendor_test_issue14613.txt         |  46 +-
  src/cmd/internal/par/work.go                  |  38 ++
- 47 files changed, 2243 insertions(+), 208 deletions(-)
+ 47 files changed, 2242 insertions(+), 208 deletions(-)
  create mode 100644 src/cmd/go/internal/get/get.go
  create mode 100644 src/cmd/go/internal/get/tag_test.go
  create mode 100644 src/cmd/go/testdata/script/get_brace.txt
@@ -2063,10 +2063,10 @@ index 0000000..4b3c9d6
 +go get -d insecure.go-get-issue-15410.appspot.com/pkg/p
 diff --git a/src/cmd/go/testdata/script/get_insecure_env.txt b/src/cmd/go/testdata/script/get_insecure_env.txt
 new file mode 100644
-index 0000000..98e7053
+index 0000000..f19065d
 --- /dev/null
 +++ b/src/cmd/go/testdata/script/get_insecure_env.txt
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,28 @@
 +[!net:insecure.go-get-issue-15410.appspot.com] skip
 +[!git] skip
 +
@@ -2095,7 +2095,6 @@ index 0000000..98e7053
 +# GOPATH: Try updating with GOINSECURE base URL (should succeed).
 +env GOINSECURE=insecure.go-get-issue-15410.appspot.com
 +go get -d -u -f insecure.go-get-issue-15410.appspot.com/pkg/p
-+
 diff --git a/src/cmd/go/testdata/script/get_insecure_redirect.txt b/src/cmd/go/testdata/script/get_insecure_redirect.txt
 new file mode 100644
 index 0000000..2e53c58
