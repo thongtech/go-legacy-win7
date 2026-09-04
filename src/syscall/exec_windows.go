@@ -15,6 +15,7 @@ import (
 	"unsafe"
 )
 
+// ForkLock is not used on Windows.
 var ForkLock sync.RWMutex
 
 // EscapeArg rewrites command line argument s as prescribed
@@ -303,16 +304,6 @@ type SysProcAttr struct {
 var zeroProcAttr ProcAttr
 var zeroSysProcAttr SysProcAttr
 
-// WindowsVersion returns whether the OS is Windows 7 (or earlier) and Windows 10 (or later)
-func WindowsVersion() (isWin7, isWin10AndAbove bool) {
-	info := _OSVERSIONINFOW{}
-	info.osVersionInfoSize = uint32(unsafe.Sizeof(info))
-	rtlGetVersion(&info)
-	isWin7 = info.majorVersion < 6 || (info.majorVersion == 6 && info.minorVersion <= 1)
-	isWin10AndAbove = info.majorVersion >= 10
-	return
-}
-
 func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle uintptr, err error) {
 	if len(argv0) == 0 {
 		return 0, 0, EWINDOWS
@@ -376,11 +367,12 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle 
 		}
 	}
 
-	isWin7, _ := WindowsVersion()
-
+	var maj, min, build uint32
+	rtlGetNtVersionNumbers(&maj, &min, &build)
+	isWin7 := maj < 6 || (maj == 6 && min <= 1)
 	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
 	// a tag. The fully set tag correlates with the types of handles we're
-	// concerned about here.  Except, the kernel will interpret some
+	// concerned about here. Except, the kernel will interpret some
 	// special handle values, like -1, -2, and so forth, so kernelbase.dll
 	// checks to see that those bottom three bits are checked, but that top
 	// bit is not checked.

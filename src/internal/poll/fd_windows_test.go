@@ -158,6 +158,47 @@ func TestSocketSkipsCompletionPortOnSuccess(t *testing.T) {
 	}
 }
 
+func TestIsStreamSocket(t *testing.T) {
+	t.Parallel()
+	for _, tt := range []struct {
+		name  string
+		typ   int32
+		proto int32
+		want  bool
+	}{
+		{"tcp", syscall.SOCK_STREAM, syscall.IPPROTO_TCP, true},
+		{"udp", syscall.SOCK_DGRAM, syscall.IPPROTO_UDP, false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s, err := windows.WSASocket(syscall.AF_INET, tt.typ, tt.proto, nil, 0, windows.WSA_FLAG_OVERLAPPED)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer syscall.Closesocket(s)
+			if got := poll.IsStreamSocket(s); got != tt.want {
+				t.Errorf("IsStreamSocket(%s) = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDatagramSocketSkipsCompletionPortOnSuccess covers the receive that hung
+// net.TestReadFromTimeout on Windows 7. The kernel behaviour cannot be
+// provoked elsewhere, so what is asserted is the decision FD.Init reaches.
+func TestDatagramSocketSkipsCompletionPortOnSuccess(t *testing.T) {
+	// Assume that all Windows we test on only have IFS handles for UDP sockets.
+	t.Parallel()
+	s, err := windows.WSASocket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP, nil, 0, windows.WSA_FLAG_OVERLAPPED)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fd := newFD(t, s, "udp", true)
+	want := !poll.TruncatedRecvSkipsCompletion()
+	if got := poll.SkipsCompletionPortOnSuccess(fd); got != want {
+		t.Errorf("datagram socket skips completion port on success = %v, want %v", got, want)
+	}
+}
+
 func BenchmarkReadOverlapped(b *testing.B) {
 	benchmarkRead(b, true)
 }

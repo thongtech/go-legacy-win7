@@ -1566,6 +1566,38 @@ func TestReadDirNoFileID(t *testing.T) {
 	}
 }
 
+// TestReadDirFileFullDirInfoUnsupported covers readdir on a kernel that rejects
+// the FILE_FULL_DIR_INFO classes. Only the fallback class is exercised, since
+// the rejection that selects it cannot be provoked on a newer kernel.
+func TestReadDirFileFullDirInfoUnsupported(t *testing.T) {
+	// Take the path that upstream uses when the file system reports no
+	// file IDs, which is the one that selects FILE_FULL_DIR_INFO.
+	*os.AllowReadDirFileID = false
+	defer func() { *os.AllowReadDirFileID = true }()
+	*os.FileFullDirInfoUnsupported = true
+	defer func() { *os.FileFullDirInfoUnsupported = false }()
+
+	dir := t.TempDir()
+	want := []string{"a", "b", "c"}
+	for _, name := range want {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0666); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, f := range files {
+		got = append(got, f.Name())
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("ReadDir(%q) = %v; want %v", dir, got, want)
+	}
+}
+
 func TestReadWriteFileOverlapped(t *testing.T) {
 	// See https://go.dev/issue/15388.
 	t.Parallel()
@@ -2203,6 +2235,12 @@ func TestFileFdWithConcurrentIO(t *testing.T) {
 	}
 	wg.Wait()
 
+	if !poll.FilesUsePoller() {
+		// The poller does not own this handle, so there is no association
+		// for Fd to have kept. The concurrent I/O above has already run.
+		t.Skip("file handles do not use the poller; no IOCP association to check")
+	}
+
 	// Verify that the pipe is still associated with the Go runtime IOCP
 	// by trying to associate it with a new IOCP, which should fail.
 	iocp, err := windows.CreateIoCompletionPort(syscall.InvalidHandle, 0, 0, 0)
@@ -2378,4 +2416,153 @@ func TestNewFileStdinBlocked(t *testing.T) {
 		t.Fatal(err)
 	}
 	wg.Wait() // Don't leave goroutines behind.
+}
+
+func TestConsoleNames(t *testing.T) {
+	// The name matching is tested on its own so that it is covered
+	// everywhere. bare is what consoleDeviceName returns for a name with
+	// the \\.\ prefix, and empty where it returns nothing.
+	for _, tt := range []struct {
+		name    string
+		console bool
+		bare    string
+	}{
+		{"CON", true, ""},
+		{"CONIN$", true, ""},
+		{"CONOUT$", true, ""},
+		{"con", true, ""},
+		{"ConOut$", true, ""},
+		{`\\.\CON`, true, "CON"},
+		{`\\.\CONIN$`, true, "CONIN$"},
+		{`\\.\CONOUT$`, true, "CONOUT$"},
+		{"//./conout$", true, "conout$"},
+		{"", false, ""},
+		{"CONS", false, ""},
+		{"CONIN", false, ""},
+		{"CONOUT$$", false, ""},
+		{"NUL", false, ""},
+		{`C:\CON`, false, ""},
+		{`\\.\PhysicalDrive0`, false, ""},
+	} {
+		if got := os.IsConsoleName(tt.name); got != tt.console {
+			t.Errorf("IsConsoleName(%q) = %v, want %v", tt.name, got, tt.console)
+		}
+		got, ok := os.ConsoleDeviceName(tt.name)
+		if ok != (tt.bare != "") || got != tt.bare {
+			t.Errorf("ConsoleDeviceName(%q) = %q, %v, want %q, %v", tt.name, got, ok, tt.bare, tt.bare != "")
+		}
+	}
+}
+
+// TestFileEventDrivenDeadlines covers the deadlines a handle keeps when the
+// runtime poller does not own it. They are exercised directly so that they
+// are covered on every Windows version.
+func TestFileEventDrivenDeadlines(t *testing.T) {
+	poll.TestDisassociateIOCPUnsupported = true
+	t.Cleanup(func() { poll.TestDisassociateIOCPUnsupported = false })
+
+	name := pipeName()
+	w := newBytePipe(t, name, true)
+	r := newFileOverlapped(t, name, true)
+
+	// Reading and writing still work.
+	if _, err := w.Write([]byte("hello")); err != nil {
+		t.Fatal(err)
+	}
+	b := make([]byte, 5)
+	if _, err := io.ReadFull(r, b); err != nil {
+		t.Fatal(err)
+	}
+	if got := string(b); got != "hello" {
+		t.Fatalf("read %q, want %q", got, "hello")
+	}
+
+	// A deadline that has already passed stops a read before it starts.
+	if err := r.SetReadDeadline(time.Now().Add(-time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Read(b); !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Errorf("read with a deadline in the past = %v, want ErrDeadlineExceeded", err)
+	}
+
+	// A deadline that passes while the read waits.
+	if err := r.SetReadDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Now()
+	if _, err := r.Read(b); !errors.Is(err, os.ErrDeadlineExceeded) {
+		t.Errorf("read with a deadline ahead = %v, want ErrDeadlineExceeded", err)
+	}
+	if waited := time.Since(start); waited < 50*time.Millisecond {
+		t.Errorf("read gave up after %v, want it to wait for the deadline", waited)
+	}
+
+	// A deadline set while the read is already waiting, which is what the
+	// promise on SetDeadline covering pending I/O asks for.
+	if err := r.SetReadDeadline(time.Time{}); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := r.Read(b)
+		done <- err
+	}()
+	time.Sleep(100 * time.Millisecond) // let the read reach its wait
+	if err := r.SetReadDeadline(time.Now().Add(-time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-done:
+		if !errors.Is(err, os.ErrDeadlineExceeded) {
+			t.Errorf("read interrupted by a deadline = %v, want ErrDeadlineExceeded", err)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("a deadline set while a read waited did not interrupt it")
+	}
+
+	// And the handle is free to join a completion port of the caller's, which
+	// is what keeping it off the runtime's is for.
+	iocp, err := windows.CreateIoCompletionPort(syscall.InvalidHandle, 0, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.CloseHandle(iocp)
+	if err := iocpAssociateFile(r, iocp); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestFileEventDrivenCloseUnblocks covers Close on a handle the poller does
+// not own, where nothing but the close itself can end a wait.
+func TestFileEventDrivenCloseUnblocks(t *testing.T) {
+	poll.TestDisassociateIOCPUnsupported = true
+	t.Cleanup(func() { poll.TestDisassociateIOCPUnsupported = false })
+
+	name := pipeName()
+	newBytePipe(t, name, true)
+	r := newFileOverlapped(t, name, true)
+
+	reading := make(chan struct{})
+	done := make(chan error, 1)
+	go func() {
+		var b [1]byte
+		close(reading)
+		_, err := r.Read(b[:])
+		done <- err
+	}()
+	<-reading
+	time.Sleep(100 * time.Millisecond) // let the read reach its wait
+
+	closed := make(chan error, 1)
+	go func() { closed <- r.Close() }()
+	select {
+	case <-closed:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Close did not return while a read was waiting")
+	}
+	select {
+	case <-done:
+	case <-time.After(30 * time.Second):
+		t.Fatal("Close did not interrupt the read that was waiting")
+	}
 }

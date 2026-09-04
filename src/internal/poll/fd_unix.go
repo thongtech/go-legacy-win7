@@ -683,6 +683,12 @@ func (fd *FD) Dup() (int, string, error) {
 	return DupCloseOnExec(fd.Sysfd)
 }
 
+// setDeadlineNoPoller reports that fd has nowhere to keep a deadline. Only
+// Windows keeps them outside the poller, for handles it leaves off it.
+func (fd *FD) setDeadlineNoPoller(d int64, mode int) error {
+	return ErrNoDeadline
+}
+
 // On Unix variants only, expose the IO event for the net code.
 
 // WaitWrite waits until data can be written to fd.

@@ -26,10 +26,6 @@ jobs:
           - linux_arm64
           - linux_arm
           - linux_386
-        variant: [standard]
-        include:
-          - target: windows_amd64
-            variant: race
 
     steps:
       - name: Resolve source branch
@@ -62,13 +58,6 @@ jobs:
         with:
           go-version-file: "go-legacy-win7/src/go.mod"
           cache: false
-
-      - name: Revert race detector patches
-        if: matrix.variant == 'race'
-        run: |
-          cd go-legacy-win7
-          git apply -R patches/0008-Implement-atomic-And-Or-via-CAS-under-race.patch
-          git apply -R patches/0007-Roll-back-race-windows-syso-and-drop-TSAN-And-Or.patch
 
       - name: Set execute permissions
         run: |
@@ -123,22 +112,13 @@ jobs:
           cd tool
           find . -mindepth 1 -maxdepth 1 -type d ! -name "${{ matrix.target }}" -exec rm -rf {} +
 
-      - name: Set version suffix
-        id: version
-        run: |
-          if [ "${{ matrix.variant }}" == "race" ]; then
-            echo "suffix=-race" >> $GITHUB_OUTPUT
-          else
-            echo "suffix=" >> $GITHUB_OUTPUT
-          fi
-
       - name: Package
         run: |
           cd release
           if [[ "${{ matrix.target }}" == windows_* ]]; then
-            zip -r ../go-legacy-win7-${{ inputs.version }}${{ steps.version.outputs.suffix }}.${{ matrix.target }}.zip .
+            zip -r ../go-legacy-win7-${{ inputs.version }}.${{ matrix.target }}.zip .
           else
-            tar -czf ../go-legacy-win7-${{ inputs.version }}${{ steps.version.outputs.suffix }}.${{ matrix.target }}.tar.gz .
+            tar -czf ../go-legacy-win7-${{ inputs.version }}.${{ matrix.target }}.tar.gz .
           fi
 
       - name: Create Release
@@ -161,8 +141,8 @@ jobs:
             --title "go-legacy-win7-${{ inputs.version }}" \
             --notes "go-legacy-win7-${{ inputs.version }}" \
             --draft \
-            --target ${{ steps.branch.outputs.branch }}   # <-- dynamic branch
+            --target ${{ steps.branch.outputs.branch }}
 
           gh release upload v${{ inputs.version }} \
-            ../go-legacy-win7-${{ inputs.version }}${{ steps.version.outputs.suffix }}.${{ matrix.target }}.* \
+            ../go-legacy-win7-${{ inputs.version }}.${{ matrix.target }}.* \
             --clobber

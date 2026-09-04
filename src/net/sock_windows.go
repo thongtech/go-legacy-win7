@@ -23,19 +23,16 @@ func sysSocket(family, sotype, proto int) (syscall.Handle, error) {
 	if err == nil {
 		return s, nil
 	}
-	// WSA_FLAG_NO_HANDLE_INHERIT flag is not supported on some
-	// old versions of Windows, see
-	// https://msdn.microsoft.com/en-us/library/windows/desktop/ms742212(v=vs.85).aspx
-	// for details. Just use syscall.Socket, if windows.WSASocket failed.
-	// See ../syscall/exec_unix.go for description of ForkLock.
-	syscall.ForkLock.RLock()
-	s, err = socketFunc(family, sotype, proto)
-	if err == nil {
-		syscall.CloseOnExec(s)
-	}
-	syscall.ForkLock.RUnlock()
+	// WSA_FLAG_NO_HANDLE_INHERIT needs Windows 7 SP1, and WSASocket rejects the
+	// flag outright without it. Create an inheritable socket instead and clear
+	// the flag afterwards. Unlike the equivalent code before Go 1.22 this does
+	// not take syscall.ForkLock, since a child only inherits the handles listed
+	// in PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
+	s, err = wsaSocketFunc(int32(family), int32(sotype), int32(proto),
+		nil, 0, windows.WSA_FLAG_OVERLAPPED)
 	if err != nil {
 		return syscall.InvalidHandle, os.NewSyscallError("socket", err)
 	}
+	syscall.CloseOnExec(s)
 	return s, nil
 }

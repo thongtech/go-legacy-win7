@@ -165,3 +165,61 @@ func makeFileNotReadable(t *testing.T, name string) {
 		t.Fatal(err)
 	}
 }
+
+// TestRenameToKeepsExisting checks that renameTo replaces what holds the name
+// only when told to. The caller that relies on this is a delete putting a name
+// back after moving the file aside, which needs the delete of a file that was
+// just renamed to fail, and nothing can arrange that, so the primitive is
+// tested instead.
+func TestRenameToKeepsExisting(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a", "b"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	open := func(name string, access uint32, flags uint32) syscall.Handle {
+		p, err := syscall.UTF16PtrFromString(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		h, err := syscall.CreateFile(p, access,
+			syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
+			nil, syscall.OPEN_EXISTING, flags, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h
+	}
+	dh := open(".", syscall.GENERIC_READ, syscall.FILE_FLAG_BACKUP_SEMANTICS)
+	defer syscall.CloseHandle(dh)
+	// h holds DELETE access, which a reader that does not share deletion
+	// cannot coexist with, so it is closed before the file is read back.
+	h := open("a", windows.DELETE|windows.SYNCHRONIZE, 0)
+	closed := false
+	defer func() {
+		if !closed {
+			syscall.CloseHandle(h)
+		}
+	}()
+	b16, err := syscall.UTF16FromString("b")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b16 = b16[:len(b16)-1]
+
+	if err := windows.RenameTo(h, dh, b16, false); err == nil {
+		t.Fatal("renameTo replaced b without being asked to")
+	}
+	if data, err := os.ReadFile(filepath.Join(dir, "b")); err != nil || string(data) != "b" {
+		t.Fatalf("after the refused rename, b holds %q, %v; want %q", data, err, "b")
+	}
+	if err := windows.RenameTo(h, dh, b16, true); err != nil {
+		t.Fatal(err)
+	}
+	syscall.CloseHandle(h)
+	closed = true
+	if data, err := os.ReadFile(filepath.Join(dir, "b")); err != nil || string(data) != "a" {
+		t.Fatalf("after the rename, b holds %q, %v; want %q", data, err, "a")
+	}
+}

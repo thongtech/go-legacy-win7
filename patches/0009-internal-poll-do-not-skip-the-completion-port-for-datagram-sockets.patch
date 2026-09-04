@@ -1,0 +1,125 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 17:22:25 +1200
+Subject: [PATCH] internal/poll: do not skip the completion port for datagram sockets
+
+FILE_SKIP_COMPLETION_PORT_ON_SUCCESS lets a handle skip the completion packet
+when an overlapped operation completes immediately. CL 463839 (Go 1.21) enabled
+it for datagram sockets. Before Windows 8 the packet is also skipped for a
+receive that went pending and was then truncated.
+
+	UDP read, buffer smaller than the datagram
+	  ->  no completion packet  ->  nothing wakes the goroutine
+	                            ->  the read never completes
+
+Do not set the flag on sockets that can truncate, which are the ones that are
+not SOCK_STREAM. A short read on a stream socket is an ordinary success and no
+packet is lost.
+
+This checks the Windows version instead of probing for the behaviour. The only
+way to observe it is to wait for a packet that never arrives, and FD.Init
+cannot block to find out.
+
+diff --git a/src/internal/poll/export_windows_test.go b/src/internal/poll/export_windows_test.go
+index dd73bdc8..cb24374a 100644
+--- a/src/internal/poll/export_windows_test.go
++++ b/src/internal/poll/export_windows_test.go
+@@ -9,3 +9,8 @@ package poll
+ func SkipsCompletionPortOnSuccess(fd *FD) bool {
+ 	return !fd.waitOnSuccess
+ }
++
++var (
++	IsStreamSocket               = isStreamSocket
++	TruncatedRecvSkipsCompletion = truncatedRecvSkipsCompletion
++)
+diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
+index 40fe9080..d68fa44b 100644
+--- a/src/internal/poll/fd_windows.go
++++ b/src/internal/poll/fd_windows.go
+@@ -40,6 +40,23 @@ var ifsHandlesOnly = sync.OnceValue(func() bool {
+ 	return true
+ })
+ 
++// truncatedRecvSkipsCompletion reports whether this kernel skips the completion
++// packet for a receive that goes pending and then truncates, which Windows 7
++// does although FILE_SKIP_COMPLETION_PORT_ON_SUCCESS permits skipping only for
++// an operation that completed synchronously. This is a version check because
++// the behaviour can only be observed by waiting out a packet that never comes.
++var truncatedRecvSkipsCompletion = sync.OnceValue(func() bool {
++	major, minor, _ := windows.Version()
++	return major < 6 || (major == 6 && minor < 2)
++})
++
++// isStreamSocket reports whether h is a stream socket, on which a receive
++// cannot truncate, because a short read there is an ordinary success.
++func isStreamSocket(h syscall.Handle) bool {
++	typ, err := syscall.GetsockoptInt(h, syscall.SOL_SOCKET, windows.SO_TYPE)
++	return err == nil && typ == syscall.SOCK_STREAM
++}
++
+ // canSkipCompletionPortOnSuccess returns true if we use FILE_SKIP_COMPLETION_PORT_ON_SUCCESS for the given handle.
+ // See https://support.microsoft.com/kb/2568167 for details.
+ func canSkipCompletionPortOnSuccess(h syscall.Handle, isSocket bool) bool {
+@@ -47,6 +64,10 @@ func canSkipCompletionPortOnSuccess(h syscall.Handle, isSocket bool) bool {
+ 		// Non-socket handles can use SetFileCompletionNotificationModes without problems.
+ 		return true
+ 	}
++	if truncatedRecvSkipsCompletion() && !isStreamSocket(h) {
++		// See the comment on truncatedRecvSkipsCompletion.
++		return false
++	}
+ 	if ifsHandlesOnly() {
+ 		// If the system only has IFS handles for TCP sockets, then there is nothing else to check.
+ 		return true
+diff --git a/src/internal/poll/fd_windows_test.go b/src/internal/poll/fd_windows_test.go
+index fb23b45e..3e8eeb1c 100644
+--- a/src/internal/poll/fd_windows_test.go
++++ b/src/internal/poll/fd_windows_test.go
+@@ -158,6 +158,47 @@ func TestSocketSkipsCompletionPortOnSuccess(t *testing.T) {
+ 	}
+ }
+ 
++func TestIsStreamSocket(t *testing.T) {
++	t.Parallel()
++	for _, tt := range []struct {
++		name  string
++		typ   int32
++		proto int32
++		want  bool
++	}{
++		{"tcp", syscall.SOCK_STREAM, syscall.IPPROTO_TCP, true},
++		{"udp", syscall.SOCK_DGRAM, syscall.IPPROTO_UDP, false},
++	} {
++		t.Run(tt.name, func(t *testing.T) {
++			s, err := windows.WSASocket(syscall.AF_INET, tt.typ, tt.proto, nil, 0, windows.WSA_FLAG_OVERLAPPED)
++			if err != nil {
++				t.Fatal(err)
++			}
++			defer syscall.Closesocket(s)
++			if got := poll.IsStreamSocket(s); got != tt.want {
++				t.Errorf("IsStreamSocket(%s) = %v, want %v", tt.name, got, tt.want)
++			}
++		})
++	}
++}
++
++// TestDatagramSocketSkipsCompletionPortOnSuccess covers the receive that hung
++// net.TestReadFromTimeout on Windows 7. The kernel behaviour cannot be
++// provoked elsewhere, so what is asserted is the decision FD.Init reaches.
++func TestDatagramSocketSkipsCompletionPortOnSuccess(t *testing.T) {
++	// Assume that all Windows we test on only have IFS handles for UDP sockets.
++	t.Parallel()
++	s, err := windows.WSASocket(syscall.AF_INET, syscall.SOCK_DGRAM, syscall.IPPROTO_UDP, nil, 0, windows.WSA_FLAG_OVERLAPPED)
++	if err != nil {
++		t.Fatal(err)
++	}
++	fd := newFD(t, s, "udp", true)
++	want := !poll.TruncatedRecvSkipsCompletion()
++	if got := poll.SkipsCompletionPortOnSuccess(fd); got != want {
++		t.Errorf("datagram socket skips completion port on success = %v, want %v", got, want)
++	}
++}
++
+ func BenchmarkReadOverlapped(b *testing.B) {
+ 	benchmarkRead(b, true)
+ }

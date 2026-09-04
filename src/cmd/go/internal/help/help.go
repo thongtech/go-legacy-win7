@@ -37,12 +37,15 @@ func Help(w io.Writer, args []string) {
 		PrintUsage(buf, base.Go)
 		usage := &base.Command{Long: buf.String()}
 		cmds := []*base.Command{usage}
-		s := modload.NewLoader()
+		// Only one of the two get help topics describes the "go get" that is
+		// installed, so the other is left out to avoid duplicating it. This asks
+		// the same question main does when it chooses between them.
+		modulesEnabled := modload.NewLoader().WillBeEnabled()
 		for _, cmd := range base.Go.Commands {
 			// Avoid duplication of the "get" documentation.
-			if cmd.UsageLine == "module-get" && s.Enabled() {
+			if cmd.UsageLine == "module-get" && modulesEnabled {
 				continue
-			} else if cmd.UsageLine == "gopath-get" && !s.Enabled() {
+			} else if cmd.UsageLine == "gopath-get" && !modulesEnabled {
 				continue
 			}
 			cmds = append(cmds, cmd)

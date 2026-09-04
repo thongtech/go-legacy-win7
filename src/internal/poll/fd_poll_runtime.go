@@ -157,7 +157,8 @@ func setDeadlineImpl(fd *FD, t time.Time, mode int) error {
 	defer fd.decref()
 
 	if fd.pd.runtimeCtx == 0 {
-		return ErrNoDeadline
+		// Windows keeps some deadlines outside the poller.
+		return fd.setDeadlineNoPoller(d, mode)
 	}
 	runtime_pollSetDeadline(fd.pd.runtimeCtx, d, mode)
 	return nil

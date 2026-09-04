@@ -252,7 +252,7 @@ var vcsGit = &Cmd{
 		vcsGitRoot{},
 	},
 
-	CreateCmd:   []string{"clone -- {repo} {dir}", "--go-internal-cd {dir} submodule update --init --recursive"},
+	CreateCmd:   []string{"clone -- {repo} {dir}", "-go-internal-cd {dir} submodule update --init --recursive"},
 	DownloadCmd: []string{"pull --ff-only", "submodule update --init --recursive"},
 
 	TagCmd: []tagCmd{
@@ -271,7 +271,7 @@ var vcsGit = &Cmd{
 	// See golang.org/issue/9032.
 	TagSyncDefault: []string{"submodule update --init --recursive"},
 
-		Scheme: []string{"git", "https", "http", "git+ssh", "ssh"},
+	Scheme: []string{"git", "https", "http", "git+ssh", "ssh"},
 
 	// Leave out the '--' separator in the ls-remote command: git 2.7.4 does not
 	// support such a separator for that command, and this use should be safe
@@ -288,13 +288,15 @@ var vcsGit = &Cmd{
 var scpSyntaxRe = lazyregexp.New(`^(\w+)@([\w.-]+):(.*)$`)
 
 func gitRemoteRepo(vcsGit *Cmd, rootDir string) (remoteRepo string, err error) {
-	const cmd = "config remote.origin.url"
+	cmd := "config remote.origin.url"
+	errParse := errors.New("unable to parse output of git " + cmd)
+	errRemoteOriginNotFound := errors.New("remote origin not found")
 	outb, err := vcsGit.run1(rootDir, cmd, nil, false)
 	if err != nil {
 		// if it doesn't output any message, it means the config argument is correct,
 		// but the config value itself doesn't exist
 		if outb != nil && len(outb) == 0 {
-			return "", errors.New("remote origin not found")
+			return "", errRemoteOriginNotFound
 		}
 		return "", err
 	}
@@ -326,7 +328,7 @@ func gitRemoteRepo(vcsGit *Cmd, rootDir string) (remoteRepo string, err error) {
 			return repoURL.String(), nil
 		}
 	}
-	return "", errors.New("unable to parse output of git " + cmd)
+	return "", errParse
 }
 
 func gitStatus(vcsGit *Cmd, rootDir string) (Status, error) {
@@ -366,11 +368,11 @@ var vcsSvn = &Cmd{
 		vcsDirRoot(".svn"),
 	},
 
-	CreateCmd:   []string{"checkout -- {repo} {dir}"},
-	DownloadCmd: []string{"update"},
-
 	// There is no tag command in subversion.
 	// The branch information is all in the path names.
+
+	CreateCmd:   []string{"checkout -- {repo} {dir}"},
+	DownloadCmd: []string{"update"},
 
 	Scheme:     []string{"https", "http", "svn", "svn+ssh"},
 	PingCmd:    "info -- {scheme}://{repo}",
@@ -387,9 +389,9 @@ func svnRemoteRepo(vcsSvn *Cmd, rootDir string) (remoteRepo string, err error) {
 
 	// Expect:
 	//
-	//	...
-	//	URL: <URL>
-	//	...
+	//	 ...
+	// 	URL: <URL>
+	// 	...
 	//
 	// Note that we're not using the Repository Root line,
 	// because svn allows checking out subtrees.
@@ -450,7 +452,7 @@ var vcsFossil = &Cmd{
 		vcsFileRoot("_FOSSIL_"),
 	},
 
-	CreateCmd:   []string{"--go-internal-mkdir {dir} clone -- {repo} " + filepath.Join("{dir}", fossilRepoName), "--go-internal-cd {dir} open .fossil"},
+	CreateCmd:   []string{"-go-internal-mkdir {dir} clone -- {repo} " + filepath.Join("{dir}", fossilRepoName), "-go-internal-cd {dir} open .fossil"},
 	DownloadCmd: []string{"up"},
 
 	TagCmd:         []tagCmd{{"tag ls", `(.*)`}},
@@ -568,7 +570,7 @@ func (v *Cmd) run1(dir string, cmdline string, keyval []string, verbose bool) ([
 		args[i] = expand(m, arg)
 	}
 
-	if len(args) >= 2 && args[0] == "--go-internal-mkdir" {
+	if len(args) >= 2 && args[0] == "-go-internal-mkdir" {
 		var err error
 		if filepath.IsAbs(args[1]) {
 			err = os.Mkdir(args[1], fs.ModePerm)
@@ -581,7 +583,7 @@ func (v *Cmd) run1(dir string, cmdline string, keyval []string, verbose bool) ([
 		args = args[2:]
 	}
 
-	if len(args) >= 2 && args[0] == "--go-internal-cd" {
+	if len(args) >= 2 && args[0] == "-go-internal-cd" {
 		if filepath.IsAbs(args[1]) {
 			dir = args[1]
 		} else {
@@ -734,7 +736,6 @@ func (v *Cmd) TagSync(dir, tag string) error {
 	}
 	return nil
 }
-
 
 // A vcsPath describes how to convert an import path into a
 // version control system and repository name.
@@ -991,6 +992,9 @@ var defaultGOVCS = govcsConfig{
 // GOVCS allows the given vcs command to be used with the given repository
 // root path. Note that root may not be a real package or module path; it's
 // the same as the root path in the go-import meta tag.
+//
+// It is exported for GOPATH-based "go get", which finds the repository for a
+// package without going through RepoRootForImportPath.
 func CheckGOVCS(vcs *Cmd, root string) error {
 	if vcs == vcsMod {
 		// Direct module (proxy protocol) fetches don't
@@ -1018,7 +1022,6 @@ func CheckGOVCS(vcs *Cmd, root string) error {
 
 	return nil
 }
-
 
 // CheckNested checks for an incorrectly-nested VCS-inside-VCS
 // situation for dir, checking parents up until srcRoot.

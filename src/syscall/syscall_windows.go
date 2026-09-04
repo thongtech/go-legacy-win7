@@ -251,7 +251,7 @@ func NewCallbackCDecl(fn any) uintptr {
 //sys	LoadLibrary(libname string) (handle Handle, err error) = LoadLibraryW
 //sys	FreeLibrary(handle Handle) (err error)
 //sys	GetProcAddress(module Handle, procname string) (proc uintptr, err error)
-//sys	GetVersion() (ver uint32, err error)
+//sys	rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) = ntdll.RtlGetNtVersionNumbers
 //sys	formatMessage(flags uint32, msgsrc uintptr, msgid uint32, langid uint32, buf []uint16, args *byte) (n uint32, err error) = FormatMessageW
 //sys	ExitProcess(exitcode uint32)
 //sys	createFile(name *uint16, access uint32, mode uint32, sa *SecurityAttributes, createmode uint32, attrs uint32, templatefile int32) (handle Handle, err error) [failretval == InvalidHandle || e1 == ERROR_ALREADY_EXISTS ] = CreateFileW
@@ -353,6 +353,17 @@ func NewCallbackCDecl(fn any) uintptr {
 //sys	getFinalPathNameByHandle(file Handle, filePath *uint16, filePathSize uint32, flags uint32) (n uint32, err error) [n == 0 || n >= filePathSize] = kernel32.GetFinalPathNameByHandleW
 
 // syscall interface implementation for other packages
+
+// GetVersion reports the Windows version packed as kernel32!GetVersion packs
+// it, the major version in the low byte, the minor version above it and the
+// build number in the high word. It is read from ntdll!RtlGetNtVersionNumbers,
+// so that the version compatibility shim, which reports Windows 8 to an image
+// stamped for an older Windows, does not reach it.
+func GetVersion() (ver uint32, err error) {
+	var major, minor, build uint32
+	rtlGetNtVersionNumbers(&major, &minor, &build)
+	return major | minor<<8 | (build&0xffff)<<16, nil
+}
 
 func makeInheritSa() *SecurityAttributes {
 	var sa SecurityAttributes

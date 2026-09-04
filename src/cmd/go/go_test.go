@@ -383,6 +383,7 @@ type testgoData struct {
 	tempdir        string
 	ran            bool
 	inParallel     bool
+	hasNet         bool
 	stdout, stderr bytes.Buffer
 	execDir        string // dir for tg.run
 }
@@ -435,6 +436,25 @@ func (tg *testgoData) parallel() {
 	}
 	tg.inParallel = true
 	tg.t.Parallel()
+}
+
+// acquireNet skips t if the network is unavailable, and otherwise acquires a
+// netTestSem token for t to be released at the end of the test.
+//
+// t.Parallel must not be called after acquireNet.
+func (tg *testgoData) acquireNet() {
+	tg.t.Helper()
+	if tg.hasNet {
+		return
+	}
+
+	testenv.MustHaveExternalNetwork(tg.t)
+	if netTestSem != nil {
+		netTestSem <- struct{}{}
+		tg.t.Cleanup(func() { <-netTestSem })
+	}
+	tg.setenv("TESTGONETWORK", "")
+	tg.hasNet = true
 }
 
 // pwd returns the current directory.
@@ -546,6 +566,31 @@ func (tg *testgoData) runFail(args ...string) {
 		tg.t.Fatal("testgo succeeded unexpectedly")
 	} else {
 		tg.t.Log("testgo failed as expected:", status)
+	}
+}
+
+// runGit runs a git command, and expects it to succeed.
+func (tg *testgoData) runGit(dir string, args ...string) {
+	tg.t.Helper()
+	cmd := testenv.Command(tg.t, "git", args...)
+	tg.stdout.Reset()
+	tg.stderr.Reset()
+	cmd.Stdout = &tg.stdout
+	cmd.Stderr = &tg.stderr
+	cmd.Dir = dir
+	cmd.Env = tg.env
+	status := cmd.Run()
+	if tg.stdout.Len() > 0 {
+		tg.t.Log("git standard output:")
+		tg.t.Log(tg.stdout.String())
+	}
+	if tg.stderr.Len() > 0 {
+		tg.t.Log("git standard error:")
+		tg.t.Log(tg.stderr.String())
+	}
+	if status != nil {
+		tg.t.Logf("git %v failed unexpectedly: %v", args, status)
+		tg.t.FailNow()
 	}
 }
 
@@ -2653,4 +2698,102 @@ func TestCoverpkgTestOnly(t *testing.T) {
 	tg.run("test", "-coverpkg=a", "atest")
 	tg.grepStderrNot("no packages being tested depend on matches", "bad match message")
 	tg.grepStdout("coverage: 100", "no coverage")
+}
+
+func TestIssue10952(t *testing.T) {
+	testenv.MustHaveExecPath(t, "git")
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.acquireNet()
+
+	tg.tempDir("src")
+	tg.setenv("GOPATH", tg.path("."))
+	const importPath = "github.com/zombiezen/go-get-issue-10952"
+	tg.run("get", "-d", "-u", importPath)
+	repoDir := tg.path("src/" + importPath)
+	tg.runGit(repoDir, "remote", "set-url", "origin", "https://"+importPath+".git")
+	tg.run("get", "-d", "-u", importPath)
+}
+
+func TestIssue11457(t *testing.T) {
+	testenv.MustHaveExecPath(t, "git")
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.acquireNet()
+
+	tg.tempDir("src")
+	tg.setenv("GOPATH", tg.path("."))
+	const importPath = "rsc.io/go-get-issue-11457"
+	tg.run("get", "-d", "-u", importPath)
+	repoDir := tg.path("src/" + importPath)
+	tg.runGit(repoDir, "remote", "set-url", "origin", "git@github.com:rsc/go-get-issue-11457")
+
+	// At this time, custom import path checking compares remotes verbatim (rather than
+	// just the host and path, skipping scheme and user), so we expect go get -u to fail.
+	// However, the goal of this test is to verify that gitRemoteRepo correctly parsed
+	// the SCP-like syntax, and we expect it to appear in the error message.
+	tg.runFail("get", "-d", "-u", importPath)
+	want := " is checked out from ssh://git@github.com/rsc/go-get-issue-11457"
+	if !strings.HasSuffix(strings.TrimSpace(tg.getStderr()), want) {
+		t.Error("expected clone URL to appear in stderr")
+	}
+}
+
+func TestGetGitDefaultBranch(t *testing.T) {
+	testenv.MustHaveExecPath(t, "git")
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.acquireNet()
+
+	tg.tempDir("src")
+	tg.setenv("GOPATH", tg.path("."))
+
+	// This repo has two branches, master and another-branch.
+	// The another-branch is the default that you get from 'git clone'.
+	// The go get command variants should not override this.
+	const importPath = "github.com/rsc/go-get-default-branch"
+
+	tg.run("get", "-d", importPath)
+	repoDir := tg.path("src/" + importPath)
+	tg.runGit(repoDir, "branch", "--contains", "HEAD")
+	tg.grepStdout(`\* another-branch`, "not on correct default branch")
+
+	tg.run("get", "-d", "-u", importPath)
+	tg.runGit(repoDir, "branch", "--contains", "HEAD")
+	tg.grepStdout(`\* another-branch`, "not on correct default branch")
+}
+
+func TestDefaultGOPATHGet(t *testing.T) {
+	testenv.MustHaveExecPath(t, "git")
+
+	tg := testgo(t)
+	defer tg.cleanup()
+	tg.parallel()
+	tg.acquireNet()
+
+	tg.setenv("GOPATH", "")
+	tg.tempDir("home")
+	tg.setenv(homeEnvName(), tg.path("home"))
+
+	// warn for creating directory
+	tg.run("get", "-v", "github.com/golang/example/hello")
+	tg.grepStderr("created GOPATH="+regexp.QuoteMeta(tg.path("home/go"))+"; see 'go help gopath'", "did not create GOPATH")
+
+	// no warning if directory already exists
+	tg.must(robustio.RemoveAll(tg.path("home/go")))
+	tg.tempDir("home/go")
+	tg.run("get", "github.com/golang/example/hello")
+	tg.grepStderrNot(".", "expected no output on standard error")
+
+	// error if $HOME/go is a file
+	tg.must(robustio.RemoveAll(tg.path("home/go")))
+	tg.tempFile("home/go", "")
+	tg.runFail("get", "github.com/golang/example/hello")
+	tg.grepStderr(`mkdir .*[/\\]go: .*(not a directory|cannot find the path)`, "expected error because $HOME/go is a file")
 }

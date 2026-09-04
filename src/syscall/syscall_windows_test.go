@@ -6,6 +6,7 @@ package syscall_test
 
 import (
 	"fmt"
+	"internal/syscall/windows"
 	"internal/testenv"
 	"os"
 	"os/exec"
@@ -305,5 +306,45 @@ func BenchmarkErrnoString(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		_ = syscall.Errno(2).Error()
+	}
+}
+
+// TestLoadSystemDLLByPath checks the fallback LoadDLL takes where
+// LOAD_LIBRARY_SEARCH_SYSTEM32 is not understood. It is called directly so
+// that it is covered on every Windows version.
+func TestLoadSystemDLLByPath(t *testing.T) {
+	if dir := syscall.SystemDirectory(); dir == "" {
+		t.Fatal("SystemDirectory returned an empty string")
+	} else if !strings.HasSuffix(dir, `\`) {
+		t.Errorf("SystemDirectory = %q, want a trailing separator", dir)
+	}
+	if h := syscall.LoadSystemDLLByPath("advapi32.dll"); h == 0 {
+		t.Error(`LoadSystemDLLByPath("advapi32.dll") = 0, want non-zero`)
+	}
+	// The ordinary path must keep working too.
+	if _, err := syscall.LoadDLL("advapi32.dll"); err != nil {
+		t.Errorf(`LoadDLL("advapi32.dll") = %v, want nil`, err)
+	}
+}
+
+// TestGetVersion checks that GetVersion reports the version RtlGetVersion
+// does. An image stamped for Windows 7 is otherwise told Windows 8 by the
+// version compatibility shim on Windows 8.1 and later. The same code runs on
+// every Windows, so there is no second path to test.
+//
+// StartProcess uses the same lookup to decide whether a console handle is a
+// Windows 7 pseudo-handle, and only the lookup is covered there. The branches
+// it guards are inert on Windows 8 and later, and the tagged handles they work
+// around exist only on Windows 7.
+func TestGetVersion(t *testing.T) {
+	major, minor, build := windows.Version()
+	ver, err := syscall.GetVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := [3]uint32{ver & 0xff, ver >> 8 & 0xff, ver >> 16}
+	want := [3]uint32{major, minor, build}
+	if got != want {
+		t.Errorf("GetVersion reports %v, RtlGetVersion reports %v", got, want)
 	}
 }

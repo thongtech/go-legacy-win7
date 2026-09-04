@@ -420,8 +420,19 @@ func ErrorLoadingGetTempPath2() error {
 //sys	CreateEnvironmentBlock(block **uint16, token syscall.Token, inheritExisting bool) (err error) = userenv.CreateEnvironmentBlock
 //sys	DestroyEnvironmentBlock(block *uint16) (err error) = userenv.DestroyEnvironmentBlock
 //sys	CreateEvent(eventAttrs *SecurityAttributes, manualReset uint32, initialState uint32, name *uint16) (handle syscall.Handle, err error) = kernel32.CreateEventW
+//sys	SetEvent(event syscall.Handle) (err error) = kernel32.SetEvent
+//sys	WaitForMultipleObjects(count uint32, handles *syscall.Handle, waitAll bool, waitMilliseconds uint32) (event uint32, err error) [failretval==0xffffffff] = kernel32.WaitForMultipleObjects
 
+//sys	ProcessPrng(buf []byte) (err error) = bcryptprimitives.ProcessPrng
+
+// RtlGenRandom is the generator used before ProcessPrng existed. It is not
+// listed in advapi32.dll under that name and has to be requested as
+// SystemFunction036.
 //sys	RtlGenRandom(buf []byte) (err error) = advapi32.SystemFunction036
+
+func ErrorLoadingProcessPrng() error {
+	return procProcessPrng.Find()
+}
 
 type FILE_ID_BOTH_DIR_INFO struct {
 	NextEntryOffset uint32

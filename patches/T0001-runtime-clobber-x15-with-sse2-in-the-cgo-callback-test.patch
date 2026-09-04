@@ -1,0 +1,43 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 17:22:25 +1200
+Subject: [PATCH] runtime: clobber X15 with SSE2 in the cgo callback test
+
+The C half of TestCgoCallbackX15 (CL 770560, Go 1.27) clobbers X15 before
+calling back into Go, to check that cgocallback restores the zero value that
+ABIInternal requires. It does so with
+
+	vmovdqu %0, %%xmm15
+
+which is VEX encoded. A VEX instruction is an invalid opcode until the
+operating system has enabled AVX, and Windows 7 does that only from Service
+Pack 1.
+
+	vmovdqu on Windows 7 RTM  ->  STATUS_ILLEGAL_INSTRUCTION
+	                          ->  the program dies before the callback
+
+Clobber the register with the SSE2 movdqu instead. It loads the same 128 bits
+from the same address, differs only in encoding, and every amd64 processor has
+SSE2.
+
+This deviates from upstream, whose clobber is always VEX.
+
+diff --git a/src/runtime/testdata/testprogcgo/callback_amd64.go b/src/runtime/testdata/testprogcgo/callback_amd64.go
+index 5466745e..d0402e24 100644
+--- a/src/runtime/testdata/testprogcgo/callback_amd64.go
++++ b/src/runtime/testdata/testprogcgo/callback_amd64.go
+@@ -13,10 +13,13 @@ package main
+ void go_callback_amd64();
+ 
+ static void call_go_callback_amd64() {
+-	// Clobber X15.
++	// Clobber X15. This is SSE2 rather than the VEX encoded vmovdqu the
++	// register invites, because VEX raises an invalid opcode unless the
++	// operating system enables AVX, and Windows 7 does that only from
++	// Service Pack 1 onwards.
+ 	uint64_t val = 42;
+ 	asm volatile(
+-		"vmovdqu %0, %%xmm15;"
++		"movdqu %0, %%xmm15;"
+ 		:
+ 		: "m" (val)
+ 		: "xmm15");

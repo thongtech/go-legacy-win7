@@ -11,12 +11,14 @@ import (
 	"errors"
 	"fmt"
 	"internal/buildcfg"
+	"internal/testenv"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"runtime/debug"
+	"sync"
 	"testing"
 
 	"golang.org/x/mod/semver"
@@ -42,11 +44,48 @@ func scriptConditions(t *testing.T) map[string]script.Cond {
 	add("case-sensitive", script.OnceCondition("$WORK filesystem is case-sensitive", isCaseSensitive))
 	add("cc", script.PrefixCondition("go env CC = <suffix> (ignoring the go/env file)", ccIs))
 	add("git", lazyBool("the 'git' executable exists and provides the standard CLI", hasWorkingGit))
+	add("net", script.PrefixCondition("can connect to external network host <suffix>", hasNet))
 	add("git-sha256", script.OnceCondition("the local 'git' version is recent enough to support sha256 object/commit hashes", gitSupportsSHA256))
 	add("trimpath", script.OnceCondition("test binary was built with -trimpath", isTrimpath))
 	add("default-cgo", lazyBool("when CGO_ENABLED=1|0 was set in make.bash", defaultCgo))
 
 	return conds
+}
+
+var scriptNetEnabled sync.Map // testing.TB → already enabled
+
+func hasNet(s *script.State, host string) (bool, error) {
+	if !testenv.HasExternalNetwork() {
+		return false, nil
+	}
+
+	// TODO(bcmills): Add a flag or environment variable to allow skipping tests
+	// for specific hosts and/or skipping all net tests except for specific hosts.
+
+	t, ok := tbFromContext(s.Context())
+	if !ok {
+		return false, errors.New("script Context unexpectedly missing testing.TB key")
+	}
+
+	if netTestSem != nil {
+		// When the number of external network connections is limited, we limit the
+		// number of net tests that can run concurrently so that the overall number
+		// of network connections won't exceed the limit.
+		_, dup := scriptNetEnabled.LoadOrStore(t, true)
+		if !dup {
+			// Acquire a net token for this test until the test completes.
+			netTestSem <- struct{}{}
+			t.Cleanup(func() {
+				<-netTestSem
+				scriptNetEnabled.Delete(t)
+			})
+		}
+	}
+
+	// Since we have confirmed that the network is available,
+	// allow cmd/go to use it.
+	s.Setenv("TESTGONETWORK", "")
+	return true, nil
 }
 
 func defaultCCIsAbsolute(s *script.State) (bool, error) {

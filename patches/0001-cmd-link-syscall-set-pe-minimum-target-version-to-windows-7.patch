@@ -1,0 +1,231 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 17:22:25 +1200
+Subject: [PATCH] cmd/link, syscall: set PE minimum target version to Windows 7
+
+Every PE binary records the oldest Windows version it can run on.
+CL 756680 (Go 1.27) raised that value from 6.1 to 10.0.
+
+	binary says "needs Windows 10"  ->  Win7 loader refuses to start it
+
+Set it back to 6.1. Only the two version constants change. The load
+configuration directory that the same CL added stays, because Windows 7 accepts
+it and later versions require it.
+
+The stamp has one side effect. Windows 8.1 and later carry a compatibility
+shim that answers kernel32!GetVersion with Windows 8 for an image stamped for
+an older Windows, unless a manifest says otherwise, so syscall.GetVersion
+would report 6.2 there.
+
+	image stamped 6.1  ->  GetVersion says 6.2 on Windows 8.1 and later
+
+Read the version from ntdll!RtlGetNtVersionNumbers instead, which the shim
+never touches, and pack it as GetVersion does. syscall.GetVersion then reports
+the same version as upstream on every Windows.
+
+diff --git a/src/cmd/link/internal/ld/ld_test.go b/src/cmd/link/internal/ld/ld_test.go
+index 3cddcf79..6ac33500 100644
+--- a/src/cmd/link/internal/ld/ld_test.go
++++ b/src/cmd/link/internal/ld/ld_test.go
+@@ -291,6 +291,59 @@ func testWindowsBuildmodeCSharedASLR(t *testing.T, useASLR bool) {
+ 	}
+ }
+ 
++// TestPEMinimumTargetVersion checks that cmd/link stamps the 6.1
++// minimum operating system and subsystem version. Both windows/386
++// and windows/amd64 are built so that the 32-bit and 64-bit PE
++// optional headers are covered whatever the host is.
++func TestPEMinimumTargetVersion(t *testing.T) {
++	testenv.MustHaveGoBuild(t)
++
++	t.Parallel()
++
++	dir := t.TempDir()
++	srcfile := filepath.Join(dir, "test.go")
++	if err := os.WriteFile(srcfile, []byte(`package main; func main() {}`), 0666); err != nil {
++		t.Fatal(err)
++	}
++
++	for _, arch := range []string{"386", "amd64"} {
++		t.Run(arch, func(t *testing.T) {
++			t.Parallel()
++
++			objfile := filepath.Join(dir, "test-"+arch+".exe")
++			cmd := testenv.Command(t, testenv.GoToolPath(t), "build", "-o", objfile, srcfile)
++			cmd.Env = append(cmd.Environ(), "GOOS=windows", "GOARCH="+arch)
++			if out, err := cmd.CombinedOutput(); err != nil {
++				t.Fatalf("build failure: %s\n%s\n", err, out)
++			}
++
++			f, err := pe.Open(objfile)
++			if err != nil {
++				t.Fatal(err)
++			}
++			defer f.Close()
++
++			var osMajor, osMinor, subMajor, subMinor uint16
++			switch oh := f.OptionalHeader.(type) {
++			case *pe.OptionalHeader32:
++				osMajor, osMinor = oh.MajorOperatingSystemVersion, oh.MinorOperatingSystemVersion
++				subMajor, subMinor = oh.MajorSubsystemVersion, oh.MinorSubsystemVersion
++			case *pe.OptionalHeader64:
++				osMajor, osMinor = oh.MajorOperatingSystemVersion, oh.MinorOperatingSystemVersion
++				subMajor, subMinor = oh.MajorSubsystemVersion, oh.MinorSubsystemVersion
++			default:
++				t.Fatalf("unexpected optional header type of %T", f.OptionalHeader)
++			}
++			if osMajor != 6 || osMinor != 1 {
++				t.Errorf("operating system version is %d.%d, want 6.1", osMajor, osMinor)
++			}
++			if subMajor != 6 || subMinor != 1 {
++				t.Errorf("subsystem version is %d.%d, want 6.1", subMajor, subMinor)
++			}
++		})
++	}
++}
++
+ // TestMemProfileCheck tests that cmd/link sets
+ // runtime.disableMemoryProfiling if the runtime.MemProfile
+ // symbol is unreachable after deadcode (and not dynlinking).
+diff --git a/src/cmd/link/internal/ld/pe.go b/src/cmd/link/internal/ld/pe.go
+index 8376ddef..eab9a7f7 100644
+--- a/src/cmd/link/internal/ld/pe.go
++++ b/src/cmd/link/internal/ld/pe.go
+@@ -281,9 +281,14 @@ type IMAGE_LOAD_CONFIG_DIRECTORY64 struct {
+ 	GuardMemcpyFunctionPointer               uint64
+ }
+ 
++// PeMinimumTargetMajorVersion and PeMinimumTargetMinorVersion are stamped
++// into the PE image as the minimum operating system and subsystem version.
++// Upstream Go uses 10.0. This fork uses 6.1, because the Windows 7 loader
++// refuses to run an image whose subsystem version is newer than the
++// running system.
+ const (
+-	PeMinimumTargetMajorVersion = 10
+-	PeMinimumTargetMinorVersion = 0
++	PeMinimumTargetMajorVersion = 6
++	PeMinimumTargetMinorVersion = 1
+ )
+ 
+ // DOS stub that prints out
+diff --git a/src/runtime/syscall_windows_test.go b/src/runtime/syscall_windows_test.go
+index 437c723d..0ff30c56 100644
+--- a/src/runtime/syscall_windows_test.go
++++ b/src/runtime/syscall_windows_test.go
+@@ -1236,6 +1236,17 @@ func TestTrueVersion(t *testing.T) {
+ 	major := uint32(byte(ver))
+ 	minor := uint32(uint8(ver >> 8))
+ 	build := uint32(uint16(ver >> 16))
++	// Binaries built by this fork declare a 6.1 subsystem version, and Windows
++	// shims GetVersion for any image whose subsystem version is older than 6.3.
++	// RtlGetVersion, which the standard library uses, is never shimmed, so above
++	// Windows 8 only check that GetVersion does not claim to be newer than the
++	// truth.
++	if wantMajor > 6 || (wantMajor == 6 && wantMinor > 2) {
++		if major > wantMajor || (major == wantMajor && minor > wantMinor) {
++			t.Errorf("GetVersion = %d.%d (Build %d), newer than the true %d.%d (Build %d)", major, minor, build, wantMajor, wantMinor, wantBuild)
++		}
++		return
++	}
+ 	if major != wantMajor || minor != wantMinor || build != wantBuild {
+ 		t.Errorf("GetVersion = %d.%d (Build %d), want %d.%d (Build %d)", major, minor, build, wantMajor, wantMinor, wantBuild)
+ 	}
+diff --git a/src/syscall/syscall_windows.go b/src/syscall/syscall_windows.go
+index b1062e14..8a250927 100644
+--- a/src/syscall/syscall_windows.go
++++ b/src/syscall/syscall_windows.go
+@@ -251,7 +251,7 @@ func NewCallbackCDecl(fn any) uintptr {
+ //sys	LoadLibrary(libname string) (handle Handle, err error) = LoadLibraryW
+ //sys	FreeLibrary(handle Handle) (err error)
+ //sys	GetProcAddress(module Handle, procname string) (proc uintptr, err error)
+-//sys	GetVersion() (ver uint32, err error)
++//sys	rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) = ntdll.RtlGetNtVersionNumbers
+ //sys	formatMessage(flags uint32, msgsrc uintptr, msgid uint32, langid uint32, buf []uint16, args *byte) (n uint32, err error) = FormatMessageW
+ //sys	ExitProcess(exitcode uint32)
+ //sys	createFile(name *uint16, access uint32, mode uint32, sa *SecurityAttributes, createmode uint32, attrs uint32, templatefile int32) (handle Handle, err error) [failretval == InvalidHandle || e1 == ERROR_ALREADY_EXISTS ] = CreateFileW
+@@ -354,6 +354,17 @@ func NewCallbackCDecl(fn any) uintptr {
+ 
+ // syscall interface implementation for other packages
+ 
++// GetVersion reports the Windows version packed as kernel32!GetVersion packs
++// it, the major version in the low byte, the minor version above it and the
++// build number in the high word. It is read from ntdll!RtlGetNtVersionNumbers,
++// so that the version compatibility shim, which reports Windows 8 to an image
++// stamped for an older Windows, does not reach it.
++func GetVersion() (ver uint32, err error) {
++	var major, minor, build uint32
++	rtlGetNtVersionNumbers(&major, &minor, &build)
++	return major | minor<<8 | (build&0xffff)<<16, nil
++}
++
+ func makeInheritSa() *SecurityAttributes {
+ 	var sa SecurityAttributes
+ 	sa.Length = uint32(unsafe.Sizeof(sa))
+diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
+index 30dcddfd..bc54e43e 100644
+--- a/src/syscall/syscall_windows_test.go
++++ b/src/syscall/syscall_windows_test.go
+@@ -6,6 +6,7 @@ package syscall_test
+ 
+ import (
+ 	"fmt"
++	"internal/syscall/windows"
+ 	"internal/testenv"
+ 	"os"
+ 	"os/exec"
+@@ -307,3 +308,20 @@ func BenchmarkErrnoString(b *testing.B) {
+ 		_ = syscall.Errno(2).Error()
+ 	}
+ }
++
++// TestGetVersion checks that GetVersion reports the version RtlGetVersion
++// does. An image stamped for Windows 7 is otherwise told Windows 8 by the
++// version compatibility shim on Windows 8.1 and later. The same code runs on
++// every Windows, so there is no second path to test.
++func TestGetVersion(t *testing.T) {
++	major, minor, build := windows.Version()
++	ver, err := syscall.GetVersion()
++	if err != nil {
++		t.Fatal(err)
++	}
++	got := [3]uint32{ver & 0xff, ver >> 8 & 0xff, ver >> 16}
++	want := [3]uint32{major, minor, build}
++	if got != want {
++		t.Errorf("GetVersion reports %v, RtlGetVersion reports %v", got, want)
++	}
++}
+diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
+index 70ac19a9..a28c012d 100644
+--- a/src/syscall/zsyscall_windows.go
++++ b/src/syscall/zsyscall_windows.go
+@@ -43,6 +43,7 @@ var (
+ 	modkernel32 = NewLazyDLL(sysdll.Add("kernel32.dll"))
+ 	modmswsock  = NewLazyDLL(sysdll.Add("mswsock.dll"))
+ 	modnetapi32 = NewLazyDLL(sysdll.Add("netapi32.dll"))
++	modntdll    = NewLazyDLL(sysdll.Add("ntdll.dll"))
+ 	modsecur32  = NewLazyDLL(sysdll.Add("secur32.dll"))
+ 	modshell32  = NewLazyDLL(sysdll.Add("shell32.dll"))
+ 	moduserenv  = NewLazyDLL(sysdll.Add("userenv.dll"))
+@@ -131,7 +132,7 @@ var (
+ 	procGetSystemTimeAsFileTime            = modkernel32.NewProc("GetSystemTimeAsFileTime")
+ 	procGetTempPathW                       = modkernel32.NewProc("GetTempPathW")
+ 	procGetTimeZoneInformation             = modkernel32.NewProc("GetTimeZoneInformation")
+-	procGetVersion                         = modkernel32.NewProc("GetVersion")
++	procRtlGetNtVersionNumbers             = modntdll.NewProc("RtlGetNtVersionNumbers")
+ 	procInitializeProcThreadAttributeList  = modkernel32.NewProc("InitializeProcThreadAttributeList")
+ 	procLoadLibraryW                       = modkernel32.NewProc("LoadLibraryW")
+ 	procLocalAlloc                         = modkernel32.NewProc("LocalAlloc")
+@@ -895,12 +896,8 @@ func GetTimeZoneInformation(tzi *Timezoneinformation) (rc uint32, err error) {
+ 	return
+ }
+ 
+-func GetVersion() (ver uint32, err error) {
+-	r0, _, e1 := SyscallN(procGetVersion.Addr())
+-	ver = uint32(r0)
+-	if ver == 0 {
+-		err = errnoErr(e1)
+-	}
++func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
++	SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
+ 	return
+ }
+ 

@@ -288,6 +288,56 @@ TEXT	sync∕atomic·AddUintptr(SB), NOSPLIT, $0-24
 	GO_ARGS
 	JMP	sync∕atomic·AddInt64(SB)
 
+// And
+TEXT	sync∕atomic·AndInt32(SB), NOSPLIT, $0-20
+	GO_ARGS
+	MOV	$__tsan_go_atomic32_fetch_and(SB), X23
+	CALL	racecallatomic<>(SB)
+	RET
+
+TEXT	sync∕atomic·AndInt64(SB), NOSPLIT, $0-24
+	GO_ARGS
+	MOV	$__tsan_go_atomic64_fetch_and(SB), X23
+	CALL	racecallatomic<>(SB)
+	RET
+
+TEXT	sync∕atomic·AndUint32(SB), NOSPLIT, $0-20
+	GO_ARGS
+	JMP	sync∕atomic·AndInt32(SB)
+
+TEXT	sync∕atomic·AndUint64(SB), NOSPLIT, $0-24
+	GO_ARGS
+	JMP	sync∕atomic·AndInt64(SB)
+
+TEXT	sync∕atomic·AndUintptr(SB), NOSPLIT, $0-24
+	GO_ARGS
+	JMP	sync∕atomic·AndInt64(SB)
+
+// Or
+TEXT	sync∕atomic·OrInt32(SB), NOSPLIT, $0-20
+	GO_ARGS
+	MOV	$__tsan_go_atomic32_fetch_or(SB), X23
+	CALL	racecallatomic<>(SB)
+	RET
+
+TEXT	sync∕atomic·OrInt64(SB), NOSPLIT, $0-24
+	GO_ARGS
+	MOV	$__tsan_go_atomic64_fetch_or(SB), X23
+	CALL	racecallatomic<>(SB)
+	RET
+
+TEXT	sync∕atomic·OrUint32(SB), NOSPLIT, $0-20
+	GO_ARGS
+	JMP	sync∕atomic·OrInt32(SB)
+
+TEXT	sync∕atomic·OrUint64(SB), NOSPLIT, $0-24
+	GO_ARGS
+	JMP	sync∕atomic·OrInt64(SB)
+
+TEXT	sync∕atomic·OrUintptr(SB), NOSPLIT, $0-24
+	GO_ARGS
+	JMP	sync∕atomic·OrInt64(SB)
+
 // CompareAndSwap
 
 TEXT	sync∕atomic·CompareAndSwapInt32(SB), NOSPLIT, $0-17

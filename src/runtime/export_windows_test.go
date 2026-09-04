@@ -25,3 +25,21 @@ func NumberOfProcessors() int32 {
 func GetCallerFp() uintptr {
 	return getcallerfp()
 }
+
+func LoadSystemLib(name []uint16) uintptr {
+	return windowsLoadSystemLib(name)
+}
+
+func LoadSystemLibFromSysDir(name []uint16) uintptr {
+	return loadSystemLibFromSysDir(name)
+}
+
+// ReadRandomFromRtlGenRandom reads through RtlGenRandom, loaded the way
+// loadOptionalSyscalls loads it when ProcessPrng is unavailable.
+func ReadRandomFromRtlGenRandom(r []byte) int {
+	fn := loadRtlGenRandom()
+	if fn == nil {
+		return 0
+	}
+	return readRandomFrom(fn, r)
+}

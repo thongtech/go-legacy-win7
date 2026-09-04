@@ -1,0 +1,191 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 17:22:25 +1200
+Subject: [PATCH] internal/syscall/windows: clear the read-only attribute on a directory
+
+os.RemoveAll leaves a read-only directory behind before Windows 10, version
+1809, where the kernel gained a flag that ignores the attribute. The files
+inside are deleted and the directory remains. CL 713480 (Go 1.26) gave Deleteat
+a fallback that clears the read-only bit, and CL 661575 (Go 1.25) made
+RemoveAll use Deleteat.
+
+	RemoveAll  ->  Deleteat  ->  ReOpenFile clears read-only
+	                         ->  works on a file, refuses a directory
+
+Open the name again instead of reopening the handle, because NtOpenFile accepts
+a directory where ReOpenFile refuses one, and check that the name still leads
+to the same entry before touching its attributes, since a name can change
+hands between the two opens.
+
+This is not specific to Windows 7. Forcing the fallback reproduces the problem
+on Windows 11.
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index b945e32a..19863eaf 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -339,7 +339,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+ 	defer syscall.CloseHandle(h)
+ 
+ 	if TestDeleteatFallback {
+-		return deleteatFallback(h)
++		return deleteatFallback(h, objAttrs)
+ 	}
+ 
+ 	const FileDispositionInformationEx = 64
+@@ -374,7 +374,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+ 	case STATUS_INVALID_INFO_CLASS, // the operating system doesn't support FileDispositionInformationEx
+ 		STATUS_INVALID_PARAMETER, // the operating system doesn't support one of the flags
+ 		STATUS_NOT_SUPPORTED:     // the file system doesn't support FILE_DISPOSITION_INFORMATION_EX or one of the flags
+-		return deleteatFallback(h)
++		return deleteatFallback(h, objAttrs)
+ 	default:
+ 		return err.(NTStatus).Errno()
+ 	}
+@@ -384,30 +384,50 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+ // When set, [Deleteat] uses the fallback path unconditionally.
+ var TestDeleteatFallback bool
+ 
++// TestDeleteatBeforeReopen should only be used for testing purposes. When
++// set, the fallback calls it before opening the name again to clear the
++// read-only attribute, so that a test can give the name to another file.
++var TestDeleteatBeforeReopen func()
++
+ // deleteatFallback is a deleteat implementation that strives
+ // for compatibility with older Windows versions and file systems
+ // over performance.
+-func deleteatFallback(h syscall.Handle) error {
++func deleteatFallback(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES) error {
+ 	var data syscall.ByHandleFileInformation
+ 	if err := syscall.GetFileInformationByHandle(h, &data); err == nil && data.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
+-		// Remove read-only attribute. Reopen the file, as it was previously open without FILE_WRITE_ATTRIBUTES access
+-		// in order to maximize compatibility in the happy path.
+-		wh, err := ReOpenFile(h,
+-			FILE_WRITE_ATTRIBUTES,
+-			FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+-			syscall.FILE_FLAG_OPEN_REPARSE_POINT|syscall.FILE_FLAG_BACKUP_SEMANTICS,
++		// Remove read-only attribute. Open the name again, as it was previously open without FILE_WRITE_ATTRIBUTES
++		// access in order to maximize compatibility in the happy path. ReOpenFile would serve for a file, but it
++		// refuses a directory with ERROR_ACCESS_DENIED, and a read-only directory has to be cleared like any other.
++		if TestDeleteatBeforeReopen != nil {
++			TestDeleteatBeforeReopen()
++		}
++		var wh syscall.Handle
++		err := NtOpenFile(
++			&wh,
++			SYNCHRONIZE|FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES,
++			objAttrs,
++			&IO_STATUS_BLOCK{},
++			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
++			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
+ 		)
+ 		if err != nil {
+-			return err
++			return ntCreateFileError(err, 0)
++		}
++		// The name may have changed hands since h was opened. Clear the attribute only
++		// on the entry h holds, and otherwise go on with the attribute in place.
++		var again syscall.ByHandleFileInformation
++		if syscall.GetFileInformationByHandle(wh, &again) == nil &&
++			again.VolumeSerialNumber == data.VolumeSerialNumber &&
++			again.FileIndexHigh == data.FileIndexHigh && again.FileIndexLow == data.FileIndexLow {
++			err = SetFileInformationByHandle(
++				wh,
++				FileBasicInfo,
++				unsafe.Pointer(&FILE_BASIC_INFO{
++					FileAttributes: data.FileAttributes &^ FILE_ATTRIBUTE_READONLY,
++				}),
++				uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
++			)
+ 		}
+-		err = SetFileInformationByHandle(
+-			wh,
+-			FileBasicInfo,
+-			unsafe.Pointer(&FILE_BASIC_INFO{
+-				FileAttributes: data.FileAttributes &^ FILE_ATTRIBUTE_READONLY,
+-			}),
+-			uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
+-		)
+ 		syscall.CloseHandle(wh)
+ 		if err != nil {
+ 			return err
+diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
+index e1e1cc4d..5996967a 100644
+--- a/src/os/path_windows_test.go
++++ b/src/os/path_windows_test.go
+@@ -247,6 +247,19 @@ func TestRemoveAllFallback(t *testing.T) {
+ 	if err := os.WriteFile(filepath.Join(dir, "file2"), []byte{}, 0400); err != nil { // read-only file
+ 		t.Fatal(err)
+ 	}
++	// A read-only directory, which the read-only attribute has to be cleared
++	// from just as it does for a file. Windows 10, version 1809 asks the
++	// kernel to ignore the attribute instead, so only the fallback meets this.
++	sub := filepath.Join(dir, "dir")
++	if err := os.Mkdir(sub, 0777); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(sub, "file3"), []byte{}, 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Chmod(sub, 0555); err != nil {
++		t.Fatal(err)
++	}
+ 
+ 	if err := os.RemoveAll(dir); err != nil {
+ 		t.Fatal(err)
+@@ -370,3 +383,56 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
+ 		os.AddExtendedPrefix(veryLong)
+ 	}
+ }
++
++// TestRemoveFallbackReadOnlySwapped checks that the fallback clears the
++// read-only attribute only on the entry it is deleting. Between the open that
++// found the attribute and the open that clears it, the name is given to
++// another read-only directory, which has to keep its attribute. Whether the
++// original can still be deleted with its attribute in place is up to the
++// kernel and is not checked. Only the fallback is covered, for the reason
++// given at TestRemoveFallbackOpenFile.
++func TestRemoveFallbackReadOnlySwapped(t *testing.T) {
++	windows.TestDeleteatFallback = true
++	t.Cleanup(func() { windows.TestDeleteatFallback = false })
++
++	dir := t.TempDir()
++	for _, name := range []string{"target", "other"} {
++		// Mkdir does not set the read-only attribute on Windows, Chmod does.
++		if err := os.Mkdir(filepath.Join(dir, name), 0700); err != nil {
++			t.Fatal(err)
++		}
++		if err := os.Chmod(filepath.Join(dir, name), 0500); err != nil {
++			t.Fatal(err)
++		}
++	}
++	t.Cleanup(func() {
++		for _, name := range []string{"target", "other", "moved"} {
++			os.Chmod(filepath.Join(dir, name), 0700)
++		}
++	})
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++
++	windows.TestDeleteatBeforeReopen = func() {
++		windows.TestDeleteatBeforeReopen = nil
++		if err := root.Rename("target", "moved"); err != nil {
++			t.Error(err)
++		}
++		if err := root.Rename("other", "target"); err != nil {
++			t.Error(err)
++		}
++	}
++	t.Cleanup(func() { windows.TestDeleteatBeforeReopen = nil })
++
++	root.Remove("target")
++	fi, err := os.Stat(filepath.Join(dir, "target"))
++	if err != nil {
++		t.Fatalf("the directory that took the name: %v", err)
++	}
++	if fi.Mode()&0200 != 0 {
++		t.Error("the directory that took the name lost its read-only attribute")
++	}
++}

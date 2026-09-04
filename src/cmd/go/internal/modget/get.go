@@ -130,7 +130,6 @@ See also: go build, go install, go clean, go mod.
 	`,
 }
 
-
 // Note that this help text is a stopgap to make the module-aware get help text
 // available even in non-module settings. It should be deleted when the old get
 // is deleted. It should NOT be considered to set a precedent of having hierarchical

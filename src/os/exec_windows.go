@@ -45,16 +45,6 @@ func (p *Process) wait() (ps *ProcessState, err error) {
 		return nil, NewSyscallError("GetProcessTimes", e)
 	}
 
-	// NOTE(brainman): It seems that sometimes process is not dead
-	// when WaitForSingleObject returns. But we do not know any
-	// other way to wait for it. Sleeping for a while seems to do
-	// the trick sometimes.
-	// See https://golang.org/issue/25965 for details.
-	_, isWin10AndAbove := syscall.WindowsVersion()
-	if !isWin10AndAbove {
-		defer time.Sleep(5 * time.Millisecond)
-	}
-
 	// For compatibility we use statusReleased here rather
 	// than statusDone.
 	p.doRelease(statusReleased)

@@ -8,6 +8,8 @@ import (
 	"internal/oserror"
 	"runtime"
 	"structs"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"unsafe"
 )
@@ -29,6 +31,33 @@ const (
 	O_NOFOLLOW_ANY = 0x200000000 // disallow symlinks anywhere in the path
 	O_WRITE_ATTRS  = 0x800000000 // FILE_WRITE_ATTRIBUTES, used by Chmod
 )
+
+// objDontReparseUnsupported records that this kernel rejected
+// OBJ_DONT_REPARSE, which Windows 7 does. The retry opens with
+// FILE_OPEN_REPARSE_POINT instead, so a reparse point is returned rather than
+// followed and Openat reports STATUS_REPARSE_POINT_ENCOUNTERED itself.
+var objDontReparseUnsupported atomic.Bool
+
+// isReparsePoint reports whether h refers to a reparse point.
+func isReparsePoint(h syscall.Handle) (bool, error) {
+	var d syscall.ByHandleFileInformation
+	if err := syscall.GetFileInformationByHandle(h, &d); err != nil {
+		return false, err
+	}
+	return d.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0, nil
+}
+
+// TestOpenatNoObjDontReparse should only be used for testing purposes.
+// When set, [Openat] behaves as it does on a kernel without
+// OBJ_DONT_REPARSE.
+var TestOpenatNoObjDontReparse bool
+
+// ObjDontReparseUnsupportedForTest should only be used for testing purposes.
+// It reports whether [Openat] has concluded that this kernel rejects
+// OBJ_DONT_REPARSE.
+func ObjDontReparseUnsupportedForTest() bool {
+	return objDontReparseUnsupported.Load()
+}
 
 func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ syscall.Handle, e1 error) {
 	if len(name) == 0 {
@@ -106,8 +135,14 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
 	access |= STANDARD_RIGHTS_READ | FILE_READ_ATTRIBUTES | FILE_READ_EA
 
 	objAttrs := &OBJECT_ATTRIBUTES{}
-	if flag&O_NOFOLLOW_ANY != 0 {
+	noFollow := flag&O_NOFOLLOW_ANY != 0
+	emulateNoFollow := noFollow && (objDontReparseUnsupported.Load() || TestOpenatNoObjDontReparse)
+	if noFollow && !emulateNoFollow {
 		objAttrs.Attributes |= OBJ_DONT_REPARSE
+	}
+	if emulateNoFollow {
+		// Emulate OBJ_DONT_REPARSE. See objDontReparseUnsupported.
+		options |= FILE_OPEN_REPARSE_POINT
 	}
 	if flag&syscall.O_CLOEXEC == 0 {
 		objAttrs.Attributes |= OBJ_INHERIT
@@ -141,21 +176,51 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
 	}
 
 	var h syscall.Handle
-	err := NtCreateFile(
-		&h,
-		SYNCHRONIZE|access,
-		objAttrs,
-		&IO_STATUS_BLOCK{},
-		nil,
-		fileAttrs,
-		FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-		disposition,
-		FILE_OPEN_FOR_BACKUP_INTENT|options,
-		nil,
-		0,
-	)
+	create := func() error {
+		return NtCreateFile(
+			&h,
+			SYNCHRONIZE|access,
+			objAttrs,
+			&IO_STATUS_BLOCK{},
+			nil,
+			fileAttrs,
+			FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+			disposition,
+			FILE_OPEN_FOR_BACKUP_INTENT|options,
+			nil,
+			0,
+		)
+	}
+	err := create()
+	if err == STATUS_INVALID_PARAMETER && objAttrs.Attributes&OBJ_DONT_REPARSE != 0 {
+		// STATUS_INVALID_PARAMETER has two causes here. One is a kernel
+		// that does not know OBJ_DONT_REPARSE. The other is an open asking
+		// for a directory and a non-directory at once, which a trailing
+		// separator on a file does. Dropping the attribute cannot fix the
+		// second, so retry without it and take the kernel to lack it only
+		// if STATUS_INVALID_PARAMETER goes away.
+		objAttrs.Attributes &^= OBJ_DONT_REPARSE
+		options |= FILE_OPEN_REPARSE_POINT
+		if retry := create(); retry != STATUS_INVALID_PARAMETER {
+			objDontReparseUnsupported.Store(true)
+			emulateNoFollow = true
+			err = retry
+		}
+	}
 	if err != nil {
 		return h, ntCreateFileError(err, flag)
+	}
+	if emulateNoFollow && fileFlags&O_FILE_FLAG_OPEN_REPARSE_POINT == 0 {
+		// The emulated OBJ_DONT_REPARSE refusal.
+		isLink, err := isReparsePoint(h)
+		if err != nil {
+			syscall.CloseHandle(h)
+			return syscall.InvalidHandle, err
+		}
+		if isLink {
+			syscall.CloseHandle(h)
+			return syscall.InvalidHandle, ntCreateFileError(STATUS_REPARSE_POINT_ENCOUNTERED, flag)
+		}
 	}
 
 	if flag&syscall.O_TRUNC != 0 {
@@ -275,7 +340,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
 	defer syscall.CloseHandle(h)
 
 	if TestDeleteatFallback {
-		return deleteatFallback(h)
+		return deleteatFallback(h, objAttrs, name)
 	}
 
 	const FileDispositionInformationEx = 64
@@ -310,7 +375,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
 	case STATUS_INVALID_INFO_CLASS, // the operating system doesn't support FileDispositionInformationEx
 		STATUS_INVALID_PARAMETER, // the operating system doesn't support one of the flags
 		STATUS_NOT_SUPPORTED:     // the file system doesn't support FILE_DISPOSITION_INFORMATION_EX or one of the flags
-		return deleteatFallback(h)
+		return deleteatFallback(h, objAttrs, name)
 	default:
 		return err.(NTStatus).Errno()
 	}
@@ -320,43 +385,179 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
 // When set, [Deleteat] uses the fallback path unconditionally.
 var TestDeleteatFallback bool
 
+// TestDeleteatBeforeReopen should only be used for testing purposes. When
+// set, the fallback calls it before opening the name again to clear the
+// read-only attribute, so that a test can give the name to another file.
+var TestDeleteatBeforeReopen func()
+
 // deleteatFallback is a deleteat implementation that strives
 // for compatibility with older Windows versions and file systems
 // over performance.
-func deleteatFallback(h syscall.Handle) error {
+func deleteatFallback(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string) error {
 	var data syscall.ByHandleFileInformation
-	if err := syscall.GetFileInformationByHandle(h, &data); err == nil && data.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
-		// Remove read-only attribute. Reopen the file, as it was previously open without FILE_WRITE_ATTRIBUTES access
-		// in order to maximize compatibility in the happy path.
-		wh, err := ReOpenFile(h,
-			FILE_WRITE_ATTRIBUTES,
-			FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
-			syscall.FILE_FLAG_OPEN_REPARSE_POINT|syscall.FILE_FLAG_BACKUP_SEMANTICS,
+	haveData := syscall.GetFileInformationByHandle(h, &data) == nil
+	if haveData && data.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
+		// Remove read-only attribute. Open the name again, as it was previously open without FILE_WRITE_ATTRIBUTES
+		// access in order to maximize compatibility in the happy path. ReOpenFile would serve for a file, but it
+		// refuses a directory with ERROR_ACCESS_DENIED, and a read-only directory has to be cleared like any other.
+		if TestDeleteatBeforeReopen != nil {
+			TestDeleteatBeforeReopen()
+		}
+		var wh syscall.Handle
+		err := NtOpenFile(
+			&wh,
+			SYNCHRONIZE|FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES,
+			objAttrs,
+			&IO_STATUS_BLOCK{},
+			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
 		)
 		if err != nil {
-			return err
+			return ntCreateFileError(err, 0)
 		}
-		err = SetFileInformationByHandle(
-			wh,
-			FileBasicInfo,
-			unsafe.Pointer(&FILE_BASIC_INFO{
-				FileAttributes: data.FileAttributes &^ FILE_ATTRIBUTE_READONLY,
-			}),
-			uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
-		)
+		// The name may have changed hands since h was opened. Clear the attribute only
+		// on the entry h holds, and otherwise go on with the attribute in place.
+		var again syscall.ByHandleFileInformation
+		if syscall.GetFileInformationByHandle(wh, &again) == nil &&
+			again.VolumeSerialNumber == data.VolumeSerialNumber &&
+			again.FileIndexHigh == data.FileIndexHigh && again.FileIndexLow == data.FileIndexLow {
+			err = SetFileInformationByHandle(
+				wh,
+				FileBasicInfo,
+				unsafe.Pointer(&FILE_BASIC_INFO{
+					FileAttributes: data.FileAttributes &^ FILE_ATTRIBUTE_READONLY,
+				}),
+				uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
+			)
+		}
 		syscall.CloseHandle(wh)
 		if err != nil {
 			return err
 		}
 	}
 
-	return SetFileInformationByHandle(
+	// Without POSIX semantics the name lives on until the last handle to the
+	// file closes. A caller still holding the file open would go on seeing
+	// the name, and the directory holding it could not be removed. Move the
+	// file aside first, so that the name goes now and the file itself goes
+	// when the last handle does. Leave directories where they are, since
+	// deleting one has to fail while it still has entries and moving it
+	// first would scatter the tree.
+	aside := haveData &&
+		data.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 &&
+		setAsideForDelete(h, objAttrs, &data)
+
+	err := SetFileInformationByHandle(
 		h,
 		FileDispositionInfo,
 		unsafe.Pointer(&FILE_DISPOSITION_INFO{
 			DeleteFile: 1,
 		}),
 		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
+	)
+	if err != nil && aside {
+		// The file is staying. Put the name back unless something else has
+		// taken it since. The file is better off a stray in the staging
+		// directory than in the place of that.
+		if p16, err := syscall.UTF16FromString(name); err == nil {
+			renameTo(h, objAttrs.RootDirectory, p16[:len(p16)-1], false)
+		}
+	}
+	return err
+}
+
+// deleteStagingDir is a directory to park a file that cannot go away at once,
+// with the volume it sits on. Parking a file there takes it out of the tree a
+// caller is removing.
+type deleteStagingDir struct {
+	h      syscall.Handle
+	volume uint32
+	ok     bool
+}
+
+var deleteStaging = sync.OnceValue(func() (s deleteStagingDir) {
+	var buf []uint16
+	n := uint32(syscall.MAX_PATH)
+	for {
+		buf = make([]uint16, n)
+		var err error
+		n, err = syscall.GetTempPath(uint32(len(buf)), &buf[0])
+		if err != nil || n == 0 {
+			return
+		}
+		if n <= uint32(len(buf)) {
+			break
+		}
+	}
+	h, err := syscall.CreateFile(
+		&buf[0],
+		syscall.GENERIC_READ,
+		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
+		nil,
+		syscall.OPEN_EXISTING,
+		syscall.FILE_FLAG_BACKUP_SEMANTICS,
+		0,
+	)
+	if err != nil {
+		return
+	}
+	var data syscall.ByHandleFileInformation
+	if err := syscall.GetFileInformationByHandle(h, &data); err != nil {
+		syscall.CloseHandle(h)
+		return
+	}
+	return deleteStagingDir{h: h, volume: data.VolumeSerialNumber, ok: true}
+})
+
+// setAsideForDelete moves the file open on h off the name it was reached by,
+// preferring the staging directory so that the file leaves the tree entirely.
+// A rename cannot cross volumes, and it needs every other handle to the file
+// to share deletion, so this reports whether it happened.
+func setAsideForDelete(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, data *syscall.ByHandleFileInformation) bool {
+	dir := objAttrs.RootDirectory
+	if s := deleteStaging(); s.ok && s.volume == data.VolumeSerialNumber {
+		dir = s.h
+	}
+	if dir == 0 {
+		return false
+	}
+	// The volume already keeps an identifier unique to the file, so two
+	// files set aside at the same time cannot land on the same name.
+	const hex = "0123456789abcdef"
+	name := make([]uint16, 0, len(".go-deleted-")+16)
+	for _, c := range ".go-deleted-" {
+		name = append(name, uint16(c))
+	}
+	for _, v := range [2]uint32{data.FileIndexHigh, data.FileIndexLow} {
+		for shift := 28; shift >= 0; shift -= 4 {
+			name = append(name, uint16(hex[(v>>uint(shift))&0xf]))
+		}
+	}
+	return renameTo(h, dir, name, true) == nil
+}
+
+// renameTo renames the file open on h to name within dir, which has to be on
+// the volume the file is already on. Whatever holds the name already is
+// replaced only if replace is set.
+func renameTo(h syscall.Handle, dir syscall.Handle, name []uint16, replace bool) error {
+	info := FILE_RENAME_INFORMATION{
+		RootDirectory: dir,
+	}
+	if replace {
+		info.ReplaceIfExists = 1
+	}
+	if len(name) > len(info.FileName) {
+		return syscall.EINVAL
+	}
+	copy(info.FileName[:], name)
+	info.FileNameLength = uint32(len(name) * 2)
+	const FileRenameInformation = 10
+	return NtSetInformationFile(
+		h,
+		&IO_STATUS_BLOCK{},
+		unsafe.Pointer(&info),
+		uint32(unsafe.Sizeof(info)),
+		FileRenameInformation,
 	)
 }
 
@@ -366,14 +567,22 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, 
 		return err
 	}
 	var h syscall.Handle
-	err := NtOpenFile(
-		&h,
-		SYNCHRONIZE|DELETE,
-		objAttrs,
-		&IO_STATUS_BLOCK{},
-		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
-		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
-	)
+	open := func(access uint32) error {
+		return NtOpenFile(
+			&h,
+			access,
+			objAttrs,
+			&IO_STATUS_BLOCK{},
+			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
+		)
+	}
+	// FILE_READ_ATTRIBUTES is for isDirectory. A file can grant deletion
+	// without it, so then ask for what the rename needs alone.
+	err := open(SYNCHRONIZE | DELETE | FILE_READ_ATTRIBUTES)
+	if err == STATUS_ACCESS_DENIED {
+		err = open(SYNCHRONIZE | DELETE)
+	}
 	if err != nil {
 		return ntCreateFileError(err, 0)
 	}
@@ -398,16 +607,24 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, 
 		FileRenameInformation   = 10
 		FileRenameInformationEx = 65
 	)
-	err = NtSetInformationFile(
-		h,
-		&IO_STATUS_BLOCK{},
-		unsafe.Pointer(&renameInfoEx),
-		uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION_EX{})),
-		FileRenameInformationEx,
-	)
-	if err == nil {
-		return nil
+	if !TestRenameatNoPosixSemantics {
+		err = NtSetInformationFile(
+			h,
+			&IO_STATUS_BLOCK{},
+			unsafe.Pointer(&renameInfoEx),
+			uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION_EX{})),
+			FileRenameInformationEx,
+		)
+		if err == nil {
+			return nil
+		}
 	}
+	// A kernel or a file system without POSIX rename semantics answers with one
+	// of these. Any other answer is a refusal by one that has them, which the
+	// fallback below leaves standing, so that a program sees the same result as
+	// with an unpatched toolchain.
+	noPosixSemantics := TestRenameatNoPosixSemantics ||
+		err == STATUS_INVALID_INFO_CLASS || err == STATUS_INVALID_PARAMETER || err == STATUS_NOT_SUPPORTED
 
 	// If the prior rename failed, the filesystem might not support
 	// POSIX semantics (for example, FAT), or might not have implemented
@@ -421,17 +638,130 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, 
 	copy(renameInfo.FileName[:], p16)
 	renameInfo.FileNameLength = renameInfoEx.FileNameLength
 
-	err = NtSetInformationFile(
-		h,
-		&IO_STATUS_BLOCK{},
-		unsafe.Pointer(&renameInfo),
-		uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION{})),
-		FileRenameInformation,
-	)
+	renameFile := func() error {
+		return NtSetInformationFile(
+			h,
+			&IO_STATUS_BLOCK{},
+			unsafe.Pointer(&renameInfo),
+			uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION{})),
+			FileRenameInformation,
+		)
+	}
+	err = renameFile()
+	if err == STATUS_ACCESS_DENIED && noPosixSemantics && !isDirectory(h) {
+		// Without POSIX semantics the rename cannot replace a link, which counts as a
+		// directory, or a file another handle holds open. A rename with POSIX semantics
+		// replaces both. Move the destination aside and rename again. The moved copy is
+		// deleted once the rename has succeeded and moved back if it has not, so that a
+		// crash between the steps leaves an extra file rather than a missing one.
+		//
+		// A directory source is left to the plain rename. With POSIX semantics a
+		// directory replaces an idle file, which the plain rename does as well, and
+		// nothing else.
+		if replaced, rerr := replaceRenameTarget(newdirfd, newpath, renameFile); replaced {
+			err = rerr
+		}
+	}
 	if st, ok := err.(NTStatus); ok {
 		return st.Errno()
 	}
 	return err
+}
+
+// isDirectory reports whether h is open on a directory itself, rather than on
+// a file or on a link that stands in for a directory. When it cannot tell it
+// says yes, which only ever leaves a rename target in place.
+func isDirectory(h syscall.Handle) bool {
+	var d syscall.ByHandleFileInformation
+	if err := syscall.GetFileInformationByHandle(h, &d); err != nil {
+		return true
+	}
+	const dirOrLink = syscall.FILE_ATTRIBUTE_DIRECTORY | syscall.FILE_ATTRIBUTE_REPARSE_POINT
+	return d.FileAttributes&dirOrLink == syscall.FILE_ATTRIBUTE_DIRECTORY
+}
+
+// TestRenameatNoPosixSemantics should only be used for testing purposes.
+// When set, [Renameat] behaves as it does on a kernel without
+// FileRenameInformationEx.
+var TestRenameatNoPosixSemantics bool
+
+// TestRenameatRetryFails should only be used for testing purposes. When set,
+// the rename [Renameat] retries after moving the destination aside fails, as
+// it would if the source had become unrenamable in between.
+var TestRenameatRetryFails bool
+
+// nameSurrogateBit is set in the reparse tag of a reparse point that stands in
+// for another named entity, a symlink or a mount point, rather than one that
+// merely carries data for a filter driver.
+const nameSurrogateBit = 0x20000000
+
+// replaceRenameTarget stands in for a rename with POSIX semantics where the
+// kernel has none. It moves the destination aside, calls rename again, and
+// deletes the moved copy once that has succeeded, or moves it back when it has
+// not. It leaves alone what a rename with POSIX semantics refuses, a directory
+// that is not a link and a read-only file. It reports whether the second
+// rename was reached, and that rename's result.
+func replaceRenameTarget(dirfd syscall.Handle, name string, rename func() error) (bool, error) {
+	objAttrs := &OBJECT_ATTRIBUTES{}
+	if err := objAttrs.init(dirfd, name); err != nil {
+		return false, nil
+	}
+	var th syscall.Handle
+	err := NtOpenFile(
+		&th,
+		SYNCHRONIZE|DELETE|FILE_READ_ATTRIBUTES,
+		objAttrs,
+		&IO_STATUS_BLOCK{},
+		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
+	)
+	if err != nil {
+		return false, nil
+	}
+	defer syscall.CloseHandle(th)
+
+	var data syscall.ByHandleFileInformation
+	if err := syscall.GetFileInformationByHandle(th, &data); err != nil {
+		return false, nil
+	}
+	if data.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
+		return false, nil
+	}
+	if data.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
+		var info FILE_ATTRIBUTE_TAG_INFO
+		err := GetFileInformationByHandleEx(th, FileAttributeTagInfo, (*byte)(unsafe.Pointer(&info)), uint32(unsafe.Sizeof(info)))
+		if err != nil || info.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT == 0 || info.ReparseTag&nameSurrogateBit == 0 {
+			return false, nil
+		}
+	}
+	if !setAsideForDelete(th, objAttrs, &data) {
+		return false, nil
+	}
+
+	if TestRenameatRetryFails {
+		err = STATUS_ACCESS_DENIED
+	} else {
+		err = rename()
+	}
+	if err != nil {
+		// Put the destination back. If something has taken its name since, it
+		// stays where it was moved to, a stray rather than a loss.
+		if p16, e := syscall.UTF16FromString(name); e == nil {
+			renameTo(th, objAttrs.RootDirectory, p16[:len(p16)-1], false)
+		}
+		return true, err
+	}
+
+	// The name has changed hands. The moved copy goes with its last handle.
+	SetFileInformationByHandle(
+		th,
+		FileDispositionInfo,
+		unsafe.Pointer(&FILE_DISPOSITION_INFO{
+			DeleteFile: 1,
+		}),
+		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
+	)
+	return true, nil
 }
 
 func Linkat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, newpath string) error {

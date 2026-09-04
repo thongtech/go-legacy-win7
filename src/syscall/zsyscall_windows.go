@@ -129,11 +129,10 @@ var (
 	procGetShortPathNameW                  = modkernel32.NewProc("GetShortPathNameW")
 	procGetStartupInfoW                    = modkernel32.NewProc("GetStartupInfoW")
 	procGetStdHandle                       = modkernel32.NewProc("GetStdHandle")
-	procGetSystemDirectoryW                = modkernel32.NewProc("GetSystemDirectoryW")
 	procGetSystemTimeAsFileTime            = modkernel32.NewProc("GetSystemTimeAsFileTime")
 	procGetTempPathW                       = modkernel32.NewProc("GetTempPathW")
 	procGetTimeZoneInformation             = modkernel32.NewProc("GetTimeZoneInformation")
-	procGetVersion                         = modkernel32.NewProc("GetVersion")
+	procRtlGetNtVersionNumbers             = modntdll.NewProc("RtlGetNtVersionNumbers")
 	procInitializeProcThreadAttributeList  = modkernel32.NewProc("InitializeProcThreadAttributeList")
 	procLoadLibraryW                       = modkernel32.NewProc("LoadLibraryW")
 	procLocalAlloc                         = modkernel32.NewProc("LocalAlloc")
@@ -172,7 +171,6 @@ var (
 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
-	procRtlGetVersion                      = modntdll.NewProc("RtlGetVersion")
 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
 	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
 	procGetUserProfileDirectoryW           = moduserenv.NewProc("GetUserProfileDirectoryW")
@@ -875,15 +873,6 @@ func GetStdHandle(stdhandle int) (handle Handle, err error) {
 	return
 }
 
-func getSystemDirectory(dir *uint16, dirLen uint32) (len uint32, err error) {
-	r0, _, e1 := Syscall(procGetSystemDirectoryW.Addr(), 2, uintptr(unsafe.Pointer(dir)), uintptr(dirLen), 0)
-	len = uint32(r0)
-	if len == 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
 func GetSystemTimeAsFileTime(time *Filetime) {
 	SyscallN(procGetSystemTimeAsFileTime.Addr(), uintptr(unsafe.Pointer(time)))
 	return
@@ -907,12 +896,8 @@ func GetTimeZoneInformation(tzi *Timezoneinformation) (rc uint32, err error) {
 	return
 }
 
-func GetVersion() (ver uint32, err error) {
-	r0, _, e1 := SyscallN(procGetVersion.Addr())
-	ver = uint32(r0)
-	if ver == 0 {
-		err = errnoErr(e1)
-	}
+func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
+	SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
 	return
 }
 
@@ -1246,11 +1231,6 @@ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err er
 	if r1&0xff == 0 {
 		err = errnoErr(e1)
 	}
-	return
-}
-
-func rtlGetVersion(info *_OSVERSIONINFOW) {
-	Syscall(procRtlGetVersion.Addr(), 1, uintptr(unsafe.Pointer(info)), 0, 0)
 	return
 }
 

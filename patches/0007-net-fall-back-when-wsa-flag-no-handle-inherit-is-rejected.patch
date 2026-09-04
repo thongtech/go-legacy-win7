@@ -1,0 +1,129 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 17:22:25 +1200
+Subject: [PATCH] net: fall back when WSA_FLAG_NO_HANDLE_INHERIT is rejected
+
+Creating a socket asks for WSA_FLAG_NO_HANDLE_INHERIT so that child processes
+do not inherit the handle. The flag was added in Windows 7 Service Pack 1, so
+Windows 7 RTM rejects it. Go used to retry without the flag, and
+CL 506136 (Go 1.22) removed that retry.
+
+	WSASocket(..., OVERLAPPED|NO_HANDLE_INHERIT)  ->  WSAEINVAL on Win7 RTM
+	WSASocket(..., OVERLAPPED)                    ->  ok, then CloseOnExec
+
+Retry without the flag and clear inheritance afterwards with CloseOnExec, in
+sysSocket and in dupSocket, which FileConn uses. The old retry held
+syscall.ForkLock. That lock is not restored, because a Windows child process
+only inherits the handles listed in PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
+
+diff --git a/src/net/file_windows.go b/src/net/file_windows.go
+index 6a630503..8bea68e1 100644
+--- a/src/net/file_windows.go
++++ b/src/net/file_windows.go
+@@ -18,7 +18,18 @@ func dupSocket(h syscall.Handle) (syscall.Handle, error) {
+ 	if err != nil {
+ 		return 0, err
+ 	}
+-	return windows.WSASocket(-1, -1, -1, &info, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
++	s, err := wsaSocketFunc(-1, -1, -1, &info, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
++	if err == nil {
++		return s, nil
++	}
++	// See sysSocket for why the flag may be rejected and why no lock is
++	// needed around the inheritable window.
++	s, err = wsaSocketFunc(-1, -1, -1, &info, 0, windows.WSA_FLAG_OVERLAPPED)
++	if err != nil {
++		return 0, err
++	}
++	syscall.CloseOnExec(s)
++	return s, nil
+ }
+ 
+ func dupFileSocket(f *os.File) (syscall.Handle, error) {
+diff --git a/src/net/net_windows_test.go b/src/net/net_windows_test.go
+index 0a5c77f0..023c5255 100644
+--- a/src/net/net_windows_test.go
++++ b/src/net/net_windows_test.go
+@@ -8,6 +8,8 @@ import (
+ 	"bufio"
+ 	"bytes"
+ 	"fmt"
++	"internal/poll"
++	"internal/syscall/windows"
+ 	"internal/testenv"
+ 	"io"
+ 	"os"
+@@ -625,3 +627,50 @@ nextWant:
+ 		t.Errorf("getmac lists %q, but it could not be found among Go interfaces %v", name, have)
+ 	}
+ }
++
++// TestSysSocketNoHandleInheritFallback covers the path sysSocket and
++// dupSocket take when WSASocket rejects WSA_FLAG_NO_HANDLE_INHERIT. The
++// rejection is simulated so that the fallback is covered on a host that
++// supports the flag. Whether inheritance was cleared is not asserted, because
++// syscall exposes SetHandleInformation but nothing to read the flag back with.
++func TestSysSocketNoHandleInheritFallback(t *testing.T) {
++	orig := wsaSocketFunc
++	t.Cleanup(func() { wsaSocketFunc = orig })
++
++	var triedFlag int
++	wsaSocketFunc = func(af, typ, proto int32, info *syscall.WSAProtocolInfo, group uint32, flags uint32) (syscall.Handle, error) {
++		if flags&windows.WSA_FLAG_NO_HANDLE_INHERIT != 0 {
++			triedFlag++
++			return syscall.InvalidHandle, windows.WSAEINVAL
++		}
++		return orig(af, typ, proto, info, group, flags)
++	}
++
++	s, err := sysSocket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
++	if err != nil {
++		t.Fatalf("sysSocket: %v", err)
++	}
++	// Close through poll.CloseFunc so that the socktest hooks installed
++	// by TestMain see the close and do not report the socket as inflight.
++	defer poll.CloseFunc(s)
++	if triedFlag != 1 {
++		t.Error("sysSocket did not ask for WSA_FLAG_NO_HANDLE_INHERIT first")
++	}
++	if s == syscall.InvalidHandle {
++		t.Error("sysSocket returned an invalid handle")
++	}
++
++	// dupSocket, which Conn.File and FileConn go through, takes the same
++	// fallback.
++	d, err := dupSocket(s)
++	if err != nil {
++		t.Fatalf("dupSocket: %v", err)
++	}
++	defer poll.CloseFunc(d)
++	if triedFlag != 2 {
++		t.Error("dupSocket did not ask for WSA_FLAG_NO_HANDLE_INHERIT first")
++	}
++	if d == syscall.InvalidHandle {
++		t.Error("dupSocket returned an invalid handle")
++	}
++}
+diff --git a/src/net/sock_windows.go b/src/net/sock_windows.go
+index a519909b..9dcd58cb 100644
+--- a/src/net/sock_windows.go
++++ b/src/net/sock_windows.go
+@@ -20,8 +20,19 @@ func maxListenerBacklog() int {
+ func sysSocket(family, sotype, proto int) (syscall.Handle, error) {
+ 	s, err := wsaSocketFunc(int32(family), int32(sotype), int32(proto),
+ 		nil, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
++	if err == nil {
++		return s, nil
++	}
++	// WSA_FLAG_NO_HANDLE_INHERIT needs Windows 7 SP1, and WSASocket rejects the
++	// flag outright without it. Create an inheritable socket instead and clear
++	// the flag afterwards. Unlike the equivalent code before Go 1.22 this does
++	// not take syscall.ForkLock, since a child only inherits the handles listed
++	// in PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
++	s, err = wsaSocketFunc(int32(family), int32(sotype), int32(proto),
++		nil, 0, windows.WSA_FLAG_OVERLAPPED)
+ 	if err != nil {
+ 		return syscall.InvalidHandle, os.NewSyscallError("socket", err)
+ 	}
++	syscall.CloseOnExec(s)
+ 	return s, nil
+ }
