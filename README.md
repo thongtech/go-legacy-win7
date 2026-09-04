@@ -13,7 +13,7 @@ _Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attrib
    Tested on Windows 7 RTM (build 7600) — no updates required — through Windows 11 25H2
 
 2. **Upstream Code First, Not a Blind Revert**  
-   Since `1.26.8-1` and `1.27.1-1`, legacy support is not restored by reverting upstream changes or freezing old code. Upstream's current implementation is kept, with a fallback beneath it chosen at runtime by what the machine actually supports. Each fallback is built to reproduce upstream's behaviour as closely as the platform allows, so a program behaves the same whether it runs on Windows 7 or Windows 11, and current Windows is unaffected.
+   Since `1.26.8-1` and `1.27.1-1`, legacy support is no longer restored by reverting upstream changes or freezing old code. Upstream's current implementation is kept, with a fallback beneath it chosen at runtime by what the machine actually supports. Each fallback is built to reproduce upstream's behaviour as closely as the platform allows, so a program behaves the same whether it runs on Windows 7 or Windows 11, and current Windows is unaffected.
 
 3. **Classic `go get` Behaviour**  
    This fork allows for the deprecated `go get` behaviour when `GO111MODULE` is set to "off" or "auto". This means:
@@ -22,7 +22,7 @@ _Gopher image by [Renee French][rf], licensed under [Creative Commons 4.0 Attrib
    - Outside of `GOPATH/src`, these commands can use module-aware mode when appropriate.
 
 4. **Compatibility Notes**  
-   Please be aware that some newer Go features may not be fully compatible with legacy Windows systems. We try to maintain as much functionality as possible, but some limitations may exist.
+   Please be aware that some newer Go features may not be fully compatible with legacy Windows systems. We try to maintain as much functionality as possible, but some limitations may exist. If you find one, please [report it](https://github.com/thongtech/go-legacy-win7/issues).
 
 ## Changes in Each Release
 
