@@ -1,0 +1,321 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] runtime, crypto/internal/sysrand: fall back to RtlGenRandom when ProcessPrng is absent
+
+The runtime and crypto/rand ask the operating system for random bytes.
+CL 536235 (Go 1.22, and 1.21.5 by backport) switched both from RtlGenRandom to
+ProcessPrng. Windows 7 ships the DLL that exports ProcessPrng, but not the
+function, which was added in Windows 8.
+
+	                Win7 RTM   Windows 8 and later
+	ProcessPrng     missing    present
+	RtlGenRandom    present    present
+
+	runtime      ->  readRandom calls a nil pointer in schedinit
+	crypto/rand  ->  the read fails  ->  panic
+
+Look up RtlGenRandom in advapi32.dll when ProcessPrng is missing, and read from
+whichever one was found. The choice depends on what GetProcAddress returns, not
+on the Windows version. crypto/internal/sysrand reads at most 1<<31-1 bytes per
+call, as crypto/rand did before the switch.
+
+
+diff --git a/src/crypto/internal/sysrand/rand_windows.go b/src/crypto/internal/sysrand/rand_windows.go
+index 91f1490c..e164a38c 100644
+--- a/src/crypto/internal/sysrand/rand_windows.go
++++ b/src/crypto/internal/sysrand/rand_windows.go
+@@ -4,8 +4,38 @@
+ 
+ package sysrand
+ 
+-import "internal/syscall/windows"
++import (
++	"internal/syscall/windows"
++	"sync"
++)
++
++// ProcessPrng is only available since Windows 8. Fall back to RtlGenRandom,
++// which every earlier version exports from advapi32.dll.
++var useProcessPrng = sync.OnceValue(func() bool {
++	return windows.ErrorLoadingProcessPrng() == nil
++})
+ 
+ func read(b []byte) error {
+-	return windows.ProcessPrng(b)
++	if useProcessPrng() {
++		return windows.ProcessPrng(b)
++	}
++	return readBatched(b, 1<<31-1)
++}
++
++// readBatched fills b through RtlGenRandom, whose length is a ULONG. A
++// longer buffer would be truncated to its low 32 bits and the rest left
++// as it was, reported as a success. Read max bytes at a time. ProcessPrng
++// takes a SIZE_T and needs none of this.
++func readBatched(b []byte, max int) error {
++	for len(b) > 0 {
++		chunk := b
++		if len(chunk) > max {
++			chunk = chunk[:max]
++		}
++		if err := windows.RtlGenRandom(chunk); err != nil {
++			return err
++		}
++		b = b[len(chunk):]
++	}
++	return nil
+ }
+diff --git a/src/crypto/internal/sysrand/rand_windows_test.go b/src/crypto/internal/sysrand/rand_windows_test.go
+new file mode 100644
+index 00000000..ed26983b
+--- /dev/null
++++ b/src/crypto/internal/sysrand/rand_windows_test.go
+@@ -0,0 +1,26 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package sysrand
++
++import "testing"
++
++// TestReadBatched checks that a buffer longer than one RtlGenRandom call
++// may take is filled to its end. The real limit is 1<<31-1, too large to
++// allocate here, so a small one stands in for it.
++func TestReadBatched(t *testing.T) {
++	b := make([]byte, 1000)
++	if err := readBatched(b, 7); err != nil {
++		t.Fatal(err)
++	}
++	// The tail lies well past the first chunk, so it is only written if
++	// the loop advanced. All zeroes there means it did not.
++	tail := b[len(b)-32:]
++	for _, c := range tail {
++		if c != 0 {
++			return
++		}
++	}
++	t.Error("the end of the buffer was left unwritten")
++}
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 00291b52..898e5ceb 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -423,6 +423,15 @@ func ErrorLoadingGetTempPath2() error {
+ 
+ //sys	ProcessPrng(buf []byte) (err error) = bcryptprimitives.ProcessPrng
+ 
++// RtlGenRandom is the generator used before ProcessPrng existed. It is not
++// listed in advapi32.dll under that name and has to be requested as
++// SystemFunction036.
++//sys	RtlGenRandom(buf []byte) (err error) = advapi32.SystemFunction036
++
++func ErrorLoadingProcessPrng() error {
++	return procProcessPrng.Find()
++}
++
+ type FILE_ID_BOTH_DIR_INFO struct {
+ 	NextEntryOffset uint32
+ 	FileIndex       uint32
+diff --git a/src/internal/syscall/windows/syscall_windows_test.go b/src/internal/syscall/windows/syscall_windows_test.go
+new file mode 100644
+index 00000000..73ca5de4
+--- /dev/null
++++ b/src/internal/syscall/windows/syscall_windows_test.go
+@@ -0,0 +1,24 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package windows_test
++
++import (
++	"bytes"
++	"internal/syscall/windows"
++	"testing"
++)
++
++// TestRtlGenRandom checks the generator crypto/internal/sysrand falls back
++// to when ProcessPrng is unavailable. It is called directly, so the fallback
++// is covered on a host that has ProcessPrng as well.
++func TestRtlGenRandom(t *testing.T) {
++	b := make([]byte, 32)
++	if err := windows.RtlGenRandom(b); err != nil {
++		t.Fatal(err)
++	}
++	if bytes.Equal(b, make([]byte, len(b))) {
++		t.Error("RtlGenRandom left the buffer zeroed")
++	}
++}
+diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
+index 21727466..73de1eb9 100644
+--- a/src/internal/syscall/windows/zsyscall_windows.go
++++ b/src/internal/syscall/windows/zsyscall_windows.go
+@@ -65,6 +65,7 @@ var (
+ 	procSetEntriesInAclW                  = modadvapi32.NewProc("SetEntriesInAclW")
+ 	procSetNamedSecurityInfoW             = modadvapi32.NewProc("SetNamedSecurityInfoW")
+ 	procSetTokenInformation               = modadvapi32.NewProc("SetTokenInformation")
++	procSystemFunction036                 = modadvapi32.NewProc("SystemFunction036")
+ 	procProcessPrng                       = modbcryptprimitives.NewProc("ProcessPrng")
+ 	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
+ 	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
+@@ -283,6 +284,18 @@ func ProcessPrng(buf []byte) (err error) {
+ 	return
+ }
+ 
++func RtlGenRandom(buf []byte) (err error) {
++	var _p0 *byte
++	if len(buf) > 0 {
++		_p0 = &buf[0]
++	}
++	r1, _, e1 := syscall.SyscallN(procSystemFunction036.Addr(), uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)))
++	if r1 == 0 {
++		err = errnoErr(e1)
++	}
++	return
++}
++
+ func GetAdaptersAddresses(family uint32, flags uint32, reserved unsafe.Pointer, adapterAddresses *IpAdapterAddresses, sizePointer *uint32) (errcode error) {
+ 	r0, _, _ := syscall.SyscallN(procGetAdaptersAddresses.Addr(), uintptr(family), uintptr(flags), uintptr(reserved), uintptr(unsafe.Pointer(adapterAddresses)), uintptr(unsafe.Pointer(sizePointer)))
+ 	if r0 != 0 {
+diff --git a/src/runtime/export_windows_test.go b/src/runtime/export_windows_test.go
+index 4a22eb5b..9dd4a867 100644
+--- a/src/runtime/export_windows_test.go
++++ b/src/runtime/export_windows_test.go
+@@ -33,3 +33,13 @@ func LoadSystemLib(name []uint16) uintptr {
+ func LoadSystemLibFromSysDir(name []uint16) uintptr {
+ 	return loadSystemLibFromSysDir(name)
+ }
++
++// ReadRandomFromRtlGenRandom reads through RtlGenRandom, loaded the way
++// loadOptionalSyscalls loads it when ProcessPrng is unavailable.
++func ReadRandomFromRtlGenRandom(r []byte) int {
++	fn := loadRtlGenRandom()
++	if fn == nil {
++		return 0
++	}
++	return readRandomFrom(fn, r)
++}
+diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
+index e1e14093..c7ecb272 100644
+--- a/src/runtime/os_windows.go
++++ b/src/runtime/os_windows.go
+@@ -128,8 +128,13 @@ var (
+ 	_WriteFile,
+ 	_ stdFunction
+ 
+-	// Use ProcessPrng to generate cryptographically random data.
+-	_ProcessPrng stdFunction
++	// Use ProcessPrng to generate cryptographically random data, falling back to
++	// RtlGenRandom where ProcessPrng is unavailable. Only one is ever loaded.
++	//
++	// RtlGenRandom is not listed in advapi32.dll under that name. It has to be
++	// found as SystemFunction036.
++	_ProcessPrng  stdFunction
++	_RtlGenRandom stdFunction
+ 
+ 	// Load ntdll.dll manually during startup, otherwise Mingw
+ 	// links wrong printf function to cgo executable (see issue
+@@ -147,6 +152,7 @@ var (
+ )
+ 
+ var (
++	advapi32dll         = [...]uint16{'a', 'd', 'v', 'a', 'p', 'i', '3', '2', '.', 'd', 'l', 'l', 0}
+ 	bcryptprimitivesdll = [...]uint16{'b', 'c', 'r', 'y', 'p', 't', 'p', 'r', 'i', 'm', 'i', 't', 'i', 'v', 'e', 's', '.', 'd', 'l', 'l', 0}
+ 	ntdlldll            = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
+ 	powrprofdll         = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
+@@ -296,11 +302,18 @@ func windows_QueryPerformanceFrequency() int64 {
+ }
+ 
+ func loadOptionalSyscalls() {
+-	bcryptPrimitives := windowsLoadSystemLib(bcryptprimitivesdll[:])
+-	if bcryptPrimitives == 0 {
+-		throw("bcryptprimitives.dll not found")
++	if bcryptPrimitives := windowsLoadSystemLib(bcryptprimitivesdll[:]); bcryptPrimitives != 0 {
++		_ProcessPrng = windowsFindfunc(bcryptPrimitives, []byte("ProcessPrng\000"))
++	}
++	if _ProcessPrng == nil {
++		// bcryptprimitives.dll ships with Windows 7 but exports
++		// ProcessPrng only from Windows 8. RtlGenRandom is what the
++		// standard library used before Go 1.22.
++		_RtlGenRandom = loadRtlGenRandom()
++		if _RtlGenRandom == nil {
++			throw("neither ProcessPrng nor RtlGenRandom found")
++		}
+ 	}
+-	_ProcessPrng = windowsFindfunc(bcryptPrimitives, []byte("ProcessPrng\000"))
+ 
+ 	n32 := windowsLoadSystemLib(ntdlldll[:])
+ 	if n32 == 0 {
+@@ -322,6 +335,17 @@ func loadOptionalSyscalls() {
+ 	_RtlGetVersion = windowsFindfunc(n32, []byte("RtlGetVersion\000"))
+ }
+ 
++// loadRtlGenRandom returns RtlGenRandom from advapi32.dll, or nil if it
++// cannot be found. It is kept separate from loadOptionalSyscalls so that
++// the fallback can be exercised on a system that has ProcessPrng.
++func loadRtlGenRandom() stdFunction {
++	a32 := windowsLoadSystemLib(advapi32dll[:])
++	if a32 == 0 {
++		return nil
++	}
++	return windowsFindfunc(a32, []byte("SystemFunction036\000"))
++}
++
+ func monitorSuspendResume() {
+ 	const (
+ 		_DEVICE_NOTIFY_CALLBACK = 2
+@@ -520,8 +544,21 @@ func osinit() {
+ 
+ //go:nosplit
+ func readRandom(r []byte) int {
++	fn := _ProcessPrng
++	if fn == nil {
++		fn = _RtlGenRandom
++	}
++	return readRandomFrom(fn, r)
++}
++
++// readRandomFrom fills r using fn, which must take a buffer and a length
++// and return a non-zero byte on success, as ProcessPrng and RtlGenRandom
++// both do.
++//
++//go:nosplit
++func readRandomFrom(fn stdFunction, r []byte) int {
+ 	n := 0
+-	if stdcall(_ProcessPrng, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
++	if stdcall(fn, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
+ 		n = len(r)
+ 	}
+ 	return n
+diff --git a/src/runtime/syscall_windows_test.go b/src/runtime/syscall_windows_test.go
+index 6cb4b8dc..5ec75c12 100644
+--- a/src/runtime/syscall_windows_test.go
++++ b/src/runtime/syscall_windows_test.go
+@@ -5,6 +5,7 @@
+ package runtime_test
+ 
+ import (
++	"bytes"
+ 	"fmt"
+ 	"internal/abi"
+ 	"internal/race"
+@@ -62,6 +63,18 @@ func TestLoadSystemLib(t *testing.T) {
+ 	}
+ }
+ 
++// TestReadRandomFromRtlGenRandom checks the generator readRandom falls back
++// to when ProcessPrng is missing.
++func TestReadRandomFromRtlGenRandom(t *testing.T) {
++	b := make([]byte, 32)
++	if n := runtime.ReadRandomFromRtlGenRandom(b); n != len(b) {
++		t.Fatalf("ReadRandomFromRtlGenRandom = %d, want %d", n, len(b))
++	}
++	if bytes.Equal(b, make([]byte, len(b))) {
++		t.Error("RtlGenRandom left the buffer zeroed")
++	}
++}
++
+ func TestStdCall(t *testing.T) {
+ 	type Rect struct {
+ 		left, top, right, bottom int32

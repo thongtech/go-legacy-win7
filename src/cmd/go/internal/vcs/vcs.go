@@ -289,13 +289,15 @@ var vcsGit = &Cmd{
 var scpSyntaxRe = lazyregexp.New(`^(\w+)@([\w.-]+):(.*)$`)
 
 func gitRemoteRepo(vcsGit *Cmd, rootDir string) (remoteRepo string, err error) {
-	const cmd = "config remote.origin.url"
+	cmd := "config remote.origin.url"
+	errParse := errors.New("unable to parse output of git " + cmd)
+	errRemoteOriginNotFound := errors.New("remote origin not found")
 	outb, err := vcsGit.run1(rootDir, cmd, nil, false)
 	if err != nil {
 		// if it doesn't output any message, it means the config argument is correct,
 		// but the config value itself doesn't exist
 		if outb != nil && len(outb) == 0 {
-			return "", errors.New("remote origin not found")
+			return "", errRemoteOriginNotFound
 		}
 		return "", err
 	}
@@ -327,7 +329,7 @@ func gitRemoteRepo(vcsGit *Cmd, rootDir string) (remoteRepo string, err error) {
 			return repoURL.String(), nil
 		}
 	}
-	return "", errors.New("unable to parse output of git " + cmd)
+	return "", errParse
 }
 
 func gitStatus(vcsGit *Cmd, rootDir string) (Status, error) {
@@ -393,7 +395,7 @@ func bzrRemoteRepo(vcsBzr *Cmd, rootDir string) (remoteRepo string, err error) {
 }
 
 func bzrResolveRepo(vcsBzr *Cmd, rootDir, remoteRepo string) (realRepo string, err error) {
-	outb, err := vcsBzr.runOutput(rootDir, "info -- "+remoteRepo)
+	outb, err := vcsBzr.runOutput(rootDir, "info "+remoteRepo)
 	if err != nil {
 		return "", err
 	}
@@ -490,11 +492,11 @@ var vcsSvn = &Cmd{
 		{filename: ".svn", isDir: true},
 	},
 
-	CreateCmd:   []string{"checkout -- {repo} {dir}"},
-	DownloadCmd: []string{"update"},
-
 	// There is no tag command in subversion.
 	// The branch information is all in the path names.
+
+	CreateCmd:   []string{"checkout -- {repo} {dir}"},
+	DownloadCmd: []string{"update"},
 
 	Scheme:     []string{"https", "http", "svn", "svn+ssh"},
 	PingCmd:    "info -- {scheme}://{repo}",
@@ -511,9 +513,9 @@ func svnRemoteRepo(vcsSvn *Cmd, rootDir string) (remoteRepo string, err error) {
 
 	// Expect:
 	//
-	//       ...
-	//      URL: <URL>
-	//      ...
+	//	 ...
+	// 	URL: <URL>
+	// 	...
 	//
 	// Note that we're not using the Repository Root line,
 	// because svn allows checking out subtrees.
@@ -1065,6 +1067,9 @@ var defaultGOVCS = govcsConfig{
 // GOVCS allows the given vcs command to be used with the given repository
 // root path. Note that root may not be a real package or module path; it's
 // the same as the root path in the go-import meta tag.
+//
+// It is exported for GOPATH-based "go get", which finds the repository for a
+// package without going through RepoRootForImportPath.
 func CheckGOVCS(vcs *Cmd, root string) error {
 	if vcs == vcsMod {
 		// Direct module (proxy protocol) fetches don't

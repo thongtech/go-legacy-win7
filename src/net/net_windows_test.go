@@ -8,6 +8,8 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"internal/poll"
+	"internal/syscall/windows"
 	"internal/testenv"
 	"io"
 	"os"
@@ -623,5 +625,52 @@ nextWant:
 			}
 		}
 		t.Errorf("getmac lists %q, but it could not be found among Go interfaces %v", name, have)
+	}
+}
+
+// TestSysSocketNoHandleInheritFallback covers the path sysSocket and
+// dupSocket take when WSASocket rejects WSA_FLAG_NO_HANDLE_INHERIT. The
+// rejection is simulated so that the fallback is covered on a host that
+// supports the flag. Whether inheritance was cleared is not asserted, because
+// syscall exposes SetHandleInformation but nothing to read the flag back with.
+func TestSysSocketNoHandleInheritFallback(t *testing.T) {
+	orig := wsaSocketFunc
+	t.Cleanup(func() { wsaSocketFunc = orig })
+
+	var triedFlag int
+	wsaSocketFunc = func(af, typ, proto int32, info *syscall.WSAProtocolInfo, group uint32, flags uint32) (syscall.Handle, error) {
+		if flags&windows.WSA_FLAG_NO_HANDLE_INHERIT != 0 {
+			triedFlag++
+			return syscall.InvalidHandle, windows.WSAEINVAL
+		}
+		return orig(af, typ, proto, info, group, flags)
+	}
+
+	s, err := sysSocket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP)
+	if err != nil {
+		t.Fatalf("sysSocket: %v", err)
+	}
+	// Close through poll.CloseFunc so that the socktest hooks installed
+	// by TestMain see the close and do not report the socket as inflight.
+	defer poll.CloseFunc(s)
+	if triedFlag != 1 {
+		t.Error("sysSocket did not ask for WSA_FLAG_NO_HANDLE_INHERIT first")
+	}
+	if s == syscall.InvalidHandle {
+		t.Error("sysSocket returned an invalid handle")
+	}
+
+	// dupSocket, which Conn.File and FileConn go through, takes the same
+	// fallback.
+	d, err := dupSocket(s)
+	if err != nil {
+		t.Fatalf("dupSocket: %v", err)
+	}
+	defer poll.CloseFunc(d)
+	if triedFlag != 2 {
+		t.Error("dupSocket did not ask for WSA_FLAG_NO_HANDLE_INHERIT first")
+	}
+	if d == syscall.InvalidHandle {
+		t.Error("dupSocket returned an invalid handle")
 	}
 }

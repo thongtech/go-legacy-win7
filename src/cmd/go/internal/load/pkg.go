@@ -456,7 +456,6 @@ type PackageError struct {
 	Pos              string      // position of error
 	Err              error       // the error itself
 	IsImportCycle    bool        // the error is an import cycle
-	Hard             bool        // whether the error is soft or hard; soft errors are ignored in some places
 	alwaysPrintStack bool        // whether to always print the ImportStack
 }
 
@@ -637,8 +636,8 @@ func (sp *ImportStack) shorterThan(t []string) bool {
 var packageCache = map[string]*Package{}
 
 // ClearPackageCache clears the in-memory package cache and the preload caches.
-// It is only for use by GOPATH-based "go get".
-// TODO(jayconrod): When GOPATH-based "go get" is removed, delete this function.
+// It cannot be used concurrently with calls to LoadImport or other functions
+// that use packageCache without synchronization.
 func ClearPackageCache() {
 	clear(packageCache)
 	resolvedImportCache.Clear()
@@ -669,7 +668,7 @@ func ClearPackageCachePartial(args []string) {
 // not to use the package cache.
 // It is only for use by GOPATH-based "go get".
 // TODO(rsc): When GOPATH-based "go get" is removed, delete this function.
-func ReloadPackageNoFlags(arg string, stk *ImportStack) *Package {
+func ReloadPackageNoFlags(loaderstate *modload.State, arg string, stk *ImportStack) *Package {
 	p := packageCache[arg]
 	if p != nil {
 		delete(packageCache, arg)
@@ -678,7 +677,7 @@ func ReloadPackageNoFlags(arg string, stk *ImportStack) *Package {
 		})
 		packageDataCache.Delete(p.ImportPath)
 	}
-	return LoadPackage(modload.NewState(), context.TODO(), PackageOpts{}, arg, base.Cwd(), stk, nil, 0)
+	return LoadPackage(loaderstate, context.TODO(), PackageOpts{}, arg, base.Cwd(), stk, nil, 0)
 }
 
 // dirToImportPath returns the pseudo-import path we use for a package
@@ -732,6 +731,15 @@ const (
 	cmdlinePkgLiteral
 )
 
+// LoadPackage does Load import, but without a parent package load context
+func LoadPackage(loaderstate *modload.State, ctx context.Context, opts PackageOpts, path, srcDir string, stk *ImportStack, importPos []token.Position, mode int) *Package {
+	p, err := loadImport(loaderstate, ctx, opts, nil, path, srcDir, nil, stk, importPos, mode)
+	if err != nil {
+		base.Fatalf("internal error: loadImport of %q with nil parent returned an error", path)
+	}
+	return p
+}
+
 // LoadImport scans the directory named by path, which must be an import path,
 // but possibly a local import path (an absolute file system path or one beginning
 // with ./ or ../). A local relative path is interpreted relative to srcDir.
@@ -744,15 +752,6 @@ const (
 // The PackageError can only be non-nil when parent is not nil.
 func LoadImport(loaderstate *modload.State, ctx context.Context, opts PackageOpts, path, srcDir string, parent *Package, stk *ImportStack, importPos []token.Position, mode int) (*Package, *PackageError) {
 	return loadImport(loaderstate, ctx, opts, nil, path, srcDir, parent, stk, importPos, mode)
-}
-
-// LoadPackage does Load import, but without a parent package load context
-func LoadPackage(loaderstate *modload.State, ctx context.Context, opts PackageOpts, path, srcDir string, stk *ImportStack, importPos []token.Position, mode int) *Package {
-	p, err := loadImport(loaderstate, ctx, opts, nil, path, srcDir, nil, stk, importPos, mode)
-	if err != nil {
-		base.Fatalf("internal error: loadImport of %q with nil parent returned an error", path)
-	}
-	return p
 }
 
 // loadImport scans the directory named by path, which must be an import path,

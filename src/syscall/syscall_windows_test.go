@@ -6,6 +6,7 @@ package syscall_test
 
 import (
 	"fmt"
+	"internal/syscall/windows"
 	"internal/testenv"
 	"os"
 	"os/exec"
@@ -305,5 +306,40 @@ func BenchmarkErrnoString(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		_ = syscall.Errno(2).Error()
+	}
+}
+
+// TestLoadSystemDLLByPath checks the fallback LoadDLL takes where
+// LOAD_LIBRARY_SEARCH_SYSTEM32 is not understood. It is called directly so
+// that it is covered on every Windows version.
+func TestLoadSystemDLLByPath(t *testing.T) {
+	if dir := syscall.SystemDirectory(); dir == "" {
+		t.Fatal("SystemDirectory returned an empty string")
+	} else if !strings.HasSuffix(dir, `\`) {
+		t.Errorf("SystemDirectory = %q, want a trailing separator", dir)
+	}
+	if h := syscall.LoadSystemDLLByPath("advapi32.dll"); h == 0 {
+		t.Error(`LoadSystemDLLByPath("advapi32.dll") = 0, want non-zero`)
+	}
+	// The ordinary path must keep working too.
+	if _, err := syscall.LoadDLL("advapi32.dll"); err != nil {
+		t.Errorf(`LoadDLL("advapi32.dll") = %v, want nil`, err)
+	}
+}
+
+// TestRtlGetNtVersionNumbers checks the version lookup StartProcess uses to
+// tell whether a console handle is a Windows 7 pseudo-handle, against
+// RtlGetVersion, which the standard library reads elsewhere. Only the lookup
+// is covered. The branches it guards are inert on Windows 8 and later, and
+// the tagged handles they work around exist only on Windows 7.
+func TestRtlGetNtVersionNumbers(t *testing.T) {
+	var major, minor, build uint32
+	syscall.RtlGetNtVersionNumbers(&major, &minor, &build)
+	wantMajor, wantMinor, wantBuild := windows.Version()
+	// The build number carries flag bits above its low 16 bits.
+	got := [3]uint32{major, minor, build & 0xffff}
+	want := [3]uint32{wantMajor, wantMinor, wantBuild}
+	if got != want {
+		t.Errorf("RtlGetNtVersionNumbers reports %v, RtlGetVersion reports %v", got, want)
 	}
 }

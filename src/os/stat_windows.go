@@ -35,7 +35,7 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 	// See https://golang.org/issues/19922#issuecomment-300031421 for details.
 	var fa syscall.Win32FileAttributeData
 	err = syscall.GetFileAttributesEx(namep, syscall.GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa)))
-	if errors.Is(err, ErrNotExist) {
+	if errors.Is(err, ErrNotExist) && !isConsoleName(name) {
 		return nil, &PathError{Op: "GetFileAttributesEx", Path: name, Err: err}
 	}
 	if err == nil && fa.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT == 0 {
@@ -74,12 +74,22 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 	var flags uint32 = syscall.FILE_FLAG_BACKUP_SEMANTICS | syscall.FILE_FLAG_OPEN_REPARSE_POINT
 	h, err := syscall.CreateFile(namep, 0, 0, nil, syscall.OPEN_EXISTING, flags, 0)
 
-	if err == windows.ERROR_INVALID_PARAMETER {
+	if err == windows.ERROR_INVALID_PARAMETER || (isConsoleName(name) && errors.Is(err, ErrNotExist)) {
 		// Console handles, like "\\.\con", require generic read access. See
 		// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew#consoles.
 		// We haven't set it previously because it is normally not required
 		// to read attributes and some files may not allow it.
+		//
+		// Windows 7 reports a console opened without that access as
+		// missing rather than as a bad parameter, so there the name is
+		// what says to retry.
 		h, err = syscall.CreateFile(namep, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, flags, 0)
+	}
+	if bare, ok := consoleDeviceName(name); ok && errors.Is(err, ErrNotExist) {
+		// See the comment on consoleDeviceName.
+		if barep, err2 := syscall.UTF16PtrFromString(bare); err2 == nil {
+			h, err = syscall.CreateFile(barep, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, flags, 0)
+		}
 	}
 	if err != nil {
 		// Since CreateFile failed, we can't determine whether name refers to a
@@ -103,6 +113,47 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 		return statHandle(name, h)
 	}
 	return fi, err
+}
+
+// isConsoleName reports whether name is one of the console devices, with or
+// without the \\.\ prefix. GetFileAttributesEx reports them as missing
+// before Windows 8, where CreateFile opens them, so stat cannot take a
+// not-exist answer for these names at face value. Nothing else is named
+// this way, since they are reserved device names.
+func isConsoleName(name string) bool {
+	if len(name) >= 4 && IsPathSeparator(name[0]) && IsPathSeparator(name[1]) &&
+		name[2] == '.' && IsPathSeparator(name[3]) {
+		name = name[4:]
+	}
+	if len(name) < len("CON") || len(name) > len("CONOUT$") {
+		return false
+	}
+	var upper [len("CONOUT$")]byte
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if 'a' <= c && c <= 'z' {
+			c -= 'a' - 'A'
+		}
+		upper[i] = c
+	}
+	switch string(upper[:len(name)]) {
+	case "CON", "CONIN$", "CONOUT$":
+		return true
+	}
+	return false
+}
+
+// consoleDeviceName returns the console device that name asks for through the
+// \\.\ prefix, without it. The console devices reach the object namespace,
+// and so that prefix, only from Windows 8 on. Before it CreateFile knows
+// CONIN$ and CONOUT$ by their bare names alone. The two forms name the same
+// console, so a prefixed open that comes back missing is retried bare.
+func consoleDeviceName(name string) (string, bool) {
+	if len(name) >= 4 && IsPathSeparator(name[0]) && IsPathSeparator(name[1]) &&
+		name[2] == '.' && IsPathSeparator(name[3]) && isConsoleName(name) {
+		return name[4:], true
+	}
+	return "", false
 }
 
 func statHandle(name string, h syscall.Handle) (FileInfo, error) {

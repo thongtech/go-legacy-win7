@@ -109,7 +109,7 @@ func rootChtimes(r *Root, name string, atime time.Time, mtime time.Time) error {
 func rootMkdir(r *Root, name string, perm FileMode) error {
 	flags := uint(doInRootCreatingDirectory)
 	switch runtime.GOOS {
-	case "linux", "windows":
+	case "linux", "windows", "openbsd":
 		// These platforms do not follow "symlink" on "mkdir symlink/".
 		// (POSIX.1-2024 4.16 says that the trailing slash should cause
 		// resolution to follow the symlink, but we're trying to match
@@ -185,7 +185,7 @@ func rootMkdirAll(r *Root, fullname string, perm FileMode) error {
 	}
 	flags := uint(doInRootCreatingDirectory)
 	switch runtime.GOOS {
-	case "linux", "windows":
+	case "linux", "windows", "openbsd":
 		flags |= doInRootNoHandleTerminalSlash // see rootMkdir
 	}
 	_, err := doInRoot(r, fullname, flags, openDirFunc, openLastComponentFunc)
@@ -215,6 +215,28 @@ func rootRemove(r *Root, name string) error {
 		return &PathError{Op: "removeat", Path: name, Err: err}
 	}
 	return nil
+}
+
+func rootRemoveAll(r *Root, name string) error {
+	// Consistency with os.RemoveAll: Strip trailing /s from the name,
+	// so RemoveAll("not_a_directory/") succeeds.
+	for len(name) > 0 && IsPathSeparator(name[len(name)-1]) {
+		name = name[:len(name)-1]
+	}
+	if endsWithDot(name) {
+		// Consistency with os.RemoveAll: Return EINVAL when trying to remove .
+		return &PathError{Op: "RemoveAll", Path: name, Err: syscall.EINVAL}
+	}
+	_, err := doInRoot(r, name, 0, nil, func(parent sysfdType, name string, endsInSlash bool) (struct{}, error) {
+		return struct{}{}, removeAllFrom(parent, name)
+	})
+	if IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return &PathError{Op: "RemoveAll", Path: name, Err: underlyingError(err)}
+	}
+	return err
 }
 
 func rootRename(r *Root, oldname, newname string) error {

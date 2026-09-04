@@ -37,14 +37,15 @@ func errnoErr(e syscall.Errno) error {
 }
 
 var (
-	modadvapi32 = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
-	modiphlpapi = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
-	modkernel32 = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
-	modnetapi32 = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
-	modntdll    = syscall.NewLazyDLL(sysdll.Add("ntdll.dll"))
-	modpsapi    = syscall.NewLazyDLL(sysdll.Add("psapi.dll"))
-	moduserenv  = syscall.NewLazyDLL(sysdll.Add("userenv.dll"))
-	modws2_32   = syscall.NewLazyDLL(sysdll.Add("ws2_32.dll"))
+	modadvapi32         = syscall.NewLazyDLL(sysdll.Add("advapi32.dll"))
+	modbcryptprimitives = syscall.NewLazyDLL(sysdll.Add("bcryptprimitives.dll"))
+	modiphlpapi         = syscall.NewLazyDLL(sysdll.Add("iphlpapi.dll"))
+	modkernel32         = syscall.NewLazyDLL(sysdll.Add("kernel32.dll"))
+	modnetapi32         = syscall.NewLazyDLL(sysdll.Add("netapi32.dll"))
+	modntdll            = syscall.NewLazyDLL(sysdll.Add("ntdll.dll"))
+	modpsapi            = syscall.NewLazyDLL(sysdll.Add("psapi.dll"))
+	moduserenv          = syscall.NewLazyDLL(sysdll.Add("userenv.dll"))
+	modws2_32           = syscall.NewLazyDLL(sysdll.Add("ws2_32.dll"))
 
 	procAdjustTokenPrivileges             = modadvapi32.NewProc("AdjustTokenPrivileges")
 	procDuplicateTokenEx                  = modadvapi32.NewProc("DuplicateTokenEx")
@@ -65,6 +66,7 @@ var (
 	procSetNamedSecurityInfoW             = modadvapi32.NewProc("SetNamedSecurityInfoW")
 	procSetTokenInformation               = modadvapi32.NewProc("SetTokenInformation")
 	procSystemFunction036                 = modadvapi32.NewProc("SystemFunction036")
+	procProcessPrng                       = modbcryptprimitives.NewProc("ProcessPrng")
 	procGetAdaptersAddresses              = modiphlpapi.NewProc("GetAdaptersAddresses")
 	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
 	procCreateIoCompletionPort            = modkernel32.NewProc("CreateIoCompletionPort")
@@ -90,9 +92,11 @@ var (
 	procReOpenFile                        = modkernel32.NewProc("ReOpenFile")
 	procRtlLookupFunctionEntry            = modkernel32.NewProc("RtlLookupFunctionEntry")
 	procRtlVirtualUnwind                  = modkernel32.NewProc("RtlVirtualUnwind")
+	procSetEvent                          = modkernel32.NewProc("SetEvent")
 	procSetFileInformationByHandle        = modkernel32.NewProc("SetFileInformationByHandle")
 	procUnlockFileEx                      = modkernel32.NewProc("UnlockFileEx")
 	procVirtualQuery                      = modkernel32.NewProc("VirtualQuery")
+	procWaitForMultipleObjects            = modkernel32.NewProc("WaitForMultipleObjects")
 	procNetShareAdd                       = modnetapi32.NewProc("NetShareAdd")
 	procNetShareDel                       = modnetapi32.NewProc("NetShareDel")
 	procNetUserAdd                        = modnetapi32.NewProc("NetUserAdd")
@@ -264,6 +268,18 @@ func _SetNamedSecurityInfo(objectName *uint16, objectType uint32, securityInform
 
 func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32, tokenInformation unsafe.Pointer, tokenInformationLength uint32) (err error) {
 	r1, _, e1 := syscall.SyscallN(procSetTokenInformation.Addr(), uintptr(tokenHandle), uintptr(tokenInformationClass), uintptr(tokenInformation), uintptr(tokenInformationLength))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func ProcessPrng(buf []byte) (err error) {
+	var _p0 *byte
+	if len(buf) > 0 {
+		_p0 = &buf[0]
+	}
+	r1, _, e1 := syscall.SyscallN(procProcessPrng.Addr(), uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)))
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -488,6 +504,14 @@ func RtlVirtualUnwind(handlerType uint32, baseAddress uintptr, pc uintptr, entry
 	return
 }
 
+func SetEvent(event syscall.Handle) (err error) {
+	r1, _, e1 := syscall.SyscallN(procSetEvent.Addr(), uintptr(event))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func SetFileInformationByHandle(handle syscall.Handle, fileInformationClass uint32, buf unsafe.Pointer, bufsize uint32) (err error) {
 	r1, _, e1 := syscall.SyscallN(procSetFileInformationByHandle.Addr(), uintptr(handle), uintptr(fileInformationClass), uintptr(buf), uintptr(bufsize))
 	if r1 == 0 {
@@ -507,6 +531,19 @@ func UnlockFileEx(file syscall.Handle, reserved uint32, bytesLow uint32, bytesHi
 func VirtualQuery(address uintptr, buffer *MemoryBasicInformation, length uintptr) (err error) {
 	r1, _, e1 := syscall.SyscallN(procVirtualQuery.Addr(), uintptr(address), uintptr(unsafe.Pointer(buffer)), uintptr(length))
 	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func WaitForMultipleObjects(count uint32, handles *syscall.Handle, waitAll bool, waitMilliseconds uint32) (event uint32, err error) {
+	var _p0 uint32
+	if waitAll {
+		_p0 = 1
+	}
+	r0, _, e1 := syscall.SyscallN(procWaitForMultipleObjects.Addr(), uintptr(count), uintptr(unsafe.Pointer(handles)), uintptr(_p0), uintptr(waitMilliseconds))
+	event = uint32(r0)
+	if event == 0xffffffff {
 		err = errnoErr(e1)
 	}
 	return

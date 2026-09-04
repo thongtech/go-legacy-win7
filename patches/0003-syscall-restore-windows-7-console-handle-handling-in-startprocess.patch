@@ -1,0 +1,164 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] syscall: restore Windows 7 console handle handling in StartProcess
+
+CL 531235 (Go 1.22) deleted the Windows 7 console handle workaround from
+StartProcess. Before Windows 8 a console handle is not a real kernel handle. It
+is a tagged value that only the owning process understands, which has two
+consequences.
+
+	duplicate into a parent process  ->  fails
+	put in the inherit list          ->  CreateProcess refuses the whole call
+
+CL 288297 (Go 1.17) made StartProcess pass the standard handles in that inherit
+list. Every os/exec call from a console then fails, including the go command
+running compile and link.
+
+Restore the workaround as Go 1.21 had it. It checks the Windows version rather
+than probing for an API, because whether a handle is a pseudo-handle is a
+property of the kernel, not of a function that can be looked up. The version
+is read from ntdll!RtlGetNtVersionNumbers, whose declaration in syscall was
+removed with the workaround and is restored with it.
+
+
+diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
+index 96089fcd..45aa5f00 100644
+--- a/src/syscall/exec_windows.go
++++ b/src/syscall/exec_windows.go
+@@ -367,6 +367,17 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 		}
+ 	}
+ 
++	var maj, min, build uint32
++	rtlGetNtVersionNumbers(&maj, &min, &build)
++	isWin7 := maj < 6 || (maj == 6 && min <= 1)
++	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
++	// a tag. The fully set tag correlates with the types of handles we're
++	// concerned about here. Except, the kernel will interpret some
++	// special handle values, like -1, -2, and so forth, so kernelbase.dll
++	// checks to see that those bottom three bits are checked, but that top
++	// bit is not checked.
++	isLegacyWin7ConsoleHandle := func(handle Handle) bool { return isWin7 && handle&0x10000003 == 3 }
++
+ 	p, _ := GetCurrentProcess()
+ 	parentProcess := p
+ 	if sys.ParentProcess != 0 {
+@@ -375,7 +386,15 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 	fd := make([]Handle, len(attr.Files))
+ 	for i := range attr.Files {
+ 		if attr.Files[i] > 0 {
+-			err := DuplicateHandle(p, Handle(attr.Files[i]), parentProcess, &fd[i], 0, true, DUPLICATE_SAME_ACCESS)
++			destinationProcessHandle := parentProcess
++
++			// On Windows 7, console handles aren't real handles, and can only be duplicated
++			// into the current process, not a parent one, which amounts to the same thing.
++			if parentProcess != p && isLegacyWin7ConsoleHandle(Handle(attr.Files[i])) {
++				destinationProcessHandle = p
++			}
++
++			err := DuplicateHandle(p, Handle(attr.Files[i]), destinationProcessHandle, &fd[i], 0, true, DUPLICATE_SAME_ACCESS)
+ 			if err != nil {
+ 				return 0, 0, err
+ 			}
+@@ -406,6 +425,14 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
+ 
+ 	fd = append(fd, sys.AdditionalInheritedHandles...)
+ 
++	// On Windows 7, console handles aren't real handles, so don't pass them
++	// through to PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
++	for i := range fd {
++		if isLegacyWin7ConsoleHandle(fd[i]) {
++			fd[i] = 0
++		}
++	}
++
+ 	// The presence of a NULL handle in the list is enough to cause PROC_THREAD_ATTRIBUTE_HANDLE_LIST
+ 	// to treat the entire list as empty, so remove NULL handles.
+ 	j := 0
+diff --git a/src/syscall/export_windows_test.go b/src/syscall/export_windows_test.go
+index 79050fb6..f31ad22f 100644
+--- a/src/syscall/export_windows_test.go
++++ b/src/syscall/export_windows_test.go
+@@ -17,3 +17,5 @@ var EnvSorted = envSorted
+ 
+ var SystemDirectory = systemDirectory
+ var LoadSystemDLLByPath = loadSystemDLLByPath
++
++var RtlGetNtVersionNumbers = rtlGetNtVersionNumbers
+diff --git a/src/syscall/syscall_windows.go b/src/syscall/syscall_windows.go
+index 895aa92a..c2bd42d6 100644
+--- a/src/syscall/syscall_windows.go
++++ b/src/syscall/syscall_windows.go
+@@ -252,6 +252,7 @@ func NewCallbackCDecl(fn any) uintptr {
+ //sys	FreeLibrary(handle Handle) (err error)
+ //sys	GetProcAddress(module Handle, procname string) (proc uintptr, err error)
+ //sys	GetVersion() (ver uint32, err error)
++//sys	rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) = ntdll.RtlGetNtVersionNumbers
+ //sys	formatMessage(flags uint32, msgsrc uintptr, msgid uint32, langid uint32, buf []uint16, args *byte) (n uint32, err error) = FormatMessageW
+ //sys	ExitProcess(exitcode uint32)
+ //sys	createFile(name *uint16, access uint32, mode uint32, sa *SecurityAttributes, createmode uint32, attrs uint32, templatefile int32) (handle Handle, err error) [failretval == InvalidHandle || e1 == ERROR_ALREADY_EXISTS ] = CreateFileW
+diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
+index 0ef03b21..5e94fa4d 100644
+--- a/src/syscall/syscall_windows_test.go
++++ b/src/syscall/syscall_windows_test.go
+@@ -6,6 +6,7 @@ package syscall_test
+ 
+ import (
+ 	"fmt"
++	"internal/syscall/windows"
+ 	"internal/testenv"
+ 	"os"
+ 	"os/exec"
+@@ -325,3 +326,20 @@ func TestLoadSystemDLLByPath(t *testing.T) {
+ 		t.Errorf(`LoadDLL("advapi32.dll") = %v, want nil`, err)
+ 	}
+ }
++
++// TestRtlGetNtVersionNumbers checks the version lookup StartProcess uses to
++// tell whether a console handle is a Windows 7 pseudo-handle, against
++// RtlGetVersion, which the standard library reads elsewhere. Only the lookup
++// is covered. The branches it guards are inert on Windows 8 and later, and
++// the tagged handles they work around exist only on Windows 7.
++func TestRtlGetNtVersionNumbers(t *testing.T) {
++	var major, minor, build uint32
++	syscall.RtlGetNtVersionNumbers(&major, &minor, &build)
++	wantMajor, wantMinor, wantBuild := windows.Version()
++	// The build number carries flag bits above its low 16 bits.
++	got := [3]uint32{major, minor, build & 0xffff}
++	want := [3]uint32{wantMajor, wantMinor, wantBuild}
++	if got != want {
++		t.Errorf("RtlGetNtVersionNumbers reports %v, RtlGetVersion reports %v", got, want)
++	}
++}
+diff --git a/src/syscall/zsyscall_windows.go b/src/syscall/zsyscall_windows.go
+index 70ac19a9..3569b8f3 100644
+--- a/src/syscall/zsyscall_windows.go
++++ b/src/syscall/zsyscall_windows.go
+@@ -43,6 +43,7 @@ var (
+ 	modkernel32 = NewLazyDLL(sysdll.Add("kernel32.dll"))
+ 	modmswsock  = NewLazyDLL(sysdll.Add("mswsock.dll"))
+ 	modnetapi32 = NewLazyDLL(sysdll.Add("netapi32.dll"))
++	modntdll    = NewLazyDLL(sysdll.Add("ntdll.dll"))
+ 	modsecur32  = NewLazyDLL(sysdll.Add("secur32.dll"))
+ 	modshell32  = NewLazyDLL(sysdll.Add("shell32.dll"))
+ 	moduserenv  = NewLazyDLL(sysdll.Add("userenv.dll"))
+@@ -169,6 +170,7 @@ var (
+ 	procNetApiBufferFree                   = modnetapi32.NewProc("NetApiBufferFree")
+ 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
+ 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
++	procRtlGetNtVersionNumbers             = modntdll.NewProc("RtlGetNtVersionNumbers")
+ 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
+ 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
+ 	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
+@@ -1229,6 +1231,11 @@ func NetUserGetInfo(serverName *uint16, userName *uint16, level uint32, buf **by
+ 	return
+ }
+ 
++func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
++	SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
++	return
++}
++
+ func GetUserNameEx(nameFormat uint32, nameBuffre *uint16, nSize *uint32) (err error) {
+ 	r1, _, e1 := SyscallN(procGetUserNameExW.Addr(), uintptr(nameFormat), uintptr(unsafe.Pointer(nameBuffre)), uintptr(unsafe.Pointer(nSize)))
+ 	if r1&0xff == 0 {

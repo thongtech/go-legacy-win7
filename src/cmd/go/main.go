@@ -122,8 +122,7 @@ func main() {
 	}
 
 	if args[0] == "get" || args[0] == "help" {
-		s := modload.NewState()
-		if !s.WillBeEnabled() {
+		if !modload.NewState().WillBeEnabled() {
 			// Replace module-aware get with GOPATH get if appropriate.
 			*modget.CmdGet = *get.CmdGet
 		}

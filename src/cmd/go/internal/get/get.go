@@ -120,9 +120,8 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 		base.Fatalf("go: modules not implemented")
 	}
 
-	moduleLoaderState := modload.NewState()
-
-	work.BuildInit(moduleLoaderState)
+	loaderstate := modload.NewState()
+	work.BuildInit(loaderstate)
 
 	if *getF && !*getU {
 		base.Fatalf("go: cannot use -f flag without -u")
@@ -175,7 +174,7 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 		mode |= load.GetTestDeps
 	}
 	for _, pkg := range downloadPaths(args) {
-		download(moduleLoaderState, ctx, pkg, nil, &stk, mode)
+		download(loaderstate, ctx, pkg, nil, &stk, mode)
 	}
 	base.ExitIfErrors()
 
@@ -188,7 +187,7 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 	// everything.
 	load.ClearPackageCache()
 
-	pkgs := load.PackagesAndErrors(moduleLoaderState, ctx, load.PackageOpts{}, args)
+	pkgs := load.PackagesAndErrors(loaderstate, ctx, load.PackageOpts{}, args)
 	load.CheckPackageErrors(pkgs)
 
 	// Phase 3. Install.
@@ -199,7 +198,7 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 		return
 	}
 
-	work.InstallPackages(moduleLoaderState, ctx, args, pkgs)
+	work.InstallPackages(loaderstate, ctx, args, pkgs)
 }
 
 // downloadPaths prepares the list of paths to pass to download.
@@ -254,7 +253,7 @@ var downloadRootCache = map[string]bool{}
 
 // download runs the download half of the get command
 // for the package or pattern named by the argument.
-func download(moduleLoaderState *modload.State, ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
+func download(loaderstate *modload.State, ctx context.Context, arg string, parent *load.Package, stk *load.ImportStack, mode int) {
 	if mode&load.ResolveImport != 0 {
 		// Caller is responsible for expanding vendor paths.
 		panic("internal error: download mode has useVendor set")
@@ -262,9 +261,9 @@ func download(moduleLoaderState *modload.State, ctx context.Context, arg string,
 	load1 := func(path string, mode int) *load.Package {
 		if parent == nil {
 			mode := 0 // don't do module or vendor resolution
-			return load.LoadPackage(moduleLoaderState, ctx, load.PackageOpts{}, path, base.Cwd(), stk, nil, mode)
+			return load.LoadPackage(loaderstate, ctx, load.PackageOpts{}, path, base.Cwd(), stk, nil, mode)
 		}
-		p, err := load.LoadImport(moduleLoaderState, ctx, load.PackageOpts{}, path, parent.Dir, parent, stk, nil, mode|load.ResolveModule)
+		p, err := load.LoadImport(loaderstate, ctx, load.PackageOpts{}, path, parent.Dir, parent, stk, nil, mode|load.ResolveModule)
 		if err != nil {
 			base.Errorf("%s", err)
 		}
@@ -272,10 +271,6 @@ func download(moduleLoaderState *modload.State, ctx context.Context, arg string,
 	}
 
 	p := load1(arg, mode)
-	if p.Error != nil && p.Error.Hard {
-		base.Errorf("%s", p.Error)
-		return
-	}
 
 	// loadPackage inferred the canonical ImportPath from arg.
 	// Use that in the following to prevent hysteresis effects
@@ -362,7 +357,7 @@ func download(moduleLoaderState *modload.State, ctx context.Context, arg string,
 			base.Run(cfg.BuildToolexec, str.StringList(base.Tool("fix"), files))
 
 			// The imports might have changed, so reload again.
-			p = load.ReloadPackageNoFlags(arg, stk)
+			p = load.ReloadPackageNoFlags(loaderstate, arg, stk)
 			if p.Error != nil {
 				base.Errorf("%s", p.Error)
 				return
@@ -409,9 +404,9 @@ func download(moduleLoaderState *modload.State, ctx context.Context, arg string,
 			// download does caching based on the value of path,
 			// so it must be the fully qualified path already.
 			if i >= len(p.Imports) {
-				path = load.ResolveImportPath(moduleLoaderState, p, path)
+				path = load.ResolveImportPath(loaderstate, p, path)
 			}
-			download(moduleLoaderState, ctx, path, p, stk, 0)
+			download(loaderstate, ctx, path, p, stk, 0)
 		}
 
 		if isWildcard {
@@ -453,7 +448,6 @@ func downloadPackage(p *load.Package) error {
 
 	if p.Internal.Build.SrcRoot != "" {
 		// Directory exists. Look for checkout along path to src.
-
 		repoDir, vcsCmd, err = vcs.FromDir(p.Dir, p.Internal.Build.SrcRoot)
 		if err != nil {
 			return err

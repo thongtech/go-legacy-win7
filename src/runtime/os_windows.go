@@ -37,11 +37,11 @@ const (
 //go:cgo_import_dynamic runtime._GetQueuedCompletionStatusEx GetQueuedCompletionStatusEx%6 "kernel32.dll"
 //go:cgo_import_dynamic runtime._GetStdHandle GetStdHandle%1 "kernel32.dll"
 //go:cgo_import_dynamic runtime._GetSystemDirectoryA GetSystemDirectoryA%2 "kernel32.dll"
+//go:cgo_import_dynamic runtime._GetSystemDirectoryW GetSystemDirectoryW%2 "kernel32.dll"
 //go:cgo_import_dynamic runtime._GetSystemInfo GetSystemInfo%1 "kernel32.dll"
 //go:cgo_import_dynamic runtime._GetThreadContext GetThreadContext%2 "kernel32.dll"
 //go:cgo_import_dynamic runtime._SetThreadContext SetThreadContext%2 "kernel32.dll"
 //go:cgo_import_dynamic runtime._LoadLibraryExW LoadLibraryExW%3 "kernel32.dll"
-//go:cgo_import_dynamic runtime._LoadLibraryA LoadLibraryA%1 "kernel32.dll"
 //go:cgo_import_dynamic runtime._PostQueuedCompletionStatus PostQueuedCompletionStatus%4 "kernel32.dll"
 //go:cgo_import_dynamic runtime._QueryPerformanceCounter QueryPerformanceCounter%1 "kernel32.dll"
 //go:cgo_import_dynamic runtime._QueryPerformanceFrequency QueryPerformanceFrequency%1 "kernel32.dll"
@@ -75,7 +75,6 @@ var (
 	// Following syscalls are available on every Windows PC.
 	// All these variables are set by the Windows executable
 	// loader before the Go program starts.
-	_AddDllDirectory,
 	_AddVectoredContinueHandler,
 	_AddVectoredExceptionHandler,
 	_CloseHandle,
@@ -96,11 +95,11 @@ var (
 	_GetQueuedCompletionStatusEx,
 	_GetStdHandle,
 	_GetSystemDirectoryA,
+	_GetSystemDirectoryW,
 	_GetSystemInfo,
 	_GetThreadContext,
 	_SetThreadContext,
 	_LoadLibraryExW,
-	_LoadLibraryA,
 	_PostQueuedCompletionStatus,
 	_QueryPerformanceCounter,
 	_QueryPerformanceFrequency,
@@ -129,14 +128,12 @@ var (
 	_WriteFile,
 	_ stdFunction
 
-	// Use RtlGenRandom to generate cryptographically random data.
-	// This approach has been recommended by Microsoft (see issue
-	// 15589 for details).
-	// The RtlGenRandom is not listed in advapi32.dll, instead
-	// RtlGenRandom function can be found by searching for SystemFunction036.
-	// Also some versions of Mingw cannot link to SystemFunction036
-	// when building executable as Cgo. So load SystemFunction036
-	// manually during runtime startup.
+	// Use ProcessPrng to generate cryptographically random data, falling back to
+	// RtlGenRandom where ProcessPrng is unavailable. Only one is ever loaded.
+	//
+	// RtlGenRandom is not listed in advapi32.dll under that name. It has to be
+	// found as SystemFunction036.
+	_ProcessPrng  stdFunction
 	_RtlGenRandom stdFunction
 
 	// Load ntdll.dll manually during startup, otherwise Mingw
@@ -155,10 +152,11 @@ var (
 )
 
 var (
-	advapi32dll = [...]uint16{'a', 'd', 'v', 'a', 'p', 'i', '3', '2', '.', 'd', 'l', 'l', 0}
-	ntdlldll    = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
-	powrprofdll = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
-	winmmdll    = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
+	advapi32dll         = [...]uint16{'a', 'd', 'v', 'a', 'p', 'i', '3', '2', '.', 'd', 'l', 'l', 0}
+	bcryptprimitivesdll = [...]uint16{'b', 'c', 'r', 'y', 'p', 't', 'p', 'r', 'i', 'm', 'i', 't', 'i', 'v', 'e', 's', '.', 'd', 'l', 'l', 0}
+	ntdlldll            = [...]uint16{'n', 't', 'd', 'l', 'l', '.', 'd', 'l', 'l', 0}
+	powrprofdll         = [...]uint16{'p', 'o', 'w', 'r', 'p', 'r', 'o', 'f', '.', 'd', 'l', 'l', 0}
+	winmmdll            = [...]uint16{'w', 'i', 'n', 'm', 'm', '.', 'd', 'l', 'l', 0}
 )
 
 // Function to be called by windows CreateThread
@@ -253,37 +251,40 @@ func windows_GetSystemDirectory() string {
 }
 
 func windowsLoadSystemLib(name []uint16) uintptr {
-	if useLoadLibraryEx {
-		const _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
-		return stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&name[0])), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32)
-	} else {
-		var nameBytes [_MAX_PATH]byte
-		n := len(name)
-		if n > len(nameBytes) {
-			n = len(nameBytes)
-		}
-		for i := 0; i < n && name[i] != 0; i++ {
-			nameBytes[i] = byte(name[i])
-		}
-
-		// Construct the full path
-		var fullPath [_MAX_PATH]byte
-		copy(fullPath[:], sysDirectory[:sysDirectoryLen])
-		pathLen := sysDirectoryLen
-		for i := 0; i < len(nameBytes) && nameBytes[i] != 0 && pathLen < _MAX_PATH; i++ {
-			fullPath[pathLen] = nameBytes[i]
-			pathLen++
-		}
-
-		// Ensure null-termination
-		if pathLen < _MAX_PATH {
-			fullPath[pathLen] = 0
-		} else {
-			fullPath[_MAX_PATH-1] = 0
-		}
-
-		return stdcall(_LoadLibraryA, uintptr(unsafe.Pointer(&fullPath[0])))
+	const _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
+	if h := stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&name[0])), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32); h != 0 {
+		return h
 	}
+	// LoadLibraryExW rejects LOAD_LIBRARY_SEARCH_SYSTEM32 with
+	// ERROR_INVALID_PARAMETER on systems that predate the flag, which
+	// includes Windows 7 without KB2533623 installed. Naming the file
+	// in the system directory is as safe against DLL preloading as the
+	// flag is, so use that instead.
+	return loadSystemLibFromSysDir(name)
+}
+
+var sysDirectory16 [_MAX_PATH + 1]uint16
+var sysDirectory16Len uintptr
+
+// loadSystemLibFromSysDir loads name by its absolute path in the Windows
+// system directory, which it looks up on first use.
+func loadSystemLibFromSysDir(name []uint16) uintptr {
+	if sysDirectory16Len == 0 {
+		l := stdcall(_GetSystemDirectoryW, uintptr(unsafe.Pointer(&sysDirectory16[0])), uintptr(len(sysDirectory16)-1))
+		if l == 0 || l > uintptr(len(sysDirectory16)-1) {
+			return 0
+		}
+		sysDirectory16[l] = '\\'
+		sysDirectory16Len = l + 1
+	}
+	// name is NUL-terminated, so path is too.
+	var path [_MAX_PATH + 1]uint16
+	if sysDirectory16Len+uintptr(len(name)) > uintptr(len(path)) {
+		return 0
+	}
+	copy(path[:], sysDirectory16[:sysDirectory16Len])
+	copy(path[sysDirectory16Len:], name)
+	return stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&path[0])), 0, 0)
 }
 
 //go:linkname windows_QueryPerformanceCounter internal/syscall/windows.QueryPerformanceCounter
@@ -301,20 +302,18 @@ func windows_QueryPerformanceFrequency() int64 {
 }
 
 func loadOptionalSyscalls() {
-	var kernel32dll = []byte("kernel32.dll\000")
-	k32 := stdcall(_LoadLibraryA, uintptr(unsafe.Pointer(&kernel32dll[0])))
-	if k32 == 0 {
-		throw("kernel32.dll not found")
+	if bcryptPrimitives := windowsLoadSystemLib(bcryptprimitivesdll[:]); bcryptPrimitives != 0 {
+		_ProcessPrng = windowsFindfunc(bcryptPrimitives, []byte("ProcessPrng\000"))
 	}
-	_AddDllDirectory = windowsFindfunc(k32, []byte("AddDllDirectory\000"))
-	_LoadLibraryExW = windowsFindfunc(k32, []byte("LoadLibraryExW\000"))
-	useLoadLibraryEx = (_LoadLibraryExW != nil && _AddDllDirectory != nil)
-
-	a32 := windowsLoadSystemLib(advapi32dll[:])
-	if a32 == 0 {
-		throw("advapi32.dll not found")
+	if _ProcessPrng == nil {
+		// bcryptprimitives.dll ships with Windows 7 but exports
+		// ProcessPrng only from Windows 8. RtlGenRandom is what the
+		// standard library used before Go 1.22.
+		_RtlGenRandom = loadRtlGenRandom()
+		if _RtlGenRandom == nil {
+			throw("neither ProcessPrng nor RtlGenRandom found")
+		}
 	}
-	_RtlGenRandom = windowsFindfunc(a32, []byte("SystemFunction036\000"))
 
 	n32 := windowsLoadSystemLib(ntdlldll[:])
 	if n32 == 0 {
@@ -334,6 +333,17 @@ func loadOptionalSyscalls() {
 	}
 	_RtlGetCurrentPeb = windowsFindfunc(n32, []byte("RtlGetCurrentPeb\000"))
 	_RtlGetVersion = windowsFindfunc(n32, []byte("RtlGetVersion\000"))
+}
+
+// loadRtlGenRandom returns RtlGenRandom from advapi32.dll, or nil if it
+// cannot be found. It is kept separate from loadOptionalSyscalls so that
+// the fallback can be exercised on a system that has ProcessPrng.
+func loadRtlGenRandom() stdFunction {
+	a32 := windowsLoadSystemLib(advapi32dll[:])
+	if a32 == 0 {
+		return nil
+	}
+	return windowsFindfunc(a32, []byte("SystemFunction036\000"))
 }
 
 func monitorSuspendResume() {
@@ -398,9 +408,6 @@ func getPageSize() uintptr {
 
 // in sys_windows_386.s and sys_windows_amd64.s:
 func getlasterror() uint32
-
-//go:linkname useLoadLibraryEx syscall.useLoadLibraryEx
-var useLoadLibraryEx bool
 
 var timeBeginPeriodRetValue uint32
 
@@ -537,8 +544,21 @@ func osinit() {
 
 //go:nosplit
 func readRandom(r []byte) int {
+	fn := _ProcessPrng
+	if fn == nil {
+		fn = _RtlGenRandom
+	}
+	return readRandomFrom(fn, r)
+}
+
+// readRandomFrom fills r using fn, which must take a buffer and a length
+// and return a non-zero byte on success, as ProcessPrng and RtlGenRandom
+// both do.
+//
+//go:nosplit
+func readRandomFrom(fn stdFunction, r []byte) int {
 	n := 0
-	if stdcall(_RtlGenRandom, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
+	if stdcall(fn, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
 		n = len(r)
 	}
 	return n

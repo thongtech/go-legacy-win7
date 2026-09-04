@@ -5,6 +5,7 @@
 package runtime_test
 
 import (
+	"bytes"
 	"fmt"
 	"internal/abi"
 	"internal/race"
@@ -44,6 +45,34 @@ func (d *DLL) Proc(name string) *syscall.Proc {
 		d.t.Fatal(e)
 	}
 	return p
+}
+
+// TestLoadSystemLib checks that the runtime can load a system DLL both
+// with LOAD_LIBRARY_SEARCH_SYSTEM32 and by absolute path in the system
+// directory.
+func TestLoadSystemLib(t *testing.T) {
+	name, err := syscall.UTF16FromString("winmm.dll")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if h := runtime.LoadSystemLib(name); h == 0 {
+		t.Errorf("LoadSystemLib(winmm.dll) = 0, want non-zero")
+	}
+	if h := runtime.LoadSystemLibFromSysDir(name); h == 0 {
+		t.Errorf("LoadSystemLibFromSysDir(winmm.dll) = 0, want non-zero")
+	}
+}
+
+// TestReadRandomFromRtlGenRandom checks the generator readRandom falls back
+// to when ProcessPrng is missing.
+func TestReadRandomFromRtlGenRandom(t *testing.T) {
+	b := make([]byte, 32)
+	if n := runtime.ReadRandomFromRtlGenRandom(b); n != len(b) {
+		t.Fatalf("ReadRandomFromRtlGenRandom = %d, want %d", n, len(b))
+	}
+	if bytes.Equal(b, make([]byte, len(b))) {
+		t.Error("RtlGenRandom left the buffer zeroed")
+	}
 }
 
 func TestStdCall(t *testing.T) {

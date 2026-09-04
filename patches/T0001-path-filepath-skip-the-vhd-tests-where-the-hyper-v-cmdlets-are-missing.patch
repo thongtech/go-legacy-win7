@@ -1,0 +1,39 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] path/filepath: skip the VHD tests where the Hyper-V cmdlets are missing
+
+createMountPartition (CL 565136, Go 1.23) creates the volume that two
+EvalSymlinks tests need, using New-VHD and Mount-VHD. Those cmdlets come from
+the Hyper-V PowerShell module, which first shipped with Windows 8.
+
+	no Hyper-V module  ->  the script fails
+	                   ->  the test continues without a volume
+
+Check for one of the cmdlets before running the script, with an explicit exit
+code that PowerShell 2 does report, and skip on that. This also skips before
+the cleanup is registered, so nothing tries to dismount a volume that was never
+mounted. Where the module is present nothing changes.
+
+
+diff --git a/src/path/filepath/path_windows_test.go b/src/path/filepath/path_windows_test.go
+index d60903f6..763ee8f7 100644
+--- a/src/path/filepath/path_windows_test.go
++++ b/src/path/filepath/path_windows_test.go
+@@ -484,6 +484,17 @@ func TestWalkDirectorySymlink(t *testing.T) {
+ 
+ func createMountPartition(t *testing.T, vhd string, args string) []byte {
+ 	testenv.MustHaveExecPath(t, "powershell")
++
++	// The script below needs the Hyper-V cmdlets, which are not always
++	// installed. Ask for one of them rather than waiting for the script to
++	// fail, because PowerShell 2, which is what Windows 7 ships, exits
++	// zero when a script fails and the failure below would go unnoticed.
++	probe := testenv.Command(t, "powershell", "-Command",
++		"if (-not (Get-Command New-VHD -ErrorAction SilentlyContinue)) { exit 1 }")
++	if out, err := probe.CombinedOutput(); err != nil {
++		t.Skip("skipping test because Hyper-V is not available: ", err, string(out))
++	}
++
+ 	t.Cleanup(func() {
+ 		cmd := testenv.Command(t, "powershell", "-Command", fmt.Sprintf("Dismount-VHD %q", vhd))
+ 		out, err := cmd.CombinedOutput()

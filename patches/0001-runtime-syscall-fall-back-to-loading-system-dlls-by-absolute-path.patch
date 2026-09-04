@@ -1,0 +1,241 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] runtime, syscall: fall back to loading system DLLs by absolute path
+
+The runtime and syscall load system DLLs with LoadLibraryExW and the flag
+LOAD_LIBRARY_SEARCH_SYSTEM32, which restricts the search to the system
+directory. Windows 7 accepts that flag only with KB2533623 installed, and
+CL 463842 (Go 1.21) removed the checks in both that used to test for it.
+
+	LoadLibraryExW(name, 0, LOAD_LIBRARY_SEARCH_SYSTEM32)
+	  |
+	  +-- Win8+, or Win7 with KB2533623  ->  loads
+	  +-- Win7 RTM                       ->  ERROR_INVALID_PARAMETER
+
+	runtime  ->  fatal error: bcryptprimitives.dll not found
+	syscall  ->  every NewLazySystemDLL fails to load
+
+When the load fails, load the file by its full path in the system directory
+instead. A DLL placed next to the program is still not picked up, which is
+what the flag was for. In syscall the retry is in LoadDLL rather than in
+loadsystemlibrary, because golang.org/x/sys/windows reaches loadsystemlibrary
+through go:linkname and depends on its signature.
+
+
+diff --git a/src/runtime/export_windows_test.go b/src/runtime/export_windows_test.go
+index f44e24bb..4a22eb5b 100644
+--- a/src/runtime/export_windows_test.go
++++ b/src/runtime/export_windows_test.go
+@@ -25,3 +25,11 @@ func NumberOfProcessors() int32 {
+ func GetCallerFp() uintptr {
+ 	return getcallerfp()
+ }
++
++func LoadSystemLib(name []uint16) uintptr {
++	return windowsLoadSystemLib(name)
++}
++
++func LoadSystemLibFromSysDir(name []uint16) uintptr {
++	return loadSystemLibFromSysDir(name)
++}
+diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
+index 1688ba91..e1e14093 100644
+--- a/src/runtime/os_windows.go
++++ b/src/runtime/os_windows.go
+@@ -37,6 +37,7 @@ const (
+ //go:cgo_import_dynamic runtime._GetQueuedCompletionStatusEx GetQueuedCompletionStatusEx%6 "kernel32.dll"
+ //go:cgo_import_dynamic runtime._GetStdHandle GetStdHandle%1 "kernel32.dll"
+ //go:cgo_import_dynamic runtime._GetSystemDirectoryA GetSystemDirectoryA%2 "kernel32.dll"
++//go:cgo_import_dynamic runtime._GetSystemDirectoryW GetSystemDirectoryW%2 "kernel32.dll"
+ //go:cgo_import_dynamic runtime._GetSystemInfo GetSystemInfo%1 "kernel32.dll"
+ //go:cgo_import_dynamic runtime._GetThreadContext GetThreadContext%2 "kernel32.dll"
+ //go:cgo_import_dynamic runtime._SetThreadContext SetThreadContext%2 "kernel32.dll"
+@@ -94,6 +95,7 @@ var (
+ 	_GetQueuedCompletionStatusEx,
+ 	_GetStdHandle,
+ 	_GetSystemDirectoryA,
++	_GetSystemDirectoryW,
+ 	_GetSystemInfo,
+ 	_GetThreadContext,
+ 	_SetThreadContext,
+@@ -244,7 +246,39 @@ func windows_GetSystemDirectory() string {
+ 
+ func windowsLoadSystemLib(name []uint16) uintptr {
+ 	const _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
+-	return stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&name[0])), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32)
++	if h := stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&name[0])), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32); h != 0 {
++		return h
++	}
++	// LoadLibraryExW rejects LOAD_LIBRARY_SEARCH_SYSTEM32 with
++	// ERROR_INVALID_PARAMETER on systems that predate the flag, which
++	// includes Windows 7 without KB2533623 installed. Naming the file
++	// in the system directory is as safe against DLL preloading as the
++	// flag is, so use that instead.
++	return loadSystemLibFromSysDir(name)
++}
++
++var sysDirectory16 [_MAX_PATH + 1]uint16
++var sysDirectory16Len uintptr
++
++// loadSystemLibFromSysDir loads name by its absolute path in the Windows
++// system directory, which it looks up on first use.
++func loadSystemLibFromSysDir(name []uint16) uintptr {
++	if sysDirectory16Len == 0 {
++		l := stdcall(_GetSystemDirectoryW, uintptr(unsafe.Pointer(&sysDirectory16[0])), uintptr(len(sysDirectory16)-1))
++		if l == 0 || l > uintptr(len(sysDirectory16)-1) {
++			return 0
++		}
++		sysDirectory16[l] = '\\'
++		sysDirectory16Len = l + 1
++	}
++	// name is NUL-terminated, so path is too.
++	var path [_MAX_PATH + 1]uint16
++	if sysDirectory16Len+uintptr(len(name)) > uintptr(len(path)) {
++		return 0
++	}
++	copy(path[:], sysDirectory16[:sysDirectory16Len])
++	copy(path[sysDirectory16Len:], name)
++	return stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&path[0])), 0, 0)
+ }
+ 
+ //go:linkname windows_QueryPerformanceCounter internal/syscall/windows.QueryPerformanceCounter
+diff --git a/src/runtime/syscall_windows_test.go b/src/runtime/syscall_windows_test.go
+index 6a9b165d..6cb4b8dc 100644
+--- a/src/runtime/syscall_windows_test.go
++++ b/src/runtime/syscall_windows_test.go
+@@ -46,6 +46,22 @@ func (d *DLL) Proc(name string) *syscall.Proc {
+ 	return p
+ }
+ 
++// TestLoadSystemLib checks that the runtime can load a system DLL both
++// with LOAD_LIBRARY_SEARCH_SYSTEM32 and by absolute path in the system
++// directory.
++func TestLoadSystemLib(t *testing.T) {
++	name, err := syscall.UTF16FromString("winmm.dll")
++	if err != nil {
++		t.Fatal(err)
++	}
++	if h := runtime.LoadSystemLib(name); h == 0 {
++		t.Errorf("LoadSystemLib(winmm.dll) = 0, want non-zero")
++	}
++	if h := runtime.LoadSystemLibFromSysDir(name); h == 0 {
++		t.Errorf("LoadSystemLibFromSysDir(winmm.dll) = 0, want non-zero")
++	}
++}
++
+ func TestStdCall(t *testing.T) {
+ 	type Rect struct {
+ 		left, top, right, bottom int32
+diff --git a/src/syscall/dll_windows.go b/src/syscall/dll_windows.go
+index 9d779869..03ef121c 100644
+--- a/src/syscall/dll_windows.go
++++ b/src/syscall/dll_windows.go
+@@ -14,10 +14,12 @@ import (
+ // Use double underscore to avoid name collision autogenerated functions.
+ //go:cgo_import_dynamic syscall.__LoadLibraryExW LoadLibraryExW%3 "kernel32.dll"
+ //go:cgo_import_dynamic syscall.__GetProcAddress GetProcAddress%2 "kernel32.dll"
++//go:cgo_import_dynamic syscall.__GetSystemDirectoryW GetSystemDirectoryW%2 "kernel32.dll"
+ 
+ var (
+-	__LoadLibraryExW unsafe.Pointer
+-	__GetProcAddress unsafe.Pointer
++	__LoadLibraryExW      unsafe.Pointer
++	__GetProcAddress      unsafe.Pointer
++	__GetSystemDirectoryW unsafe.Pointer
+ )
+ 
+ // DLLError describes reasons for DLL load failures.
+@@ -137,6 +139,40 @@ func getprocaddress(handle uintptr, procname *uint8) (uintptr, Errno) {
+ 	return proc, err
+ }
+ 
++// systemDirectory returns the Windows system directory with a trailing
++// separator, or an empty string if it cannot be determined. It is resolved
++// on first use.
++var systemDirectory = sync.OnceValue(func() string {
++	n := uint32(MAX_PATH)
++	for {
++		b := make([]uint16, n)
++		r, _, _ := SyscallN(uintptr(__GetSystemDirectoryW), uintptr(unsafe.Pointer(&b[0])), uintptr(n))
++		l := uint32(r)
++		if l == 0 {
++			return ""
++		}
++		if l <= n {
++			return UTF16ToString(b[:l]) + `\`
++		}
++		n = l
++	}
++})
++
++// loadSystemDLLByPath loads the named system DLL by its absolute path in
++// the Windows system directory. It returns 0 if the DLL cannot be loaded.
++func loadSystemDLLByPath(name string) uintptr {
++	dir := systemDirectory()
++	if dir == "" {
++		return 0
++	}
++	namep, err := UTF16PtrFromString(dir + name)
++	if err != nil {
++		return 0
++	}
++	h, _ := loadlibrary(namep)
++	return h
++}
++
+ // A DLL implements access to a single DLL.
+ type DLL struct {
+ 	Name   string
+@@ -160,6 +196,15 @@ func LoadDLL(name string) (*DLL, error) {
+ 	var e Errno
+ 	if sysdll.IsSystemDLL[name] {
+ 		h, e = loadsystemlibrary(namep)
++		if h == 0 {
++			// LoadLibraryExW rejects LOAD_LIBRARY_SEARCH_SYSTEM32 with
++			// ERROR_INVALID_PARAMETER on systems that predate the flag. Naming the file
++			// in the system directory is as safe against DLL preloading as the flag is.
++			// Keep the original error if that does not work either.
++			if h2 := loadSystemDLLByPath(name); h2 != 0 {
++				h, e = h2, 0
++			}
++		}
+ 	} else {
+ 		h, e = loadlibrary(namep)
+ 	}
+diff --git a/src/syscall/export_windows_test.go b/src/syscall/export_windows_test.go
+index a816d776..79050fb6 100644
+--- a/src/syscall/export_windows_test.go
++++ b/src/syscall/export_windows_test.go
+@@ -14,3 +14,6 @@ var EncodeWTF16 = encodeWTF16
+ var DecodeWTF16 = decodeWTF16
+ 
+ var EnvSorted = envSorted
++
++var SystemDirectory = systemDirectory
++var LoadSystemDLLByPath = loadSystemDLLByPath
+diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
+index 30dcddfd..0ef03b21 100644
+--- a/src/syscall/syscall_windows_test.go
++++ b/src/syscall/syscall_windows_test.go
+@@ -307,3 +307,21 @@ func BenchmarkErrnoString(b *testing.B) {
+ 		_ = syscall.Errno(2).Error()
+ 	}
+ }
++
++// TestLoadSystemDLLByPath checks the fallback LoadDLL takes where
++// LOAD_LIBRARY_SEARCH_SYSTEM32 is not understood. It is called directly so
++// that it is covered on every Windows version.
++func TestLoadSystemDLLByPath(t *testing.T) {
++	if dir := syscall.SystemDirectory(); dir == "" {
++		t.Fatal("SystemDirectory returned an empty string")
++	} else if !strings.HasSuffix(dir, `\`) {
++		t.Errorf("SystemDirectory = %q, want a trailing separator", dir)
++	}
++	if h := syscall.LoadSystemDLLByPath("advapi32.dll"); h == 0 {
++		t.Error(`LoadSystemDLLByPath("advapi32.dll") = 0, want non-zero`)
++	}
++	// The ordinary path must keep working too.
++	if _, err := syscall.LoadDLL("advapi32.dll"); err != nil {
++		t.Errorf(`LoadDLL("advapi32.dll") = %v, want nil`, err)
++	}
++}

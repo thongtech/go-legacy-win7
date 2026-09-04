@@ -1,0 +1,275 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] internal/poll: keep a handle that cannot leave its completion port
+
+DisassociateIOCP (CL 664455, Go 1.25) removes a handle from its completion port
+with FileReplaceCompletionInformation, which was added in Windows 8.1. Older
+kernels reject it, and since CL 668195 (Go 1.25) net.(*netFD).dup uses that
+path.
+
+	Win7  ->  the raw NTStatus reaches the caller
+	      ->  every File method on a Conn or Listener fails
+	      ->  as an NTStatus where an Errno is expected
+
+Probe the kernel once to learn whether it can detach a handle. Where it cannot,
+report success and leave the handle where it is. I/O on it still works. A
+caller that wants to attach the handle to a port of its own still cannot. A
+handle passed back in through FileConn is accepted, and Close ends a pending
+read on it.
+
+
+diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
+index 26319548..cad1bbbd 100644
+--- a/src/internal/poll/fd_windows.go
++++ b/src/internal/poll/fd_windows.go
+@@ -330,7 +330,7 @@ func (fd *FD) execIO(mode int, submit func(o *operation) (uint32, error)) (int,
+ 		if waitErr != nil {
+ 			// IO canceled by the poller while waiting for completion.
+ 			err = waitErr
+-		} else if fd.kind == kindPipe && fd.closing() {
++		} else if (fd.kind == kindPipe || fd.offPoller()) && fd.closing() {
+ 			// Close uses CancelIoEx to interrupt concurrent I/O for pipes.
+ 			// If the fd is a pipe and the Write was interrupted by CancelIoEx,
+ 			// we assume it is interrupted by Close.
+@@ -474,7 +474,14 @@ func (fd *FD) Init(net string, pollable bool) error {
+ 	// I/O completion notifications not initiated by us.
+ 	err := fd.pd.init(fd)
+ 	if err != nil {
+-		return err
++		if err != windows.ERROR_INVALID_PARAMETER || canDetachFromIOCP() {
++			return err
++		}
++		// The handle came from a socket that is already on a completion
++		// port, and this kernel cannot move it. Leave it where it is and
++		// drive it with an event, as execIO does for any handle the poller
++		// does not own. See canDetachFromIOCP.
++		return nil
+ 	}
+ 	if fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes {
+ 		// Non-socket handles can use SetFileCompletionNotificationModes without problems.
+@@ -486,6 +493,57 @@ func (fd *FD) Init(net string, pollable bool) error {
+ 	return nil
+ }
+ 
++// offPoller reports whether fd does overlapped I/O that the runtime poller
++// does not own, a file kept off the completion port or a socket the poller
++// could not adopt. Only CancelIoEx can end a wait on such a handle.
++func (fd *FD) offPoller() bool {
++	return !fd.isBlocking && fd.pd.runtimeCtx == 0
++}
++
++// canDetachFromIOCP reports whether this kernel implements
++// FileReplaceCompletionInformation, the only way to take a handle back off a
++// completion port. Windows 8.1 added it. A handle that cannot be taken off
++// must never be put on one, or os.(*File).Fd cannot keep its promise to hand
++// back a detached handle.
++func canDetachFromIOCP() bool {
++	if TestDisassociateIOCPUnsupported {
++		return false
++	}
++	return detachFromIOCPSupported()
++}
++
++// detachFromIOCPSupported probes once, using a handle to the null device.
++// Probing with a caller's handle would strand it, since a handle that turns
++// out not to be detachable stays on the port the probe put it on.
++var detachFromIOCPSupported = sync.OnceValue(func() bool {
++	nul, err := syscall.UTF16PtrFromString("NUL")
++	if err != nil {
++		return true
++	}
++	h, err := syscall.CreateFile(nul, syscall.GENERIC_READ|syscall.GENERIC_WRITE,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING,
++		syscall.FILE_FLAG_OVERLAPPED, 0)
++	if err != nil {
++		// No handle to probe with. Assume the kernel can detach, which
++		// is what this package assumed before it probed at all.
++		return true
++	}
++	defer syscall.CloseHandle(h)
++	port, err := windows.CreateIoCompletionPort(h, 0, 0, 0)
++	if err != nil {
++		return true
++	}
++	defer syscall.CloseHandle(port)
++	info := windows.FILE_COMPLETION_INFORMATION{}
++	return windows.NtSetInformationFile(h, &windows.IO_STATUS_BLOCK{}, unsafe.Pointer(&info),
++		uint32(unsafe.Sizeof(info)), windows.FileReplaceCompletionInformation) == nil
++})
++
++// TestDisassociateIOCPUnsupported should only be used for testing purposes.
++// When set, [FD.DisassociateIOCP] behaves as it does on a kernel without
++// FileReplaceCompletionInformation.
++var TestDisassociateIOCPUnsupported bool
++
+ // DisassociateIOCP disassociates the file handle from the IOCP.
+ // The disassociate operation will not succeed if there is any
+ // in-progress IO operation on the file handle.
+@@ -500,6 +558,13 @@ func (fd *FD) DisassociateIOCP() error {
+ 		return nil
+ 	}
+ 
++	if !canDetachFromIOCP() {
++		// The handle cannot come off the port. Count it as off all the
++		// same, so that I/O on it is driven with an event from here on.
++		fd.disassociated.Store(true)
++		return nil
++	}
++
+ 	info := windows.FILE_COMPLETION_INFORMATION{}
+ 	if err := windows.NtSetInformationFile(fd.Sysfd, &windows.IO_STATUS_BLOCK{}, unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), windows.FileReplaceCompletionInformation); err != nil {
+ 		return err
+@@ -537,7 +602,11 @@ func (fd *FD) Close() error {
+ 		return errClosing(fd.isFile)
+ 	}
+ 
+-	if fd.kind == kindPipe {
++	if fd.kind == kindPipe || fd.offPoller() {
++		// Interrupt whatever is waiting. The poller is not watching this
++		// handle, so nothing else would end a wait before the handle
++		// closed, and the handle cannot close until the operation holding
++		// it lets go.
+ 		syscall.CancelIoEx(fd.Sysfd, nil)
+ 	}
+ 	// unblock pending reader and writer
+diff --git a/src/net/file_windows_test.go b/src/net/file_windows_test.go
+new file mode 100644
+index 00000000..fb74e091
+--- /dev/null
++++ b/src/net/file_windows_test.go
+@@ -0,0 +1,135 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package net
++
++import (
++	"internal/poll"
++	"io"
++	"testing"
++	"time"
++)
++
++// TestFileNoDisassociateIOCP covers the File methods on a kernel that cannot
++// detach a handle from its completion port. The fallback is forced on so that
++// it is covered on every Windows version.
++func TestFileNoDisassociateIOCP(t *testing.T) {
++	poll.TestDisassociateIOCPUnsupported = true
++	t.Cleanup(func() { poll.TestDisassociateIOCPUnsupported = false })
++
++	ln := newLocalListener(t, "tcp")
++	defer ln.Close()
++
++	c, err := Dial(ln.Addr().Network(), ln.Addr().String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer c.Close()
++	server, err := ln.Accept()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer server.Close()
++
++	f, err := c.(*TCPConn).File()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer f.Close()
++	dup, err := FileConn(f)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer dup.Close()
++	if _, err := dup.Write([]byte("hello")); err != nil {
++		t.Fatal(err)
++	}
++	b := make([]byte, 5)
++	if _, err := io.ReadFull(server, b); err != nil {
++		t.Fatal(err)
++	}
++	if got := string(b); got != "hello" {
++		t.Errorf("read %q from the duplicated connection, want %q", got, "hello")
++	}
++
++	lf, err := ln.(*TCPListener).File()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer lf.Close()
++	ln2, err := FileListener(lf)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer ln2.Close()
++	c2, err := Dial(ln2.Addr().Network(), ln2.Addr().String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer c2.Close()
++	accepted, err := ln2.Accept()
++	if err != nil {
++		t.Fatal(err)
++	}
++	accepted.Close()
++}
++
++// TestFileNoDisassociateIOCPClose checks that Close ends a Read on a
++// connection the poller could not adopt. Nothing but Close can, because the
++// poller is not watching the handle and the handle cannot close while the
++// Read holds it.
++func TestFileNoDisassociateIOCPClose(t *testing.T) {
++	poll.TestDisassociateIOCPUnsupported = true
++	t.Cleanup(func() { poll.TestDisassociateIOCPUnsupported = false })
++
++	ln := newLocalListener(t, "tcp")
++	defer ln.Close()
++	c, err := Dial(ln.Addr().Network(), ln.Addr().String())
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer c.Close()
++	server, err := ln.Accept()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer server.Close()
++
++	f, err := c.(*TCPConn).File()
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer f.Close()
++	dup, err := FileConn(f)
++	if err != nil {
++		t.Fatal(err)
++	}
++
++	read := make(chan error, 1)
++	go func() {
++		_, err := dup.Read(make([]byte, 1))
++		read <- err
++	}()
++	// Let the Read get as far as waiting. If it has not, Close still has to
++	// refuse it, and either way it must come back.
++	time.Sleep(50 * time.Millisecond)
++	closed := make(chan error, 1)
++	go func() { closed <- dup.Close() }()
++	select {
++	case err := <-closed:
++		if err != nil {
++			t.Errorf("Close = %v", err)
++		}
++	case <-time.After(10 * time.Second):
++		t.Fatal("Close did not return while a Read was pending")
++	}
++	select {
++	case err := <-read:
++		if err == nil {
++			t.Error("Read returned no error after Close")
++		}
++	case <-time.After(10 * time.Second):
++		t.Fatal("Read did not return after Close")
++	}
++}

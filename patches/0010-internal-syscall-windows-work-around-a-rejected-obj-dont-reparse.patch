@@ -1,0 +1,232 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] internal/syscall/windows: work around a rejected OBJ_DONT_REPARSE
+
+Openat uses OBJ_DONT_REPARSE (CL 619435, Go 1.24) to make the kernel refuse to
+follow reparse points, which is what symlinks and junctions are. Windows 7 does
+not know that attribute and rejects the open. Since CL 661575 (Go 1.25)
+RemoveAll goes through Openat as well.
+
+	Win7  ->  STATUS_INVALID_PARAMETER  ->  every os.Root call fails
+	                                    ->  every RemoveAll fails too
+
+Retry once without the attribute, opening the reparse point itself instead of
+following it, so that Openat can refuse it. A malformed name gets the same
+status. The retry tells the two apart, because a malformed name fails again.
+
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index 81361c98..d754958f 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -8,6 +8,7 @@ import (
+ 	"internal/oserror"
+ 	"runtime"
+ 	"structs"
++	"sync/atomic"
+ 	"syscall"
+ 	"unsafe"
+ )
+@@ -30,6 +31,33 @@ const (
+ 	O_WRITE_ATTRS  = 0x800000000 // FILE_WRITE_ATTRIBUTES, used by Chmod
+ )
+ 
++// objDontReparseUnsupported records that this kernel rejected
++// OBJ_DONT_REPARSE, which Windows 7 does. The retry opens with
++// FILE_OPEN_REPARSE_POINT instead, so a reparse point is returned rather than
++// followed and Openat reports STATUS_REPARSE_POINT_ENCOUNTERED itself.
++var objDontReparseUnsupported atomic.Bool
++
++// isReparsePoint reports whether h refers to a reparse point.
++func isReparsePoint(h syscall.Handle) (bool, error) {
++	var d syscall.ByHandleFileInformation
++	if err := syscall.GetFileInformationByHandle(h, &d); err != nil {
++		return false, err
++	}
++	return d.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0, nil
++}
++
++// TestOpenatNoObjDontReparse should only be used for testing purposes.
++// When set, [Openat] behaves as it does on a kernel without
++// OBJ_DONT_REPARSE.
++var TestOpenatNoObjDontReparse bool
++
++// ObjDontReparseUnsupportedForTest should only be used for testing purposes.
++// It reports whether [Openat] has concluded that this kernel rejects
++// OBJ_DONT_REPARSE.
++func ObjDontReparseUnsupportedForTest() bool {
++	return objDontReparseUnsupported.Load()
++}
++
+ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ syscall.Handle, e1 error) {
+ 	if len(name) == 0 {
+ 		return syscall.InvalidHandle, syscall.ERROR_FILE_NOT_FOUND
+@@ -106,9 +134,15 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
+ 	access |= STANDARD_RIGHTS_READ | FILE_READ_ATTRIBUTES | FILE_READ_EA
+ 
+ 	objAttrs := &OBJECT_ATTRIBUTES{}
+-	if flag&O_NOFOLLOW_ANY != 0 {
++	noFollow := flag&O_NOFOLLOW_ANY != 0
++	emulateNoFollow := noFollow && (objDontReparseUnsupported.Load() || TestOpenatNoObjDontReparse)
++	if noFollow && !emulateNoFollow {
+ 		objAttrs.Attributes |= OBJ_DONT_REPARSE
+ 	}
++	if emulateNoFollow {
++		// Emulate OBJ_DONT_REPARSE. See objDontReparseUnsupported.
++		options |= FILE_OPEN_REPARSE_POINT
++	}
+ 	if flag&syscall.O_CLOEXEC == 0 {
+ 		objAttrs.Attributes |= OBJ_INHERIT
+ 	}
+@@ -141,22 +175,52 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
+ 	}
+ 
+ 	var h syscall.Handle
+-	err := NtCreateFile(
+-		&h,
+-		SYNCHRONIZE|access,
+-		objAttrs,
+-		&IO_STATUS_BLOCK{},
+-		nil,
+-		fileAttrs,
+-		FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+-		disposition,
+-		FILE_OPEN_FOR_BACKUP_INTENT|options,
+-		nil,
+-		0,
+-	)
++	create := func() error {
++		return NtCreateFile(
++			&h,
++			SYNCHRONIZE|access,
++			objAttrs,
++			&IO_STATUS_BLOCK{},
++			nil,
++			fileAttrs,
++			FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
++			disposition,
++			FILE_OPEN_FOR_BACKUP_INTENT|options,
++			nil,
++			0,
++		)
++	}
++	err := create()
++	if err == STATUS_INVALID_PARAMETER && objAttrs.Attributes&OBJ_DONT_REPARSE != 0 {
++		// STATUS_INVALID_PARAMETER has two causes here. One is a kernel
++		// that does not know OBJ_DONT_REPARSE. The other is an open asking
++		// for a directory and a non-directory at once, which a trailing
++		// separator on a file does. Dropping the attribute cannot fix the
++		// second, so retry without it and take the kernel to lack it only
++		// if STATUS_INVALID_PARAMETER goes away.
++		objAttrs.Attributes &^= OBJ_DONT_REPARSE
++		options |= FILE_OPEN_REPARSE_POINT
++		if retry := create(); retry != STATUS_INVALID_PARAMETER {
++			objDontReparseUnsupported.Store(true)
++			emulateNoFollow = true
++			err = retry
++		}
++	}
+ 	if err != nil {
+ 		return h, ntCreateFileError(err, flag)
+ 	}
++	if emulateNoFollow && fileFlags&O_FILE_FLAG_OPEN_REPARSE_POINT == 0 {
++		// The emulated OBJ_DONT_REPARSE refusal.
++		isLink, err := isReparsePoint(h)
++		if err != nil {
++			syscall.CloseHandle(h)
++			return syscall.InvalidHandle, err
++		}
++		if isLink {
++			syscall.CloseHandle(h)
++			return syscall.InvalidHandle, ntCreateFileError(STATUS_REPARSE_POINT_ENCOUNTERED, flag)
++		}
++	}
+ 
+ 	if flag&syscall.O_TRUNC != 0 {
+ 		err = syscall.Ftruncate(h, 0)
+diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
+index eea2b58e..e1e1cc4d 100644
+--- a/src/os/path_windows_test.go
++++ b/src/os/path_windows_test.go
+@@ -253,6 +253,81 @@ func TestRemoveAllFallback(t *testing.T) {
+ 	}
+ }
+ 
++// TestOpenatNoObjDontReparse covers Openat on a kernel that rejects
++// OBJ_DONT_REPARSE, which Windows 7 does. The O_NOFOLLOW_ANY guarantee
++// must survive the fallback, because RemoveAll walks a tree with it and
++// following a symlink there recurses out of the tree.
++func TestOpenatNoObjDontReparse(t *testing.T) {
++	windows.TestOpenatNoObjDontReparse = true
++	t.Cleanup(func() { windows.TestOpenatNoObjDontReparse = false })
++
++	dir := t.TempDir()
++	sub := filepath.Join(dir, "sub")
++	if err := os.MkdirAll(filepath.Join(sub, "nested"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(sub, "file"), []byte("x"), 0600); err != nil {
++		t.Fatal(err)
++	}
++
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	f, err := root.Open("sub/file")
++	if err != nil {
++		t.Fatalf("Root.Open: %v", err)
++	}
++	f.Close()
++
++	// A symlink must still be refused rather than followed.
++	if testenv.HasSymlink() {
++		if err := os.Symlink(sub, filepath.Join(dir, "link")); err != nil {
++			t.Fatal(err)
++		}
++		if _, err := root.Open("link/file"); err == nil {
++			t.Error("Root.Open followed a symlink, want error")
++		}
++	}
++
++	// Windows will not remove a directory with an open handle on it.
++	root.Close()
++
++	// This is the operation that failed on Windows 7.
++	if err := os.RemoveAll(dir); err != nil {
++		t.Fatalf("RemoveAll: %v", err)
++	}
++}
++
++// TestOpenatMalformedKeepsObjDontReparse checks that an open refused for a
++// reason of its own, a trailing separator on a file, is not mistaken for a
++// kernel that rejects OBJ_DONT_REPARSE.
++func TestOpenatMalformedKeepsObjDontReparse(t *testing.T) {
++	if windows.ObjDontReparseUnsupportedForTest() {
++		t.Skip("kernel already known to reject OBJ_DONT_REPARSE")
++	}
++
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "target"), []byte("target"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++
++	// A trailing separator on a file. This has to fail, and what matters is
++	// what it leaves behind.
++	if f, err := root.Create("target/"); err == nil {
++		f.Close()
++		t.Fatal(`Root.Create("target/") succeeded, want an error`)
++	}
++	if windows.ObjDontReparseUnsupportedForTest() {
++		t.Error("a malformed open was taken for a kernel without OBJ_DONT_REPARSE")
++	}
++}
++
+ func testLongPathAbs(t *testing.T, target string) {
+ 	t.Helper()
+ 	testWalkFn := func(path string, info os.FileInfo, err error) error {

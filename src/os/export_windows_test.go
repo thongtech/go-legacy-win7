@@ -7,9 +7,12 @@ package os
 // Export for testing.
 
 var (
-	AddExtendedPrefix  = addExtendedPrefix
-	NewConsoleFile     = newConsoleFile
-	CommandLineToArgv  = commandLineToArgv
-	AllowReadDirFileID = &allowReadDirFileID
-	SplitPath          = splitPath
+	AddExtendedPrefix          = addExtendedPrefix
+	NewConsoleFile             = newConsoleFile
+	CommandLineToArgv          = commandLineToArgv
+	AllowReadDirFileID         = &allowReadDirFileID
+	FileFullDirInfoUnsupported = &fileFullDirInfoUnsupported
+	ConsoleDeviceName          = consoleDeviceName
+	IsConsoleName              = isConsoleName
+	SplitPath                  = splitPath
 )

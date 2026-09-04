@@ -18,7 +18,18 @@ func dupSocket(h syscall.Handle) (syscall.Handle, error) {
 	if err != nil {
 		return 0, err
 	}
-	return windows.WSASocket(-1, -1, -1, &info, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
+	s, err := wsaSocketFunc(-1, -1, -1, &info, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
+	if err == nil {
+		return s, nil
+	}
+	// See sysSocket for why the flag may be rejected and why no lock is
+	// needed around the inheritable window.
+	s, err = wsaSocketFunc(-1, -1, -1, &info, 0, windows.WSA_FLAG_OVERLAPPED)
+	if err != nil {
+		return 0, err
+	}
+	syscall.CloseOnExec(s)
+	return s, nil
 }
 
 func dupFileSocket(f *os.File) (syscall.Handle, error) {

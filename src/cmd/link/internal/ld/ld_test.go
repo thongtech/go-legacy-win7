@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"debug/pe"
 	"fmt"
+	"internal/platform"
 	"internal/testenv"
 	"os"
 	"path/filepath"
@@ -288,6 +289,56 @@ func testWindowsBuildmodeCSharedASLR(t *testing.T, useASLR bool) {
 		t.Error("IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE flag is not set")
 	} else if !useASLR && hasASLR {
 		t.Error("IMAGE_DLLCHARACTERISTICS_DYNAMIC_BASE flag should not be set")
+	}
+}
+
+// TestRaceNoAddressWaitImport checks that a -race binary imports nothing from
+// api-ms-win-core-synch-l1-2-0.dll, the API set that arrived in Windows 8.
+// runtime/race defines the address wait functions itself, so the import
+// library that used to supply them is no longer linked.
+func TestRaceNoAddressWaitImport(t *testing.T) {
+	testenv.MustHaveGoBuild(t)
+	testenv.MustHaveCGO(t)
+	if runtime.GOOS != "windows" || !platform.RaceDetectorSupported(runtime.GOOS, runtime.GOARCH) {
+		t.Skipf("skipping test: no race detector on %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+
+	t.Parallel()
+
+	dir := t.TempDir()
+	srcfile := filepath.Join(dir, "test.go")
+	if err := os.WriteFile(srcfile, []byte(`package main; func main() {}`), 0666); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, linkmode := range []string{"internal", "external"} {
+		t.Run(linkmode, func(t *testing.T) {
+			t.Parallel()
+
+			objfile := filepath.Join(dir, "test-"+linkmode+".exe")
+			cmd := testenv.Command(t, testenv.GoToolPath(t), "build", "-race",
+				"-ldflags=-linkmode="+linkmode, "-o", objfile, srcfile)
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("build failure: %s\n%s\n", err, out)
+			}
+
+			f, err := pe.Open(objfile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+			syms, err := f.ImportedSymbols()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, sym := range syms {
+				if i := strings.LastIndex(sym, ":"); i >= 0 {
+					if dll := strings.ToLower(sym[i+1:]); strings.HasPrefix(dll, "api-ms-win-core-synch-l1-2") {
+						t.Errorf("imports %s from %s, which Windows 7 does not have", sym[:i], dll)
+					}
+				}
+			}
+		})
 	}
 }
 

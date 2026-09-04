@@ -1,0 +1,122 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] os: fall back to FILE_ID_BOTH_DIR_INFO when reading directories
+
+readdir requests FileFullDirectoryRestartInfo, introduced by
+CL 518195 (Go 1.22) and made the default by CL 574155 (Go 1.23).
+
+	FileFullDirectoryRestartInfo    Windows 8 and later
+	FileIdBothDirectoryRestartInfo  every supported Windows
+
+	Win7  ->  ERROR_INVALID_PARAMETER  ->  the directory cannot be read
+
+On NTFS readdir already picks FileIdBothDirectoryRestartInfo, for os.SameFile,
+so the failure shows on FAT32, exFAT and network shares, where no directory can
+be listed.
+
+Read the directory with FileIdBothDirectoryRestartInfo instead, which contains
+every field readdir uses. The choice is made per directory, so no conclusion
+about the kernel is stored.
+
+
+diff --git a/src/os/dir_windows.go b/src/os/dir_windows.go
+index 52d5acda..556a7cdb 100644
+--- a/src/os/dir_windows.go
++++ b/src/os/dir_windows.go
+@@ -59,9 +59,18 @@ func (d *dirInfo) close() {
+ // Useful for testing purposes.
+ var allowReadDirFileID = true
+ 
++// fileFullDirInfoUnsupported starts every directory on
++// FileIdBothDirectoryRestartInfo, as readdir does for one directory once the
++// kernel has rejected FileFullDirectoryRestartInfo. Useful for testing
++// purposes.
++var fileFullDirInfoUnsupported = false
++
+ func (d *dirInfo) init(h syscall.Handle) {
+ 	d.h = h
+ 	d.class = windows.FileFullDirectoryRestartInfo
++	if fileFullDirInfoUnsupported {
++		d.class = windows.FileIdBothDirectoryRestartInfo
++	}
+ 	// The previous settings are enough to read the directory entries.
+ 	// The following code is only needed to support os.SameFile.
+ 
+@@ -131,6 +140,14 @@ func (file *File) readdir(n int, mode readdirMode) (names []string, dirents []Di
+ 					d.buf = nil
+ 					break
+ 				}
++				if err == windows.ERROR_INVALID_PARAMETER && d.class == windows.FileFullDirectoryRestartInfo {
++					// This kernel does not know FILE_FULL_DIR_INFO, which
++					// every Windows before 8 lacks. Read this directory
++					// with the class it does know, which carries every
++					// field readdir uses.
++					d.class = windows.FileIdBothDirectoryRestartInfo
++					continue
++				}
+ 				if err == syscall.ERROR_FILE_NOT_FOUND &&
+ 					(d.class == windows.FileIdBothDirectoryRestartInfo || d.class == windows.FileFullDirectoryRestartInfo) {
+ 					// GetFileInformationByHandleEx doesn't document the return error codes when the info class is FileIdBothDirectoryRestartInfo,
+diff --git a/src/os/export_windows_test.go b/src/os/export_windows_test.go
+index 5b939b4c..3f1ad86e 100644
+--- a/src/os/export_windows_test.go
++++ b/src/os/export_windows_test.go
+@@ -7,9 +7,10 @@ package os
+ // Export for testing.
+ 
+ var (
+-	AddExtendedPrefix  = addExtendedPrefix
+-	NewConsoleFile     = newConsoleFile
+-	CommandLineToArgv  = commandLineToArgv
+-	AllowReadDirFileID = &allowReadDirFileID
+-	SplitPath          = splitPath
++	AddExtendedPrefix          = addExtendedPrefix
++	NewConsoleFile             = newConsoleFile
++	CommandLineToArgv          = commandLineToArgv
++	AllowReadDirFileID         = &allowReadDirFileID
++	FileFullDirInfoUnsupported = &fileFullDirInfoUnsupported
++	SplitPath                  = splitPath
+ )
+diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
+index d549608b..eb41e4a8 100644
+--- a/src/os/os_windows_test.go
++++ b/src/os/os_windows_test.go
+@@ -1566,6 +1566,38 @@ func TestReadDirNoFileID(t *testing.T) {
+ 	}
+ }
+ 
++// TestReadDirFileFullDirInfoUnsupported covers readdir on a kernel that rejects
++// the FILE_FULL_DIR_INFO classes. Only the fallback class is exercised, since
++// the rejection that selects it cannot be provoked on a newer kernel.
++func TestReadDirFileFullDirInfoUnsupported(t *testing.T) {
++	// Take the path that upstream uses when the file system reports no
++	// file IDs, which is the one that selects FILE_FULL_DIR_INFO.
++	*os.AllowReadDirFileID = false
++	defer func() { *os.AllowReadDirFileID = true }()
++	*os.FileFullDirInfoUnsupported = true
++	defer func() { *os.FileFullDirInfoUnsupported = false }()
++
++	dir := t.TempDir()
++	want := []string{"a", "b", "c"}
++	for _, name := range want {
++		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0666); err != nil {
++			t.Fatal(err)
++		}
++	}
++
++	files, err := os.ReadDir(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var got []string
++	for _, f := range files {
++		got = append(got, f.Name())
++	}
++	if !slices.Equal(got, want) {
++		t.Fatalf("ReadDir(%q) = %v; want %v", dir, got, want)
++	}
++}
++
+ func TestReadWriteFileOverlapped(t *testing.T) {
+ 	// See https://go.dev/issue/15388.
+ 	t.Parallel()

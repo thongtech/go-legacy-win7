@@ -588,12 +588,23 @@ func TestRealResumption(t *testing.T) {
 		ClientSessionCache: NewLRUClientSessionCache(0),
 	}
 
+	// A chain this server presents can only be verified against a root the
+	// host's store carries, and the store Windows 7 shipped with predates some
+	// of them. Count what went wrong so that a store which cannot verify the
+	// chain is told apart from a failure to resume.
+	var handshakes, verifyFailures int
+
 	for range 10 {
 		conn, err := Dial("tcp", "yahoo.com:443", config)
 		if err != nil {
 			t.Log("Dial error:", err)
+			var verr *CertificateVerificationError
+			if errors.As(err, &verr) {
+				verifyFailures++
+			}
 			continue
 		}
+		handshakes++
 		// Do a read to consume the NewSessionTicket messages.
 		fmt.Fprintf(conn, "GET / HTTP/1.1\r\nHost: yahoo.com\r\nConnection: close\r\n\r\n")
 		conn.Read(make([]byte, 4096))
@@ -602,14 +613,26 @@ func TestRealResumption(t *testing.T) {
 		conn, err = Dial("tcp", "yahoo.com:443", config)
 		if err != nil {
 			t.Log("second Dial error:", err)
+			var verr *CertificateVerificationError
+			if errors.As(err, &verr) {
+				verifyFailures++
+			}
 			continue
 		}
+		handshakes++
 		state := conn.ConnectionState()
 		conn.Close()
 
 		if state.DidResume {
 			return
 		}
+	}
+
+	if handshakes == 0 && verifyFailures > 0 {
+		// Nothing got past certificate verification, so this says nothing about
+		// resumption, which TestResumption and its neighbours cover against a local
+		// server. Connecting and then not resuming still fails below.
+		t.Skipf("%d of 10 dials failed to verify the chain and none completed; the host's trust store does not carry the root it ends at", verifyFailures)
 	}
 
 	t.Fatal("no connection used session resumption")

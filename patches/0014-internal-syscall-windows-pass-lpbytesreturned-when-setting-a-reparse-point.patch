@@ -1,0 +1,46 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Fri, 04 Sep 2026 20:04:27 +1200
+Subject: [PATCH] internal/syscall/windows: pass lpBytesReturned when setting a reparse point
+
+Root.Symlink creates a link by opening the new file and setting a reparse
+point on it with DeviceIoControl. CL 660635 (Go 1.25) wrote that call with a
+null lpBytesReturned and a null lpOverlapped, a pair the documentation
+forbids. Windows 7 writes the byte count through the pointer without looking
+and the process dies. Later Windows do not, or Go 1.25 and 1.26 could not
+have created a symlink there.
+
+	os.Root.Symlink  ->  DeviceIoControl(FSCTL_SET_REPARSE_POINT, ...)
+	                 ->  lpBytesReturned is null
+	                 ->  Windows 7 writes the count to address 0
+	                 ->  Exception 0xc0000005, the process is gone
+
+Pass a variable for the count, as every other DeviceIoControl call in the
+tree already does. This is upstream's own fix, CL 744282 (Go 1.27), which was
+not backported to Go 1.26. Nothing is gated, because the pointer is correct on
+every Windows.
+
+The symlink tests in os cover the call. Measured on Windows 7 RTM, where
+TestSymlink took the whole os test binary down with the exception above, and
+where the fixed binary runs past it.
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index f90ca93b..7d3556ab 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -915,6 +915,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
+ 	namebuf := rdbbuf[bufferSize:]
+ 	copy(namebuf, unsafe.String((*byte)(unsafe.Pointer(&oldnameu16[0])), 2*len(oldnameu16)))
+ 
++	var bytesReturned uint32
+ 	err = syscall.DeviceIoControl(
+ 		h,
+ 		FSCTL_SET_REPARSE_POINT,
+@@ -922,7 +923,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
+ 		uint32(len(rdbbuf)),
+ 		nil,
+ 		0,
+-		nil,
++		&bytesReturned,
+ 		nil)
+ 	if err != nil {
+ 		// Creating the symlink has failed, so try to remove the file.

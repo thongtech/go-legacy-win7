@@ -711,11 +711,6 @@ func loadWindowsHostArchives(ctxt *Link) {
 				hostObject(ctxt, "crt2", p)
 			}
 		}
-		if *flagRace {
-			if p := ctxt.findLibPath("libsynchronization.a"); p != "none" {
-				hostArchive(ctxt, p)
-			}
-		}
 		if p := ctxt.findLibPath("libmingwex.a"); p != "none" {
 			hostArchive(ctxt, p)
 		}
@@ -1978,15 +1973,6 @@ func (ctxt *Link) hostlink() {
 		if !usingLLD {
 			p := writeGDBLinkerScript()
 			argv = append(argv, "-Wl,-T,"+p)
-		}
-		if *flagRace {
-			// Apparently --print-file-name doesn't work with -msvc clang.
-			// (The library name is synchronization.lib, but even with that
-			// name it still doesn't print the full path.) Assume it always
-			// it.
-			if isMSVC || ctxt.findLibPath("libsynchronization.a") != "libsynchronization.a" {
-				argv = append(argv, "-lsynchronization")
-			}
 		}
 		if !isMSVC {
 			// libmingw32 and libmingwex have some inter-dependencies,
