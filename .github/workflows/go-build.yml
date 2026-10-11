@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
 
@@ -67,10 +67,10 @@ jobs:
         env:
           GOOS: ${{ startsWith(matrix.target, 'windows_') && 'windows' || startsWith(matrix.target, 'darwin_') && 'darwin' || 'linux' }}
           GOARCH: ${{ endsWith(matrix.target, '_386') && '386' || endsWith(matrix.target, '_amd64') && 'amd64' || endsWith(matrix.target, '_arm64') && 'arm64' || 'arm' }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: ${{ matrix.target == 'linux_amd64' && '0' || '' }}
         run: |
           cd go-legacy-win7/src
-          ./make.bash
+          ./make.bash --no-banner
 
       - name: Create release directory
         run: |
