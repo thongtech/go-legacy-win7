@@ -2,7 +2,7 @@ From: Vorapol Rinsatitnon <vorapol.r@pm.me>
 Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] crypto/tls: skip the live resumption check when the chain cannot be verified
 
-TestRealResumption, which CL 741361 (Go 1.27) made revalidate the whole chain,
+TestRealResumption, which CL 741361 (Go 1.27, 1.26.0) made revalidate the whole chain,
 dials a live third-party server ten times and asserts that one connection
 resumed. yahoo.com chains to DigiCert Global Root G2, issued in 2013 and absent
 from the store Windows 7 shipped with. The automatic root update adds it only

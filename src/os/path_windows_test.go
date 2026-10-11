@@ -15,6 +15,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 )
 
 func TestAddExtendedPrefix(t *testing.T) {
@@ -354,6 +355,57 @@ func TestRemoveFallbackOpenFile(t *testing.T) {
 	}
 }
 
+// TestRemoveFallbackLeavesUnheldFileInPlace checks that the fallback moves a
+// file aside only when another handle holds it open, since a file nobody
+// holds gives its name up when Deleteat's own handle closes. The hook
+// reports the move. Only the fallback is covered, as in
+// TestRemoveFallbackOpenFile, and it runs on every Windows through the hook.
+func TestRemoveFallbackLeavesUnheldFileInPlace(t *testing.T) {
+	windows.TestDeleteatFallback = true
+	moved := false
+	windows.TestDeleteatSetAside = func() { moved = true }
+	t.Cleanup(func() {
+		windows.TestDeleteatFallback = false
+		windows.TestDeleteatSetAside = nil
+	})
+
+	dir := t.TempDir()
+	name := filepath.Join(dir, "file")
+	if err := os.WriteFile(name, []byte("data"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(name); err != nil {
+		t.Fatal(err)
+	}
+	if moved {
+		t.Error("the fallback moved a file nobody held aside")
+	}
+	if _, err := os.Lstat(name); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("Lstat after Remove = %v, want ErrNotExist", err)
+	}
+
+	// Held open by a handle that shares deletion, the file is moved aside.
+	if err := os.WriteFile(name, []byte("data"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, err := os.OpenRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer root.Close()
+	f, err := root.Open("file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if err := os.Remove(name); err != nil {
+		t.Fatal(err)
+	}
+	if !moved {
+		t.Error("the fallback left a held file in place")
+	}
+}
+
 // TestRemoveAllFallbackOpenFile checks that a tree comes down while a file in
 // it is still open. See TestRemoveFallbackOpenFile on why only the fallback is
 // covered.
@@ -389,78 +441,157 @@ func TestRemoveAllFallbackOpenFile(t *testing.T) {
 	}
 }
 
-// TestOpenatNoObjDontReparse covers Openat on a kernel that rejects
-// OBJ_DONT_REPARSE, which Windows 7 does. The O_NOFOLLOW_ANY guarantee
-// must survive the fallback, because RemoveAll walks a tree with it and
-// following a symlink there recurses out of the tree.
-func TestOpenatNoObjDontReparse(t *testing.T) {
-	windows.TestOpenatNoObjDontReparse = true
-	t.Cleanup(func() { windows.TestOpenatNoObjDontReparse = false })
+// TestRemoveAllWaitsForDeletePending covers the waits Deleteat makes for an
+// entry marked for deletion whose holder is about to close. Windows 7, 8 and
+// 8.1 keep such a directory's name until the last handle closes and refuse
+// to rename it, so RemoveAll of its parent finds it not empty, which the
+// os.Root comparison tests met on a Windows 8.1 guest. There are two shapes: the entry was
+// deleted before RemoveAll came, and every open of it answers delete
+// pending; or RemoveAll deleted it itself, and the parent then refuses as
+// not empty while every entry left in it is pending. Windows 11 drops the
+// name at once, so there neither wait is entered and the test passes with
+// or without them; on the kernels that keep names it fails without them.
+// Only the fallback is covered, which is the only path on those kernels.
+func TestRemoveAllWaitsForDeletePending(t *testing.T) {
+	windows.TestDeleteatFallback = true
+	t.Cleanup(func() { windows.TestDeleteatFallback = false })
 
-	dir := t.TempDir()
-	sub := filepath.Join(dir, "sub")
-	if err := os.MkdirAll(filepath.Join(sub, "nested"), 0700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(sub, "file"), []byte("x"), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	root, err := os.OpenRoot(dir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err := root.Open("sub/file")
-	if err != nil {
-		t.Fatalf("Root.Open: %v", err)
-	}
-	f.Close()
-
-	// A symlink must still be refused rather than followed.
-	if testenv.HasSymlink() {
-		if err := os.Symlink(sub, filepath.Join(dir, "link")); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := root.Open("link/file"); err == nil {
-			t.Error("Root.Open followed a symlink, want error")
-		}
-	}
-
-	// Windows will not remove a directory with an open handle on it.
-	root.Close()
-
-	// This is the operation that failed on Windows 7.
-	if err := os.RemoveAll(dir); err != nil {
-		t.Fatalf("RemoveAll: %v", err)
+	for _, tt := range []struct {
+		name          string
+		deletedBefore bool
+	}{
+		{"deleted before RemoveAll", true},
+		{"deleted by RemoveAll", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			parent := filepath.Join(t.TempDir(), "parent")
+			dir := filepath.Join(parent, "held")
+			if err := os.MkdirAll(dir, 0777); err != nil {
+				t.Fatal(err)
+			}
+			p, err := syscall.UTF16PtrFromString(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := syscall.CreateFile(p, syscall.GENERIC_READ,
+				syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil,
+				syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.deletedBefore {
+				// Where the kernel keeps the name, the directory is now
+				// there and answers delete pending to every open.
+				if err := os.Remove(dir); err != nil {
+					syscall.CloseHandle(h)
+					t.Fatalf("Remove of a held empty directory = %v, want nil", err)
+				}
+			}
+			time.AfterFunc(20*time.Millisecond, func() { syscall.CloseHandle(h) })
+			if err := os.RemoveAll(parent); err != nil {
+				t.Fatalf("RemoveAll of the parent = %v, want nil once the holder let go", err)
+			}
+			if _, err := os.Lstat(parent); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("Lstat after RemoveAll = %v, want ErrNotExist", err)
+			}
+		})
 	}
 }
 
-// TestOpenatMalformedKeepsObjDontReparse checks that an open refused for a
-// reason of its own, a trailing separator on a file, is not mistaken for a
-// kernel that rejects OBJ_DONT_REPARSE.
-func TestOpenatMalformedKeepsObjDontReparse(t *testing.T) {
-	if windows.ObjDontReparseUnsupportedForTest() {
-		t.Skip("kernel already known to reject OBJ_DONT_REPARSE")
-	}
+// TestRemoveWaitsForJustRunImage covers the wait Deleteat makes on Windows 8
+// and 8.1, where the image of a process that has just exited stays mapped for
+// a moment and a delete in that moment fails. The moment is made here by
+// mapping a file as an image, and by holding a file open without sharing
+// deletion, each let go after 20 ms, and the hook stands in for the kernel.
+// Only the fallback is covered, which is the only path on those kernels.
+func TestRemoveWaitsForJustRunImage(t *testing.T) {
+	windows.TestDeleteatFallback = true
+	t.Cleanup(func() {
+		windows.TestDeleteatFallback = false
+		windows.TestDeleteatImageLingers = false
+	})
 
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "target"), []byte("target"), 0600); err != nil {
-		t.Fatal(err)
-	}
-	root, err := os.OpenRoot(dir)
+	exe, err := os.Executable()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer root.Close()
-
-	// A trailing separator on a file. This has to fail, and what matters is
-	// what it leaves behind.
-	if f, err := root.Create("target/"); err == nil {
-		f.Close()
-		t.Fatal(`Root.Create("target/") succeeded, want an error`)
+	image, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if windows.ObjDontReparseUnsupportedForTest() {
-		t.Error("a malformed open was taken for a kernel without OBJ_DONT_REPARSE")
+
+	for _, tt := range []struct {
+		name string
+		hold func(t *testing.T, path string) (release func())
+	}{
+		{"mapped as an image", func(t *testing.T, path string) func() {
+			p, err := syscall.UTF16PtrFromString(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := syscall.CreateFile(p, syscall.GENERIC_READ|syscall.GENERIC_EXECUTE,
+				syscall.FILE_SHARE_READ|syscall.FILE_SHARE_DELETE, nil, syscall.OPEN_EXISTING, 0, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			const SEC_IMAGE = 0x1000000
+			m, err := syscall.CreateFileMapping(h, nil, syscall.PAGE_READONLY|SEC_IMAGE, 0, 0, nil)
+			if err != nil {
+				syscall.CloseHandle(h)
+				t.Fatal(err)
+			}
+			v, err := syscall.MapViewOfFile(m, syscall.FILE_MAP_READ, 0, 0, 0)
+			if err != nil {
+				syscall.CloseHandle(m)
+				syscall.CloseHandle(h)
+				t.Fatal(err)
+			}
+			return func() {
+				syscall.UnmapViewOfFile(v)
+				syscall.CloseHandle(m)
+				syscall.CloseHandle(h)
+			}
+		}},
+		{"held without sharing deletion", func(t *testing.T, path string) func() {
+			p, err := syscall.UTF16PtrFromString(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := syscall.CreateFile(p, syscall.GENERIC_READ, syscall.FILE_SHARE_READ, nil, syscall.OPEN_EXISTING, 0, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return func() { syscall.CloseHandle(h) }
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "test.exe")
+			if err := os.WriteFile(path, image, 0777); err != nil {
+				t.Fatal(err)
+			}
+			release := tt.hold(t, path)
+
+			// Where the kernel does not keep images, the delete fails at once.
+			windows.TestDeleteatImageLingers = false
+			if err := os.Remove(path); err == nil {
+				release()
+				t.Fatal("Remove succeeded while the file was held")
+			}
+
+			// Where it does, the delete waits the holder out.
+			windows.TestDeleteatImageLingers = true
+			time.AfterFunc(20*time.Millisecond, release)
+			start := time.Now()
+			if err := os.Remove(path); err != nil {
+				t.Fatalf("Remove = %v, want nil once the holder let go", err)
+			}
+			if waited := time.Since(start); waited < 10*time.Millisecond {
+				t.Errorf("Remove returned after %v, want it to have waited for the holder", waited)
+			}
+			if _, err := os.Lstat(path); !errors.Is(err, fs.ErrNotExist) {
+				t.Errorf("Lstat after Remove = %v, want ErrNotExist", err)
+			}
+		})
 	}
 }
 

@@ -18,7 +18,7 @@ handle passed back in through FileConn is accepted, and Close ends a pending
 read on it.
 
 diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
-index 269bf4f9..40fe9080 100644
+index 85ee10e9..43874346 100644
 --- a/src/internal/poll/fd_windows.go
 +++ b/src/internal/poll/fd_windows.go
 @@ -323,7 +323,7 @@ func (fd *FD) execIO(
@@ -30,7 +30,7 @@ index 269bf4f9..40fe9080 100644
  			// Close uses CancelIoEx to interrupt concurrent I/O for pipes.
  			// If the fd is a pipe and the Write was interrupted by CancelIoEx,
  			// we assume it is interrupted by Close.
-@@ -467,7 +467,14 @@ func (fd *FD) Init(net string, pollable bool) error {
+@@ -487,7 +487,14 @@ func (fd *FD) Init(net string, pollable bool) error {
  	// I/O completion notifications not initiated by us.
  	err := fd.pd.init(fd)
  	if err != nil {
@@ -46,7 +46,7 @@ index 269bf4f9..40fe9080 100644
  	}
  	fd.associated = true
  
-@@ -486,6 +493,57 @@ func (fd *FD) Init(net string, pollable bool) error {
+@@ -508,6 +515,57 @@ func (fd *FD) Init(net string, pollable bool) error {
  	return nil
  }
  
@@ -104,7 +104,7 @@ index 269bf4f9..40fe9080 100644
  // DisassociateIOCP disassociates the file handle from the IOCP.
  // The disassociate operation will not succeed if there is any
  // in-progress I/O operation on the file handle.
-@@ -507,6 +565,13 @@ func (fd *FD) DisassociateIOCP() error {
+@@ -529,6 +587,13 @@ func (fd *FD) DisassociateIOCP() error {
  		return nil
  	}
  
@@ -118,7 +118,7 @@ index 269bf4f9..40fe9080 100644
  	info := windows.FILE_COMPLETION_INFORMATION{}
  	if err := windows.NtSetInformationFile(fd.Sysfd, &windows.IO_STATUS_BLOCK{}, unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), windows.FileReplaceCompletionInformation); err != nil {
  		return err
-@@ -545,7 +610,11 @@ func (fd *FD) Close() error {
+@@ -567,7 +632,11 @@ func (fd *FD) Close() error {
  		return errClosing(fd.isFile)
  	}
  

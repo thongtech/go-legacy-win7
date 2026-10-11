@@ -101,7 +101,7 @@ index 6ac33500..50d1aa3a 100644
  // runtime.disableMemoryProfiling if the runtime.MemProfile
  // symbol is unreachable after deadcode (and not dynlinking).
 diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
-index 9cbc1291..aefd8e2f 100644
+index b9848b23..8adba788 100644
 --- a/src/cmd/link/internal/ld/lib.go
 +++ b/src/cmd/link/internal/ld/lib.go
 @@ -712,11 +712,6 @@ func loadWindowsHostArchives(ctxt *Link) {
@@ -116,7 +116,7 @@ index 9cbc1291..aefd8e2f 100644
  		if p := ctxt.findLibPath("libmingwex.a"); p != "none" {
  			hostArchive(ctxt, p)
  		}
-@@ -1985,15 +1980,6 @@ func (ctxt *Link) hostlink() {
+@@ -1993,15 +1988,6 @@ func (ctxt *Link) hostlink() {
  			p := writeGDBLinkerScript()
  			argv = append(argv, "-Wl,-T,"+p)
  		}

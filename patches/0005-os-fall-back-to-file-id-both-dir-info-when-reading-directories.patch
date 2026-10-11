@@ -77,7 +77,7 @@ index 5b939b4c..3f1ad86e 100644
 +	SplitPath                  = splitPath
  )
 diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
-index 540364cf..543a516f 100644
+index d5952b0c..7afc2585 100644
 --- a/src/os/os_windows_test.go
 +++ b/src/os/os_windows_test.go
 @@ -1566,6 +1566,38 @@ func TestReadDirNoFileID(t *testing.T) {

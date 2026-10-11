@@ -100,11 +100,15 @@ func newFile(h syscall.Handle, name string, kind newFileKind, nonBlocking bool) 
 		panic("newFile with unknown kind")
 	}
 
+	// Completion notification modes are shared by all handles to the file
+	// object. Preserve them for handles passed to NewFile, since other users
+	// of the file object may rely on those modes. See go.dev/issue/80979.
 	f := &File{&file{
 		pfd: poll.FD{
-			Sysfd:         h,
-			IsStream:      true,
-			ZeroReadIsEOF: true,
+			Sysfd:                   h,
+			IsStream:                true,
+			ZeroReadIsEOF:           true,
+			KeepFileCompletionModes: kind == kindNewFile,
 		},
 		name: name,
 	}}
@@ -224,14 +228,18 @@ func Truncate(name string, size int64) error {
 // Remove removes the named file or directory.
 // If there is an error, it will be of type [*PathError].
 func Remove(name string) error {
-	// A file is first deleted by name from its parent directory, the way
-	// Root.Remove and RemoveAll delete, so that a file another handle holds
-	// open gives its name up at once on a kernel without POSIX delete
-	// semantics. DeleteFileW keeps the name there until the last handle
-	// closes. Whatever makes that fail, the calls below decide the result, so
-	// that every error is the one they have always reported. A name ending in
-	// a separator is left to them as well, since they refuse it.
-	if len(name) > 0 && !IsPathSeparator(name[len(name)-1]) && removeFileAt(name) == nil {
+	// On a kernel without POSIX delete semantics a file is first deleted by
+	// name from its parent directory, the way Root.Remove and RemoveAll
+	// delete, so that a file another handle holds open gives its name up at
+	// once. DeleteFileW keeps the name there until the last handle closes.
+	// A kernel that has those semantics applies them in DeleteFileW itself,
+	// so there the calls below are the whole of Remove, as upstream has it.
+	// Whatever makes the first attempt fail, the calls below decide the
+	// result, so that every error is the one they have always reported. A
+	// name ending in a separator is left to them as well, since they refuse
+	// it.
+	if len(name) > 0 && !IsPathSeparator(name[len(name)-1]) &&
+		(windows.TestDeleteatFallback || !windows.KernelHasPosixDelete()) && removeFileAt(name) == nil {
 		return nil
 	}
 	p, e := syscall.UTF16PtrFromString(fixLongPath(name))

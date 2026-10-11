@@ -197,7 +197,7 @@ index 4a22eb5b..9dd4a867 100644
 +	return readRandomFrom(fn, r)
 +}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index 3b5284b2..f7b0583c 100644
+index 9ac51794..fd50ca26 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
 @@ -130,8 +130,13 @@ var (

@@ -348,3 +348,101 @@ func TestGetVersion(t *testing.T) {
 		t.Errorf("GetVersion reports %v, RtlGetVersion reports %v", got, want)
 	}
 }
+
+// TestMismatchedLink covers the check Open makes on a kernel that follows a
+// link whatever it leads to, which Windows 7, 8 and 8.1 do and Windows 10
+// and later refuse before any check can run. The check itself runs on any
+// Windows given a handle opened on the chain's end directly, and the opens
+// at the end are the answers every Windows must give.
+func TestMismatchedLink(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "file")
+	if err := os.WriteFile(file, []byte("x"), 0666); err != nil {
+		t.Fatal(err)
+	}
+	sub := filepath.Join(dir, "sub")
+	if err := os.Mkdir(sub, 0777); err != nil {
+		t.Fatal(err)
+	}
+	// mklink makes a junction with /J, a directory symlink with /D and a
+	// file symlink with neither, whatever the target is. The symlinks need
+	// the symlink privilege.
+	mklink := func(flag, link, target string) bool {
+		args := []string{"/c", "mklink"}
+		if flag != "" {
+			args = append(args, flag)
+		}
+		out, err := exec.Command("cmd", append(args, link, target)...).CombinedOutput()
+		if err != nil && flag == "/J" {
+			t.Fatalf("mklink /J %s: %v\n%s", link, err, out)
+		}
+		if err != nil {
+			t.Logf("mklink %s %s: %v\n%s", flag, filepath.Base(link), err, out)
+		}
+		return err == nil
+	}
+	jf := filepath.Join(dir, "jf")   // junction -> file
+	jd := filepath.Join(dir, "jd")   // junction -> directory
+	sdf := filepath.Join(dir, "sdf") // directory symlink -> file
+	sff := filepath.Join(dir, "sff") // file symlink -> file
+	sfd := filepath.Join(dir, "sfd") // file symlink -> directory
+	sfj := filepath.Join(dir, "sfj") // file symlink -> junction -> file
+	mklink("/J", jf, file)
+	mklink("/J", jd, sub)
+	haveSymlinks := mklink("/D", sdf, file) && mklink("", sff, file) && mklink("", sfd, sub) && mklink("", sfj, jf)
+
+	// open opens what name is, directly, the way the kernel would have
+	// opened the end of the chain.
+	open := func(name string) syscall.Handle {
+		p, err := syscall.UTF16PtrFromString(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		h, err := syscall.CreateFile(p, 0, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
+		if err != nil {
+			t.Fatalf("CreateFile(%s): %v", name, err)
+		}
+		return h
+	}
+	type testCase struct {
+		name string
+		end  string
+		want syscall.Errno
+	}
+	cases := []testCase{
+		{jf, file, syscall.Errno(267)},
+		{jf + `\`, file, syscall.Errno(267)},
+		{jd, sub, 0},
+		{file, file, 0},
+		{sub, sub, 0},
+	}
+	if haveSymlinks {
+		cases = append(cases,
+			testCase{sdf, file, syscall.Errno(267)},
+			testCase{sff, file, 0},
+			testCase{sfd, sub, syscall.ERROR_ACCESS_DENIED},
+			testCase{sfj, file, syscall.ERROR_ACCESS_DENIED})
+	}
+	for _, tt := range cases {
+		h := open(tt.end)
+		got := syscall.MismatchedLink(tt.name, h)
+		syscall.CloseHandle(h)
+		if got != tt.want {
+			t.Errorf("mismatchedLink(%q) = %v, want %v", filepath.Base(tt.name), got, tt.want)
+		}
+	}
+
+	// What a program sees, on every Windows.
+	for _, tt := range cases {
+		h, err := syscall.Open(tt.name, syscall.O_RDONLY|syscall.O_CLOEXEC, 0)
+		if err == nil {
+			syscall.CloseHandle(h)
+		}
+		if tt.want == 0 && err != nil {
+			t.Errorf("Open(%s) = %v, want nil", filepath.Base(tt.name), err)
+		}
+		if tt.want != 0 && err != tt.want {
+			t.Errorf("Open(%s) = %v, want %v", filepath.Base(tt.name), err, tt.want)
+		}
+	}
+}

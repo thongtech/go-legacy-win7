@@ -365,6 +365,78 @@ func GetVersion() (ver uint32, err error) {
 	return major | minor<<8 | (build&0xffff)<<16, nil
 }
 
+// followsMismatchedLinks reports whether this kernel follows a link whatever
+// it leads to. Windows 10 and later hold a link to its type. A directory
+// link, a junction or a directory symlink, that leads to anything but a
+// directory is refused with ERROR_DIRECTORY, and a file symlink whose own
+// target is a directory entry, whatever that entry leads to, is refused with
+// ERROR_ACCESS_DENIED. Windows 7, 8 and 8.1 follow either to whatever is
+// there, when the open asked for FILE_FLAG_BACKUP_SEMANTICS; without the flag
+// they refuse a directory entry as every Windows does. Nothing short of
+// creating such a link can observe the difference, so this is one of the
+// deliberate version gates of the series.
+var followsMismatchedLinks = sync.OnceValue(func() bool {
+	var major, minor, build uint32
+	rtlGetNtVersionNumbers(&major, &minor, &build)
+	return major < 10
+})
+
+// mismatchedLink reports what Windows 10 and later answer for an open of
+// name that the kernel followed to h, or zero where the open stands. See
+// followsMismatchedLinks.
+func mismatchedLink(name string, h Handle) Errno {
+	namep, err := UTF16PtrFromString(name)
+	if err != nil {
+		return 0
+	}
+	var fa Win32FileAttributeData
+	if GetFileAttributesEx(namep, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil || fa.FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT == 0 {
+		return 0
+	}
+	var fi ByHandleFileInformation
+	if GetFileInformationByHandle(h, &fi) != nil {
+		return 0
+	}
+	isDir := fi.FileAttributes&FILE_ATTRIBUTE_DIRECTORY != 0
+	if fa.FileAttributes&FILE_ATTRIBUTE_DIRECTORY != 0 {
+		// A directory link, which has to lead to a directory.
+		if isDir {
+			return 0
+		}
+		return _ERROR_DIRECTORY
+	}
+	// A file symlink, whose own target must not be a directory entry. The
+	// handle settles that for a chain ending at a directory. One ending at
+	// a file can still begin at a junction or a directory symlink to that
+	// file, so the target itself is looked at.
+	if isDir {
+		return ERROR_ACCESS_DENIED
+	}
+	buf := make([]byte, 32*1024)
+	n, err := Readlink(name, buf)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	target := string(buf[:n])
+	isSep := func(c byte) bool { return c == '\\' || c == '/' }
+	if !(isSep(target[0]) || (len(target) >= 3 && target[1] == ':' && isSep(target[2]))) {
+		// Relative to the directory the link is in.
+		i := len(name)
+		for i > 0 && !isSep(name[i-1]) {
+			i--
+		}
+		target = name[:i] + target
+	}
+	targetp, err := UTF16PtrFromString(target)
+	if err != nil {
+		return 0
+	}
+	if GetFileAttributesEx(targetp, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil || fa.FileAttributes&FILE_ATTRIBUTE_DIRECTORY == 0 {
+		return 0
+	}
+	return ERROR_ACCESS_DENIED
+}
+
 func makeInheritSa() *SecurityAttributes {
 	var sa SecurityAttributes
 	sa.Length = uint32(unsafe.Sizeof(sa))
@@ -462,6 +534,15 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
 			}
 		}
 		return h, err
+	}
+	if attrs&FILE_FLAG_BACKUP_SEMANTICS != 0 && followsMismatchedLinks() {
+		// Answer as Windows 10 and later do. Without the flag every Windows
+		// refuses a directory entry, with the access denied that is mapped
+		// to EISDIR above. See followsMismatchedLinks.
+		if e := mismatchedLink(name, h); e != 0 {
+			CloseHandle(h)
+			return InvalidHandle, e
+		}
 	}
 	if flag&o_DIRECTORY != 0 {
 		// Check if the file is a directory, else return ENOTDIR.
@@ -723,6 +804,12 @@ func Utimes(path string, tv []Timeval) (err error) {
 		return e
 	}
 	defer Close(h)
+	if followsMismatchedLinks() {
+		// Answer as Windows 10 and later do. See followsMismatchedLinks.
+		if e := mismatchedLink(path, h); e != 0 {
+			return e
+		}
+	}
 	a := Filetime{}
 	w := Filetime{}
 	if tv[0].Nanoseconds() != 0 {
@@ -752,6 +839,12 @@ func UtimesNano(path string, ts []Timespec) (err error) {
 		return e
 	}
 	defer Close(h)
+	if followsMismatchedLinks() {
+		// Answer as Windows 10 and later do. See followsMismatchedLinks.
+		if e := mismatchedLink(path, h); e != 0 {
+			return e
+		}
+	}
 	a := Filetime{}
 	w := Filetime{}
 	if ts[0].Nsec != _UTIME_OMIT {

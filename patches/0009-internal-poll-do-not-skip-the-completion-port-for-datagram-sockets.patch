@@ -4,12 +4,16 @@ Subject: [PATCH] internal/poll: do not skip the completion port for datagram soc
 
 FILE_SKIP_COMPLETION_PORT_ON_SUCCESS lets a handle skip the completion packet
 when an overlapped operation completes immediately. CL 463839 (Go 1.21) enabled
-it for datagram sockets. Before Windows 8 the packet is also skipped for a
-receive that went pending and was then truncated.
+it for datagram sockets. Before Windows 8 a receive posted while a datagram
+too large for its buffer is already queued reports pending, and the packet
+that should follow is skipped as though the receive had completed inline.
 
-	UDP read, buffer smaller than the datagram
-	  ->  no completion packet  ->  nothing wakes the goroutine
-	                            ->  the read never completes
+	UDP read, buffer smaller than the datagram already waiting
+	  ->  WSARecvFrom says pending  ->  no completion packet
+	  ->  nothing wakes the goroutine, and the deadline's cancel finds
+	      nothing to cancel, so the read never completes
+
+A receive posted before the datagram arrives completes normally.
 
 Do not set the flag on sockets that can truncate, which are the ones that are
 not SOCK_STREAM. A short read on a stream socket is an ordinary success and no
@@ -33,7 +37,7 @@ index dd73bdc8..cb24374a 100644
 +	TruncatedRecvSkipsCompletion = truncatedRecvSkipsCompletion
 +)
 diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
-index 40fe9080..d68fa44b 100644
+index 43874346..b042d5fe 100644
 --- a/src/internal/poll/fd_windows.go
 +++ b/src/internal/poll/fd_windows.go
 @@ -40,6 +40,23 @@ var ifsHandlesOnly = sync.OnceValue(func() bool {

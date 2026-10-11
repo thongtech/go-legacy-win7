@@ -8,6 +8,7 @@ import (
 	"errors"
 	"internal/filepathlite"
 	"internal/syscall/windows"
+	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -110,9 +111,61 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 			return nil, &PathError{Op: "CreateFile", Path: name, Err: err}
 		}
 		defer syscall.CloseHandle(h)
-		return statHandle(name, h)
+		target, err := statHandle(name, h)
+		if err == nil && followsMismatchedLinks() {
+			if e := mismatchedLink(name, fi.(*fileStat), target.(*fileStat)); e != nil {
+				return nil, &PathError{Op: "CreateFile", Path: name, Err: e}
+			}
+		}
+		return target, err
 	}
 	return fi, err
+}
+
+// followsMismatchedLinks reports whether this kernel follows a link to
+// something of the other type, which Windows 7, 8 and 8.1 do and Windows 10
+// and later refuse before stat can look. It is the gate syscall keeps under
+// the same name, so that only those kernels pay for the look.
+var followsMismatchedLinks = sync.OnceValue(func() bool {
+	major, _, _ := windows.Version()
+	return major < 10
+})
+
+// mismatchedLink reports what Windows 10 and later answer when the link at
+// name, whose own attributes are in link, is followed to target, or nil
+// where the kernel's answer stands. They hold a link to its type. A
+// directory link, a junction or a directory symlink, that leads to anything
+// but a directory is refused with ERROR_DIRECTORY, and a file symlink whose
+// own target is a directory entry, whatever that entry leads to, with
+// ERROR_ACCESS_DENIED. Those kernels never reach this; Windows 7, 8 and 8.1
+// follow either link and do.
+func mismatchedLink(name string, link, target *fileStat) error {
+	if link.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
+		if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
+			return windows.ERROR_DIRECTORY
+		}
+		return nil
+	}
+	if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
+		return syscall.ERROR_ACCESS_DENIED
+	}
+	// A chain ending at a file can still begin at a junction or a directory
+	// symlink to that file, so the link's own target is looked at.
+	t, err := readlink(name)
+	if err != nil || t == "" {
+		return nil
+	}
+	if !filepathlite.IsAbs(t) && !IsPathSeparator(t[0]) {
+		t = filepathlite.Dir(name) + `\` + t
+	}
+	lfi, err := Lstat(t)
+	if err != nil {
+		return nil
+	}
+	if lfi.(*fileStat).FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
+		return syscall.ERROR_ACCESS_DENIED
+	}
+	return nil
 }
 
 // isConsoleName reports whether name is one of the console devices, with or

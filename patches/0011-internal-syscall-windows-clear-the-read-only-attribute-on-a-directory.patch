@@ -20,10 +20,10 @@ This is not specific to Windows 7. Forcing the fallback reproduces the problem
 on Windows 11.
 
 diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
-index b945e32a..19863eaf 100644
+index f7687159..b81b2627 100644
 --- a/src/internal/syscall/windows/at_windows.go
 +++ b/src/internal/syscall/windows/at_windows.go
-@@ -339,7 +339,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+@@ -351,7 +351,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
  	defer syscall.CloseHandle(h)
  
  	if TestDeleteatFallback {
@@ -32,7 +32,7 @@ index b945e32a..19863eaf 100644
  	}
  
  	const FileDispositionInformationEx = 64
-@@ -374,7 +374,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+@@ -386,7 +386,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
  	case STATUS_INVALID_INFO_CLASS, // the operating system doesn't support FileDispositionInformationEx
  		STATUS_INVALID_PARAMETER, // the operating system doesn't support one of the flags
  		STATUS_NOT_SUPPORTED:     // the file system doesn't support FILE_DISPOSITION_INFORMATION_EX or one of the flags
@@ -41,7 +41,7 @@ index b945e32a..19863eaf 100644
  	default:
  		return err.(NTStatus).Errno()
  	}
-@@ -384,30 +384,50 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+@@ -396,30 +396,50 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
  // When set, [Deleteat] uses the fallback path unconditionally.
  var TestDeleteatFallback bool
  
@@ -109,7 +109,7 @@ index b945e32a..19863eaf 100644
  		if err != nil {
  			return err
 diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
-index e1e1cc4d..5996967a 100644
+index eea2b58e..c554f8f8 100644
 --- a/src/os/path_windows_test.go
 +++ b/src/os/path_windows_test.go
 @@ -247,6 +247,19 @@ func TestRemoveAllFallback(t *testing.T) {
@@ -132,7 +132,7 @@ index e1e1cc4d..5996967a 100644
  
  	if err := os.RemoveAll(dir); err != nil {
  		t.Fatal(err)
-@@ -370,3 +383,56 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
+@@ -295,3 +308,56 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
  		os.AddExtendedPrefix(veryLong)
  	}
  }

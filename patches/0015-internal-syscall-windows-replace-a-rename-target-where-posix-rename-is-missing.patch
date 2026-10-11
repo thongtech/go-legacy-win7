@@ -21,13 +21,13 @@ between the steps leaves an extra file rather than a missing one.
 
 The fallback replaces what the POSIX rename replaces, a file or a link, held
 open or not, and leaves a directory, a read-only file and every directory
-source alone, as that rename does. Measured on Windows 11.
+source alone, as that rename does.
 
 diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
-index e4b7b6c5..6539d0b7 100644
+index 13a0dfbf..15af0056 100644
 --- a/src/internal/syscall/windows/at_windows.go
 +++ b/src/internal/syscall/windows/at_windows.go
-@@ -567,14 +567,22 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
+@@ -797,14 +797,22 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
  		return err
  	}
  	var h syscall.Handle
@@ -58,7 +58,7 @@ index e4b7b6c5..6539d0b7 100644
  	if err != nil {
  		return ntCreateFileError(err, 0)
  	}
-@@ -599,16 +607,24 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
+@@ -829,16 +837,24 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
  		FileRenameInformation   = 10
  		FileRenameInformationEx = 65
  	)
@@ -92,7 +92,7 @@ index e4b7b6c5..6539d0b7 100644
  
  	// If the prior rename failed, the filesystem might not support
  	// POSIX semantics (for example, FAT), or might not have implemented
-@@ -622,19 +638,132 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
+@@ -852,19 +868,132 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
  	copy(renameInfo.FileName[:], p16)
  	renameInfo.FileNameLength = renameInfoEx.FileNameLength
  
@@ -233,22 +233,10 @@ index e4b7b6c5..6539d0b7 100644
  	objAttrs := &OBJECT_ATTRIBUTES{}
  	if err := objAttrs.init(olddirfd, oldpath); err != nil {
 diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
-index 1fe616ba..df0d017b 100644
+index a80f4417..baa16cbb 100644
 --- a/src/os/path_windows_test.go
 +++ b/src/os/path_windows_test.go
-@@ -5,9 +5,11 @@
- package os_test
- 
- import (
-+	"errors"
- 	"fmt"
- 	"internal/syscall/windows"
- 	"internal/testenv"
-+	"io/fs"
- 	"os"
- 	"path/filepath"
- 	"strings"
-@@ -505,6 +507,274 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
+@@ -638,6 +638,274 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
  	}
  }
  

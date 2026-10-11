@@ -413,6 +413,10 @@ type FD struct {
 	// message based socket connection.
 	ZeroReadIsEOF bool
 
+	// KeepFileCompletionModes prevents Init from changing the file object's
+	// completion notification modes.
+	KeepFileCompletionModes bool
+
 	// Whether the handle is owned by os.File.
 	isFile bool
 
@@ -498,6 +502,22 @@ func (fd *FD) Init(net string, pollable bool) error {
 	// behavior below, as it requires an extra syscall.
 	fd.waitOnSuccess = true
 
+	if fd.KeepFileCompletionModes {
+		// Query the existing skip-success mode so we don't wait for a
+		// suppressed completion or skip waiting for an expected one.
+		var info windows.FILE_IO_COMPLETION_NOTIFICATION_INFORMATION
+		if err := windows.NtQueryInformationFile(fd.Sysfd, &windows.IO_STATUS_BLOCK{},
+			unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), windows.FileIoCompletionNotificationInformation); err != nil {
+			// Without knowing the modes, neither waiting for a completion
+			// packet on success nor skipping it is safe. Leave the handle
+			// unassociated and use explicit events for pending I/O instead.
+			// Inline success needs no wait, and deadlines are unavailable.
+			fd.waitOnSuccess = false
+			return nil
+		}
+		fd.waitOnSuccess = info.Flags&syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS == 0
+	}
+
 	if fd.kind != kindNet && !canDetachFromIOCP() {
 		// See canDetachFromIOCP. Leave the handle off the completion port
 		// and drive it with an event for each operation, keeping the
@@ -526,16 +546,18 @@ func (fd *FD) Init(net string, pollable bool) error {
 		fd.associated = true
 	}
 
-	// FILE_SKIP_SET_EVENT_ON_HANDLE is always safe to use. We don't use that feature
-	// and it adds some overhead to the Windows I/O manager.
-	// See https://devblogs.microsoft.com/oldnewthing/20200221-00/?p=103466.
-	modes := uint8(syscall.FILE_SKIP_SET_EVENT_ON_HANDLE)
-	if canSkipCompletionPortOnSuccess(fd.Sysfd, fd.kind == kindNet) {
-		modes |= syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS
-	}
-	if syscall.SetFileCompletionNotificationModes(fd.Sysfd, modes) == nil {
-		if modes&syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS != 0 {
-			fd.waitOnSuccess = false
+	if !fd.KeepFileCompletionModes {
+		// FILE_SKIP_SET_EVENT_ON_HANDLE is always safe to use. We don't use that feature
+		// and it adds some overhead to the Windows I/O manager.
+		// See https://devblogs.microsoft.com/oldnewthing/20200221-00/?p=103466.
+		modes := uint8(syscall.FILE_SKIP_SET_EVENT_ON_HANDLE)
+		if canSkipCompletionPortOnSuccess(fd.Sysfd, fd.kind == kindNet) {
+			modes |= syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS
+		}
+		if syscall.SetFileCompletionNotificationModes(fd.Sysfd, modes) == nil {
+			if modes&syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS != 0 {
+				fd.waitOnSuccess = false
+			}
 		}
 	}
 	return nil
@@ -1352,13 +1374,125 @@ func (fd *FD) ConnectEx(ra syscall.Sockaddr) error {
 	return err
 }
 
+// acceptCompletionNeedsThread reports whether this kernel delivers the
+// completion of an AcceptEx only once the thread that posted it is out of any
+// synchronous I/O call, which Windows 8 and Server 2012 do (Microsoft Connect
+// #760161). A thread that posts an AcceptEx and then reads a pipe with a
+// synchronous ReadFile holds the completion back until the read returns,
+// however many threads wait on the completion port. WSARecv and ConnectEx are
+// not held. This is a version check because the behaviour can only be observed
+// by blocking a thread and waiting out a completion that does not come.
+var acceptCompletionNeedsThread = sync.OnceValue(func() bool {
+	major, minor, _ := windows.Version()
+	return major == 6 && minor == 2
+})
+
+// TestUseAcceptThread should only be used for testing purposes.
+// When set, AcceptEx is posted from the accept thread on every kernel.
+var TestUseAcceptThread bool
+
+// useAcceptThread reports whether AcceptEx is posted from the accept thread
+// rather than from the calling thread, which may go on to block in a
+// synchronous read of a pipe or the console.
+func useAcceptThread() bool {
+	return TestUseAcceptThread || acceptCompletionNeedsThread()
+}
+
+// The accept thread is the one thread of a private thread pool. It waits in
+// the pool between posts and enters Go only to run one, so it is never in a
+// synchronous call, and the pool keeps it alive, since a thread that exits
+// cancels the I/O it posted. It is not a goroutine, because one parked between
+// posts would count in runtime.NumGoroutine and in the runtime's deadlock
+// check in every program on that kernel, and would belong to a synctest
+// bubble if started in one.
+//
+// The caller waits for its post in a kernel wait on an event rather than on a
+// channel. The runtime's deadlock check does not know that the pool thread
+// will call back, so a caller parked on a channel with no other goroutine
+// running is reported as a deadlock, while a goroutine in a system call counts
+// as running.
+var (
+	acceptThreadMu    sync.Mutex // one post at a time
+	acceptThreadOnce  sync.Once
+	acceptThreadWork  uintptr        // the pool work object, which runs acceptThreadPost
+	acceptThreadDone  syscall.Handle // signalled by the accept thread after each post
+	acceptThreadErr   error          // why there is no accept thread, if there is none
+	acceptThreadPost  atomic.Pointer[func()]
+	acceptThreadID    atomic.Uint32 // for tests
+	acceptThreadPosts atomic.Uint64 // for tests
+)
+
+func startAcceptThread() {
+	pool, err := windows.CreateThreadpool(0)
+	if err != nil {
+		acceptThreadErr = err
+		return
+	}
+	// Exactly one thread. Never fewer, so the pool does not retire it, and
+	// never more, so every post comes from the same one.
+	if err := windows.SetThreadpoolThreadMinimum(pool, 1); err != nil {
+		acceptThreadErr = err
+		return
+	}
+	windows.SetThreadpoolThreadMaximum(pool, 1)
+	acceptThreadDone, err = windows.CreateEvent(nil, 0, 0, nil)
+	if err != nil {
+		acceptThreadErr = err
+		return
+	}
+	env := windows.TP_CALLBACK_ENVIRON{
+		Version:          windows.TP_CALLBACK_ENVIRON_VERSION,
+		Pool:             pool,
+		CallbackPriority: windows.TP_CALLBACK_PRIORITY_NORMAL,
+	}
+	env.Size = uint32(unsafe.Sizeof(env))
+	acceptThreadWork, acceptThreadErr = windows.CreateThreadpoolWork(syscall.NewCallback(acceptThreadCallback), 0, &env)
+}
+
+// acceptThreadCallback runs on the accept thread, once for each post.
+func acceptThreadCallback(instance, context, work uintptr) uintptr {
+	if acceptThreadID.Load() == 0 {
+		acceptThreadID.Store(windows.GetCurrentThreadId())
+	}
+	(*acceptThreadPost.Load())()
+	acceptThreadPosts.Add(1)
+	windows.SetEvent(acceptThreadDone)
+	return 0
+}
+
+// postFromAcceptThread runs post on the accept thread and waits for it.
+// Without an accept thread, post runs on the calling thread.
+func postFromAcceptThread(post func()) {
+	acceptThreadMu.Lock()
+	defer acceptThreadMu.Unlock()
+	acceptThreadOnce.Do(startAcceptThread)
+	if acceptThreadErr != nil {
+		post()
+		return
+	}
+	acceptThreadPost.Store(&post)
+	windows.SubmitThreadpoolWork(acceptThreadWork)
+	syscall.WaitForSingleObject(acceptThreadDone, syscall.INFINITE)
+	// The count is what orders the post's results before this read of them.
+	acceptThreadPosts.Load()
+	acceptThreadPost.Store(nil)
+}
+
 func (fd *FD) acceptOne(s syscall.Handle, rawsa []syscall.RawSockaddrAny) (string, error) {
 	// Submit accept request.
 	rsan := uint32(unsafe.Sizeof(rawsa[0]))
 	_, err := fd.execIO('r', func(o *operation) (qty uint32, err error) {
-		err = AcceptFunc(fd.Sysfd, s, (*byte)(unsafe.Pointer(&rawsa[0])), 0, rsan, rsan, &qty, &o.o)
-		return qty, err
-
+		if !useAcceptThread() {
+			err = AcceptFunc(fd.Sysfd, s, (*byte)(unsafe.Pointer(&rawsa[0])), 0, rsan, rsan, &qty, &o.o)
+			return qty, err
+		}
+		// Only the closure and its results escape, and only on this path.
+		var tqty uint32
+		var terr error
+		postFromAcceptThread(func() {
+			terr = AcceptFunc(fd.Sysfd, s, (*byte)(unsafe.Pointer(&rawsa[0])), 0, rsan, rsan, &tqty, &o.o)
+		})
+		return tqty, terr
 	})
 	if err != nil {
 		CloseFunc(s)

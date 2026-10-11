@@ -38,7 +38,7 @@ index f44e24bb..4a22eb5b 100644
 +	return loadSystemLibFromSysDir(name)
 +}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index 42af4200..3b5284b2 100644
+index d89270bc..9ac51794 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
 @@ -37,6 +37,7 @@ const (

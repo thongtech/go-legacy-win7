@@ -18,6 +18,14 @@ what lets one process serve more connections than it has threads.
 The cost is one thread per waiting operation, which is how Windows 7 file and
 pipe I/O worked through Go 1.24 anyway.
 
+CL 828584 (Go 1.28, 1.26.9 and 1.27.2) lets a handle given to os.NewFile keep the
+completion modes it came with, because every handle to the file object
+shares them, and Init reads the skip-on-success flag off such a handle
+instead of setting it.
+The choice between the poller and the deadline events is made after that
+read and before the modes are set, so a NewFile handle on those kernels
+keeps its modes and its own deadlines alike.
+
 diff --git a/src/internal/poll/fd_poll_runtime.go b/src/internal/poll/fd_poll_runtime.go
 index 2aef1124..d5b7d54f 100644
 --- a/src/internal/poll/fd_poll_runtime.go
@@ -50,7 +58,7 @@ index bebf01a8..b38f046e 100644
  
  // WaitWrite waits until data can be written to fd.
 diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
-index d68fa44b..b452d393 100644
+index b042d5fe..1387990a 100644
 --- a/src/internal/poll/fd_windows.go
 +++ b/src/internal/poll/fd_windows.go
 @@ -11,6 +11,7 @@ import (
@@ -106,9 +114,9 @@ index d68fa44b..b452d393 100644
  	// Don't wait from completion port notifications for successful
  	// operations that complete synchronously.
  	waitOnSuccess bool
-@@ -483,21 +498,33 @@ func (fd *FD) Init(net string, pollable bool) error {
- 	// behavior below, as it requires an extra syscall.
- 	fd.waitOnSuccess = true
+@@ -503,21 +518,33 @@ func (fd *FD) Init(net string, pollable bool) error {
+ 		fd.waitOnSuccess = info.Flags&syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS == 0
+ 	}
  
 -	// It is safe to add overlapped handles that also perform I/O
 -	// outside of the runtime poller. The runtime poller will ignore
@@ -150,9 +158,9 @@ index d68fa44b..b452d393 100644
  	}
 -	fd.associated = true
  
- 	// FILE_SKIP_SET_EVENT_ON_HANDLE is always safe to use. We don't use that feature
- 	// and it adds some overhead to the Windows I/O manager.
-@@ -514,6 +541,30 @@ func (fd *FD) Init(net string, pollable bool) error {
+ 	if !fd.KeepFileCompletionModes {
+ 		// FILE_SKIP_SET_EVENT_ON_HANDLE is always safe to use. We don't use that feature
+@@ -536,6 +563,30 @@ func (fd *FD) Init(net string, pollable bool) error {
  	return nil
  }
  
@@ -183,7 +191,7 @@ index d68fa44b..b452d393 100644
  // offPoller reports whether fd does overlapped I/O that the runtime poller
  // does not own, a file kept off the completion port or a socket the poller
  // could not adopt. Only CancelIoEx can end a wait on such a handle.
-@@ -521,11 +572,105 @@ func (fd *FD) offPoller() bool {
+@@ -543,11 +594,105 @@ func (fd *FD) offPoller() bool {
  	return !fd.isBlocking && fd.pd.runtimeCtx == 0
  }
  
@@ -290,7 +298,7 @@ index d68fa44b..b452d393 100644
  func canDetachFromIOCP() bool {
  	if TestDisassociateIOCPUnsupported {
  		return false
-@@ -560,6 +705,13 @@ var detachFromIOCPSupported = sync.OnceValue(func() bool {
+@@ -582,6 +727,13 @@ var detachFromIOCPSupported = sync.OnceValue(func() bool {
  		uint32(unsafe.Sizeof(info)), windows.FileReplaceCompletionInformation) == nil
  })
  
@@ -304,7 +312,7 @@ index d68fa44b..b452d393 100644
  // TestDisassociateIOCPUnsupported should only be used for testing purposes.
  // When set, [FD.DisassociateIOCP] behaves as it does on a kernel without
  // FileReplaceCompletionInformation.
-@@ -620,6 +772,11 @@ func (fd *FD) destroy() error {
+@@ -642,6 +794,11 @@ func (fd *FD) destroy() error {
  		err = syscall.CloseHandle(fd.Sysfd)
  	}
  	fd.Sysfd = syscall.InvalidHandle
@@ -381,7 +389,7 @@ index f40098cc..53e9beac 100644
  	r0, _, _ := syscall.SyscallN(procNetShareAdd.Addr(), uintptr(unsafe.Pointer(serverName)), uintptr(level), uintptr(unsafe.Pointer(buf)), uintptr(unsafe.Pointer(parmErr)))
  	if r0 != 0 {
 diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
-index 577a7f6a..fee0ae09 100644
+index 675bc4c1..3b74cfbf 100644
 --- a/src/os/os_windows_test.go
 +++ b/src/os/os_windows_test.go
 @@ -2235,6 +2235,12 @@ func TestFileFdWithConcurrentIO(t *testing.T) {
@@ -397,7 +405,7 @@ index 577a7f6a..fee0ae09 100644
  	// Verify that the pipe is still associated with the Go runtime IOCP
  	// by trying to associate it with a new IOCP, which should fail.
  	iocp, err := windows.CreateIoCompletionPort(syscall.InvalidHandle, 0, 0, 0)
-@@ -2447,3 +2453,116 @@ func TestConsoleNames(t *testing.T) {
+@@ -2511,3 +2517,116 @@ func TestConsoleNames(t *testing.T) {
  		}
  	}
  }

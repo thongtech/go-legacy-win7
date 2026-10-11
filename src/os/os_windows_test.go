@@ -2379,6 +2379,70 @@ func TestOpenFileTruncateNamedPipe(t *testing.T) {
 	f.Close()
 }
 
+func TestFileKeepsCompletionNotificationModes(t *testing.T) {
+	// NewFile must preserve completion notification modes and perform I/O
+	// correctly with each combination. See go.dev/issue/80979.
+	t.Parallel()
+	for _, tt := range []struct {
+		name  string
+		modes uint8
+	}{
+		{"none", 0},
+		{"skipSuccess", syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS},
+		{"skipEvent", syscall.FILE_SKIP_SET_EVENT_ON_HANDLE},
+		{"both", syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS | syscall.FILE_SKIP_SET_EVENT_ON_HANDLE},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			name := filepath.Join(t.TempDir(), "file")
+			namep, err := syscall.UTF16PtrFromString(name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			h, err := syscall.CreateFile(namep, syscall.GENERIC_READ|syscall.GENERIC_WRITE,
+				0, nil, syscall.CREATE_ALWAYS, syscall.FILE_FLAG_OVERLAPPED, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := syscall.SetFileCompletionNotificationModes(h, tt.modes); err != nil {
+				syscall.CloseHandle(h)
+				t.Fatal(err)
+			}
+			f := os.NewFile(uintptr(h), name)
+			if f == nil {
+				syscall.CloseHandle(h)
+				t.Fatal("NewFile returned nil")
+			}
+			defer f.Close()
+
+			// Query h directly: calling f.Fd would disassociate it from the poller.
+			var info windows.FILE_IO_COMPLETION_NOTIFICATION_INFORMATION
+			if err := windows.NtQueryInformationFile(h, &windows.IO_STATUS_BLOCK{},
+				unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), windows.FileIoCompletionNotificationInformation); err != nil {
+				t.Fatal(err)
+			}
+			if info.Flags != uint32(tt.modes) {
+				t.Fatalf("completion modes = %#x; want %#x", info.Flags, tt.modes)
+			}
+			// Check that NewFile has initialized the runtime poller.
+			if err := f.SetDeadline(time.Time{}); err != nil {
+				t.Fatal(err)
+			}
+			const want = "hello"
+			if n, err := f.Write([]byte(want)); err != nil || n != len(want) {
+				t.Fatalf("Write = %d, %v; want %d, nil", n, err, len(want))
+			}
+			buf := make([]byte, len(want))
+			if n, err := f.ReadAt(buf, 0); err != nil || n != len(want) {
+				t.Fatalf("ReadAt = %d, %v; want %d, nil", n, err, len(want))
+			}
+			if string(buf) != want {
+				t.Fatalf("ReadAt returned %q; want %q", buf, want)
+			}
+		})
+	}
+}
+
 func TestNewFileStdinBlocked(t *testing.T) {
 	// See https://go.dev/issue/75949.
 	t.Parallel()
@@ -2564,5 +2628,37 @@ func TestFileEventDrivenCloseUnblocks(t *testing.T) {
 	case <-done:
 	case <-time.After(30 * time.Second):
 		t.Fatal("Close did not interrupt the read that was waiting")
+	}
+}
+
+// TestStatJunctionToFile checks that Stat refuses a junction whose target is a
+// regular file the way Windows 10 and later do, while Lstat still describes
+// the junction. Those kernels refuse the follow themselves; Windows 7, 8 and
+// 8.1 follow it and stat has to give the same answer.
+func TestStatJunctionToFile(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "target")
+	if err := os.WriteFile(target, []byte("target"), 0o666); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	var rd reparseData
+	rd.addSubstituteName(`\??\` + target)
+	rd.addPrintName(target)
+	if err := createMountPoint(link, &rd); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{link, link + `\`} {
+		_, err := os.Stat(name)
+		if !errors.Is(err, windows.ERROR_DIRECTORY) {
+			t.Errorf("Stat(%q) = %v, want ERROR_DIRECTORY", name, err)
+		}
+	}
+	fi, err := os.Lstat(link)
+	if err != nil {
+		t.Fatalf("Lstat(junction to a file) = %v", err)
+	}
+	if fi.Mode()&os.ModeIrregular == 0 {
+		t.Errorf("Lstat(junction to a file) mode = %v, want ModeIrregular", fi.Mode())
 	}
 }
