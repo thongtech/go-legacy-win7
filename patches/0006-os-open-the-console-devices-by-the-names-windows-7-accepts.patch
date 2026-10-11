@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] os: open the console devices by the names Windows 7 accepts
 
 Windows 7 reports its console devices as missing. CL 560755 (Go 1.23) added
@@ -19,7 +19,6 @@ The prefixed names reach the console through the object namespace, which the
 console devices only join from Windows 8 on. Retry a failed prefixed open with
 the bare name, in both stat and openFileNolog, so that Stat and Open agree.
 
-
 diff --git a/src/os/export_windows_test.go b/src/os/export_windows_test.go
 index 3f1ad86e..75a3add4 100644
 --- a/src/os/export_windows_test.go
@@ -33,10 +32,10 @@ index 3f1ad86e..75a3add4 100644
  	SplitPath                  = splitPath
  )
 diff --git a/src/os/file_windows.go b/src/os/file_windows.go
-index 8f0827a2..76dd2144 100644
+index a7d82e69..347178e4 100644
 --- a/src/os/file_windows.go
 +++ b/src/os/file_windows.go
-@@ -156,6 +156,10 @@ func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
+@@ -160,6 +160,10 @@ func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
  	}
  	path := fixLongPath(name)
  	r, err := syscall.Open(path, flag|syscall.O_CLOEXEC, syscallMode(perm))
@@ -48,10 +47,10 @@ index 8f0827a2..76dd2144 100644
  		return nil, &PathError{Op: "open", Path: name, Err: err}
  	}
 diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
-index eb41e4a8..62141d9e 100644
+index eabdae07..3d9e29fd 100644
 --- a/src/os/os_windows_test.go
 +++ b/src/os/os_windows_test.go
-@@ -2359,3 +2359,39 @@ func TestNewFileStdinBlocked(t *testing.T) {
+@@ -2423,3 +2423,39 @@ func TestNewFileStdinBlocked(t *testing.T) {
  	}
  	wg.Wait() // Don't leave goroutines behind.
  }

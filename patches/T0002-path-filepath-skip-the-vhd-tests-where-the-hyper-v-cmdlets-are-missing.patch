@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] path/filepath: skip the VHD tests where the Hyper-V cmdlets are missing
 
 createMountPartition (CL 565136, Go 1.23) creates the volume that two
@@ -13,7 +13,6 @@ Check for one of the cmdlets before running the script, with an explicit exit
 code that PowerShell 2 does report, and skip on that. This also skips before
 the cleanup is registered, so nothing tries to dismount a volume that was never
 mounted. Where the module is present nothing changes.
-
 
 diff --git a/src/path/filepath/path_windows_test.go b/src/path/filepath/path_windows_test.go
 index d60903f6..763ee8f7 100644

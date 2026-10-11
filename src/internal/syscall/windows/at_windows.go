@@ -6,10 +6,10 @@ package windows
 
 import (
 	"internal/oserror"
+	"internal/stringslite"
 	"runtime"
 	"structs"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"unsafe"
 )
@@ -31,33 +31,6 @@ const (
 	O_NOFOLLOW_ANY = 0x200000000 // disallow symlinks anywhere in the path
 	O_WRITE_ATTRS  = 0x800000000 // FILE_WRITE_ATTRIBUTES, used by Chmod
 )
-
-// objDontReparseUnsupported records that this kernel rejected
-// OBJ_DONT_REPARSE, which Windows 7 does. The retry opens with
-// FILE_OPEN_REPARSE_POINT instead, so a reparse point is returned rather than
-// followed and Openat reports STATUS_REPARSE_POINT_ENCOUNTERED itself.
-var objDontReparseUnsupported atomic.Bool
-
-// isReparsePoint reports whether h refers to a reparse point.
-func isReparsePoint(h syscall.Handle) (bool, error) {
-	var d syscall.ByHandleFileInformation
-	if err := syscall.GetFileInformationByHandle(h, &d); err != nil {
-		return false, err
-	}
-	return d.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0, nil
-}
-
-// TestOpenatNoObjDontReparse should only be used for testing purposes.
-// When set, [Openat] behaves as it does on a kernel without
-// OBJ_DONT_REPARSE.
-var TestOpenatNoObjDontReparse bool
-
-// ObjDontReparseUnsupportedForTest should only be used for testing purposes.
-// It reports whether [Openat] has concluded that this kernel rejects
-// OBJ_DONT_REPARSE.
-func ObjDontReparseUnsupportedForTest() bool {
-	return objDontReparseUnsupported.Load()
-}
 
 func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ syscall.Handle, e1 error) {
 	if len(name) == 0 {
@@ -135,14 +108,8 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
 	access |= STANDARD_RIGHTS_READ | FILE_READ_ATTRIBUTES | FILE_READ_EA
 
 	objAttrs := &OBJECT_ATTRIBUTES{}
-	noFollow := flag&O_NOFOLLOW_ANY != 0
-	emulateNoFollow := noFollow && (objDontReparseUnsupported.Load() || TestOpenatNoObjDontReparse)
-	if noFollow && !emulateNoFollow {
+	if flag&O_NOFOLLOW_ANY != 0 {
 		objAttrs.Attributes |= OBJ_DONT_REPARSE
-	}
-	if emulateNoFollow {
-		// Emulate OBJ_DONT_REPARSE. See objDontReparseUnsupported.
-		options |= FILE_OPEN_REPARSE_POINT
 	}
 	if flag&syscall.O_CLOEXEC == 0 {
 		objAttrs.Attributes |= OBJ_INHERIT
@@ -176,8 +143,11 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
 	}
 
 	var h syscall.Handle
-	create := func() error {
-		return NtCreateFile(
+	var err error
+	if TestOpenatFallback && flag&O_NOFOLLOW_ANY != 0 {
+		err = STATUS_INVALID_PARAMETER
+	} else {
+		err = NtCreateFile(
 			&h,
 			SYNCHRONIZE|access,
 			objAttrs,
@@ -191,36 +161,11 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
 			0,
 		)
 	}
-	err := create()
-	if err == STATUS_INVALID_PARAMETER && objAttrs.Attributes&OBJ_DONT_REPARSE != 0 {
-		// STATUS_INVALID_PARAMETER has two causes here. One is a kernel
-		// that does not know OBJ_DONT_REPARSE. The other is an open asking
-		// for a directory and a non-directory at once, which a trailing
-		// separator on a file does. Dropping the attribute cannot fix the
-		// second, so retry without it and take the kernel to lack it only
-		// if STATUS_INVALID_PARAMETER goes away.
-		objAttrs.Attributes &^= OBJ_DONT_REPARSE
-		options |= FILE_OPEN_REPARSE_POINT
-		if retry := create(); retry != STATUS_INVALID_PARAMETER {
-			objDontReparseUnsupported.Store(true)
-			emulateNoFollow = true
-			err = retry
-		}
+	if err == STATUS_INVALID_PARAMETER && flag&O_NOFOLLOW_ANY != 0 {
+		h, err = openatFallback(name, SYNCHRONIZE|access, *objAttrs, fileAttrs, disposition, FILE_OPEN_FOR_BACKUP_INTENT|options)
 	}
 	if err != nil {
 		return h, ntCreateFileError(err, flag)
-	}
-	if emulateNoFollow && fileFlags&O_FILE_FLAG_OPEN_REPARSE_POINT == 0 {
-		// The emulated OBJ_DONT_REPARSE refusal.
-		isLink, err := isReparsePoint(h)
-		if err != nil {
-			syscall.CloseHandle(h)
-			return syscall.InvalidHandle, err
-		}
-		if isLink {
-			syscall.CloseHandle(h)
-			return syscall.InvalidHandle, ntCreateFileError(STATUS_REPARSE_POINT_ENCOUNTERED, flag)
-		}
 	}
 
 	if flag&syscall.O_TRUNC != 0 {
@@ -242,11 +187,78 @@ func Openat(dirfd syscall.Handle, name string, flag uint64, perm uint32) (_ sysc
 	return h, nil
 }
 
+// TestOpenatFallback should only be used for testing purposes.
+// When set, Openat simulates a system that does not support OBJ_DONT_REPARSE.
+var TestOpenatFallback bool
+
+// openatFallback implements O_NOFOLLOW_ANY for a single path component on
+// Windows versions that do not support OBJ_DONT_REPARSE (including Windows 10
+// build 10240). See go.dev/issue/78131.
+func openatFallback(name string, access uint32, attrs OBJECT_ATTRIBUTES, fileAttrs, disposition, options uint32) (syscall.Handle, error) {
+	// FILE_OPEN_REPARSE_POINT only prevents following the final component.
+	// All current production callers that request O_NOFOLLOW_ANY pass a
+	// single component: os.Root splits paths (including symlink targets)
+	// before opening each component, and RemoveAll passes a basename or a
+	// directory entry name relative to an open parent directory. Thus this
+	// fallback also supports multi-component paths passed to those APIs.
+	// Reject other paths here rather than weaken O_NOFOLLOW_ANY: this is
+	// not a general replacement for OBJ_DONT_REPARSE.
+	if attrs.RootDirectory == 0 || name == ".." ||
+		stringslite.IndexByte(name, '\\') >= 0 || stringslite.IndexByte(name, '/') >= 0 || stringslite.IndexByte(name, ':') >= 0 {
+		return syscall.InvalidHandle, STATUS_INVALID_PARAMETER
+	}
+	attrs.Attributes &^= OBJ_DONT_REPARSE
+	var h syscall.Handle
+	err := NtCreateFile(
+		&h, access, &attrs, &IO_STATUS_BLOCK{}, nil, fileAttrs,
+		FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, disposition,
+		(options|FILE_OPEN_REPARSE_POINT)&^FILE_DELETE_ON_CLOSE, nil, 0,
+	)
+	if err != nil {
+		return syscall.InvalidHandle, err
+	}
+	// Inspect the handle, not the path, before truncation or delete-on-close.
+	// Skip this check if opening the reparse point itself was requested,
+	// or if O_CREAT|O_EXCL requires creating a new file without following links.
+	if options&FILE_OPEN_REPARSE_POINT == 0 {
+		var info syscall.ByHandleFileInformation
+		err = syscall.GetFileInformationByHandle(h, &info)
+		if err == nil && info.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+			err = STATUS_REPARSE_POINT_ENCOUNTERED
+		}
+		if err != nil {
+			syscall.CloseHandle(h)
+			return syscall.InvalidHandle, err
+		}
+	}
+	if options&FILE_DELETE_ON_CLOSE == 0 {
+		return h, nil
+	}
+	defer syscall.CloseHandle(h)
+
+	// Only enable deletion after checking for a reparse point. An empty
+	// name relative to h reopens the same file, even if it has been renamed
+	// or its directory entry has been replaced since the first open.
+	// The file already exists, including when created with O_EXCL.
+	attrs.RootDirectory = h
+	attrs.ObjectName = &NTUnicodeString{}
+	var dh syscall.Handle
+	err = NtOpenFile(
+		&dh, access, &attrs, &IO_STATUS_BLOCK{},
+		FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE,
+		options|FILE_OPEN_REPARSE_POINT,
+	)
+	if err != nil {
+		return syscall.InvalidHandle, err
+	}
+	return dh, nil
+}
+
 // ntCreateFileError maps error returns from NTCreateFile to user-visible errors.
 func ntCreateFileError(err error, flag uint64) error {
 	s, ok := err.(NTStatus)
 	if !ok {
-		// Shouldn't really be possible, NtCreateFile always returns NTStatus.
+		// The Openat fallback can also return Win32 errors.
 		return err
 	}
 	switch s {
@@ -287,7 +299,7 @@ func Mkdirat(dirfd syscall.Handle, name string, mode uint32) error {
 		syscall.FILE_ATTRIBUTE_NORMAL,
 		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
 		FILE_CREATE,
-		FILE_DIRECTORY_FILE,
+		FILE_DIRECTORY_FILE|FILE_OPEN_REPARSE_POINT,
 		nil,
 		0,
 	)
@@ -309,33 +321,47 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
 		return err
 	}
 	var h syscall.Handle
-	err := NtOpenFile(
-		&h,
-		FILE_READ_ATTRIBUTES|DELETE,
-		objAttrs,
-		&IO_STATUS_BLOCK{},
-		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
-		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|options,
-	)
-	if err != nil {
-		if ntStatus, ok := err.(NTStatus); !ok || ntStatus != STATUS_ACCESS_DENIED {
-			return ntCreateFileError(err, 0)
-		}
-
-		// Access denied, try opening with DELETE only.
-		// This may succeed if the file has restrictive permissions
-		// but the caller has delete child permission on the parent directory.
+	var err error
+	var again, pending waiter
+	for {
 		err = NtOpenFile(
 			&h,
-			DELETE,
+			FILE_READ_ATTRIBUTES|DELETE,
 			objAttrs,
 			&IO_STATUS_BLOCK{},
 			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
 			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|options,
 		)
-		if err != nil {
-			return ntCreateFileError(err, 0)
+		if ntStatus, ok := err.(NTStatus); ok && ntStatus == STATUS_ACCESS_DENIED {
+			// Access denied, try opening with DELETE only.
+			// This may succeed if the file has restrictive permissions
+			// but the caller has delete child permission on the parent directory.
+			err = NtOpenFile(
+				&h,
+				DELETE,
+				objAttrs,
+				&IO_STATUS_BLOCK{},
+				FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+				FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|options,
+			)
 		}
+		// A sharing violation can be the file object of a just-run image
+		// on its way out. See imageLingers.
+		if err == STATUS_SHARING_VIOLATION && imageWait() && again.again() {
+			continue
+		}
+		// An entry marked for deletion keeps its name until the last handle
+		// to it closes, on a kernel without POSIX delete semantics, and
+		// answers this until then. Only such a kernel ever answers it, and
+		// the name goes the moment that handle closes, so wait for it a
+		// moment. See waiter.
+		if err == STATUS_DELETE_PENDING && pending.again() {
+			continue
+		}
+		break
+	}
+	if err != nil {
+		return ntCreateFileError(err, 0)
 	}
 	defer syscall.CloseHandle(h)
 
@@ -386,10 +412,45 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
 // When set, [Deleteat] uses the fallback path unconditionally.
 var TestDeleteatFallback bool
 
+// KernelHasPosixDelete reports whether the kernel knows
+// FILE_DISPOSITION_INFORMATION_EX, the class that gives a delete POSIX
+// semantics, which Windows 10 version 1607 added. It asks once, on a handle
+// to the system directory opened without DELETE access, so that the question
+// can change nothing: a kernel that knows the class refuses for the missing
+// access, one that does not refuses the class. Windows 10 and 11 answer
+// access denied, Windows 7, 8 and 8.1 refuse the class. When the directory
+// cannot be opened the kernel is taken to know it.
+var KernelHasPosixDelete = sync.OnceValue(func() bool {
+	p, err := syscall.UTF16PtrFromString(GetSystemDirectory())
+	if err != nil {
+		return true
+	}
+	h, err := syscall.CreateFile(p, FILE_READ_ATTRIBUTES, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
+		nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return true
+	}
+	defer syscall.CloseHandle(h)
+	const FileDispositionInformationEx = 64
+	err = NtSetInformationFile(
+		h,
+		&IO_STATUS_BLOCK{},
+		unsafe.Pointer(&FILE_DISPOSITION_INFORMATION_EX{}),
+		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFORMATION_EX{})),
+		FileDispositionInformationEx,
+	)
+	return err != STATUS_INVALID_INFO_CLASS
+})
+
 // TestDeleteatBeforeReopen should only be used for testing purposes. When
 // set, the fallback calls it before opening the name again to clear the
 // read-only attribute, so that a test can give the name to another file.
 var TestDeleteatBeforeReopen func()
+
+// TestDeleteatSetAside should only be used for testing purposes. When set,
+// the fallback calls it as it moves a file aside, so that a test can tell
+// whether it did.
+var TestDeleteatSetAside func()
 
 // deleteatFallback is a deleteat implementation that strives
 // for compatibility with older Windows versions and file systems
@@ -439,23 +500,44 @@ func deleteatFallback(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string
 
 	// Without POSIX semantics the name lives on until the last handle to the
 	// file closes. A caller still holding the file open would go on seeing
-	// the name, and the directory holding it could not be removed. Move the
-	// file aside first, so that the name goes now and the file itself goes
-	// when the last handle does. Leave directories where they are, since
-	// deleting one has to fail while it still has entries and moving it
-	// first would scatter the tree.
+	// the name, and the directory holding it could not be removed. Move such
+	// a file aside first, so that the name goes now and the file itself goes
+	// when the last handle does. A file nobody else holds goes, name and
+	// all, when h closes, and a rename costs more than the delete, so it is
+	// left where it is. Leave directories where they are, since deleting one
+	// has to fail while it still has entries and moving it first would
+	// scatter the tree, and a directory another handle holds cannot be
+	// renamed on these kernels in any case.
 	aside := haveData &&
 		data.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 &&
+		heldForIO(objAttrs) &&
 		setAsideForDelete(h, objAttrs, &data)
 
-	err := SetFileInformationByHandle(
-		h,
-		FileDispositionInfo,
-		unsafe.Pointer(&FILE_DISPOSITION_INFO{
-			DeleteFile: true,
-		}),
-		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
-	)
+	var err error
+	var again, pending waiter
+	for {
+		err = SetFileInformationByHandle(
+			h,
+			FileDispositionInfo,
+			unsafe.Pointer(&FILE_DISPOSITION_INFO{
+				DeleteFile: true,
+			}),
+			uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
+		)
+		// STATUS_CANNOT_DELETE, an image still mapped, arrives as access
+		// denied, and a just-run image stays mapped for a moment on some
+		// kernels. See imageLingers.
+		if err == syscall.ERROR_ACCESS_DENIED && imageWait() && again.again() {
+			continue
+		}
+		// A directory whose every entry is marked for deletion is empty
+		// but for the handles that keep those names, and the names go the
+		// moment they close. Wait for that a moment. See waiter.
+		if err == syscall.ERROR_DIR_NOT_EMPTY && haveData && onlyDeletePending(objAttrs, &data) && pending.again() {
+			continue
+		}
+		break
+	}
 	if err != nil && aside {
 		// The file is staying. Put the name back unless something else has
 		// taken it since. The file is better off a stray in the staging
@@ -465,6 +547,125 @@ func deleteatFallback(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string
 		}
 	}
 	return err
+}
+
+// imageLingers reports whether this kernel keeps the image of a process
+// mapped for a moment after the process is gone. Windows 8 and 8.1 do, for
+// up to a few tens of milliseconds, measured at most 39 ms under load, and
+// a delete in that moment fails with STATUS_CANNOT_DELETE, or with a sharing
+// violation while the file object is still open. Windows 7, 10 and 11 do
+// not, measured. Nothing short of running a process can observe it, so
+// this is one of the deliberate version gates of the series.
+var imageLingers = sync.OnceValue(func() bool {
+	major, minor, _ := Version()
+	return major == 6 && minor >= 2
+})
+
+// TestDeleteatImageLingers should only be used for testing purposes.
+// When set, Deleteat waits out a held file as it does on Windows 8 and 8.1.
+var TestDeleteatImageLingers bool
+
+// imageWait reports whether a refused delete may be the image of a just-run
+// process the kernel still holds, see imageLingers, which is when Deleteat
+// tries again.
+func imageWait() bool {
+	return TestDeleteatImageLingers || imageLingers()
+}
+
+// A waiter bounds the retries of one delete at 100 ms from the first of
+// them. It sleeps a millisecond between tries and costs nothing until the
+// first, so a delete that is not refused never reads the clock.
+type waiter struct {
+	deadline int64 // nanoseconds, zero until the first retry
+}
+
+// again sleeps a millisecond and reports whether Deleteat should try again.
+func (w *waiter) again() bool {
+	var now syscall.Filetime
+	syscall.GetSystemTimeAsFileTime(&now)
+	if w.deadline == 0 {
+		w.deadline = now.Nanoseconds() + 100e6
+	} else if now.Nanoseconds() >= w.deadline {
+		return false
+	}
+	Sleep(1)
+	return true
+}
+
+// onlyDeletePending reports whether every entry the directory at objAttrs,
+// whose identity is in data, still holds is marked for deletion, kept only
+// by a handle that has yet to close. The directory is
+// opened again by name with the right to list it, which the handle Deleteat
+// holds was opened without, and only an entry with the same identity is
+// listed. Each entry is then opened, and one that answers anything but
+// STATUS_DELETE_PENDING ends the search. Windows 10 and later answer
+// STATUS_OBJECT_NAME_NOT_FOUND for such an entry while still listing it,
+// which is the same thing said differently.
+func onlyDeletePending(objAttrs *OBJECT_ATTRIBUTES, data *syscall.ByHandleFileInformation) bool {
+	var dir syscall.Handle
+	err := NtOpenFile(
+		&dir,
+		SYNCHRONIZE|FILE_LIST_DIRECTORY|FILE_READ_ATTRIBUTES,
+		objAttrs,
+		&IO_STATUS_BLOCK{},
+		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_DIRECTORY_FILE|FILE_SYNCHRONOUS_IO_NONALERT,
+	)
+	if err != nil {
+		return false
+	}
+	defer syscall.CloseHandle(dir)
+	var again syscall.ByHandleFileInformation
+	if syscall.GetFileInformationByHandle(dir, &again) != nil ||
+		again.VolumeSerialNumber != data.VolumeSerialNumber ||
+		again.FileIndexHigh != data.FileIndexHigh || again.FileIndexLow != data.FileIndexLow {
+		return false
+	}
+	// The entries carry 64-bit fields, and the call refuses a buffer that
+	// is not aligned for them.
+	var buf [512]uint64
+	for {
+		err := GetFileInformationByHandleEx(dir, FileIdBothDirectoryInfo, (*byte)(unsafe.Pointer(&buf[0])), uint32(unsafe.Sizeof(buf)))
+		if err == syscall.ERROR_NO_MORE_FILES {
+			// Nothing the listing can see, yet the delete was refused as
+			// not empty: the entry went between the two calls, or this
+			// kernel hides an entry marked for deletion from a listing
+			// while still counting it, as Windows 10 and later do.
+			return true
+		}
+		if err != nil {
+			return false
+		}
+		for off := uint32(0); ; {
+			info := (*FILE_ID_BOTH_DIR_INFO)(unsafe.Add(unsafe.Pointer(&buf[0]), off))
+			name := unsafe.Slice(&info.FileName[0], info.FileNameLength/2)
+			if !(len(name) == 1 && name[0] == '.') && !(len(name) == 2 && name[0] == '.' && name[1] == '.') {
+				entryAttrs := &OBJECT_ATTRIBUTES{}
+				if err := entryAttrs.init(dir, syscall.UTF16ToString(name)); err != nil {
+					return false
+				}
+				var eh syscall.Handle
+				err := NtOpenFile(
+					&eh,
+					FILE_READ_ATTRIBUTES,
+					entryAttrs,
+					&IO_STATUS_BLOCK{},
+					FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+					FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT,
+				)
+				if err == nil {
+					syscall.CloseHandle(eh)
+				}
+				if err != STATUS_DELETE_PENDING && err != STATUS_OBJECT_NAME_NOT_FOUND {
+					return false
+				}
+			}
+			if info.NextEntryOffset == 0 {
+				break
+			}
+			off += info.NextEntryOffset
+		}
+	}
 }
 
 // deleteStagingDir is a directory to park a file that cannot go away at once,
@@ -510,11 +711,40 @@ var deleteStaging = sync.OnceValue(func() (s deleteStagingDir) {
 	return deleteStagingDir{h: h, volume: data.VolumeSerialNumber, ok: true}
 })
 
+// heldForIO reports whether a handle other than Deleteat's own has the file
+// at objAttrs open for reading, writing or executing. An open that asks for
+// delete access alone and shares nothing but deletion is refused with a
+// sharing violation exactly then: the kernel checks sharing only for an open
+// that asks for data, execute or delete access, and the share mode of such
+// an open has to admit every access already granted. Deleteat's own handle
+// holds delete and attribute access, which the share mode admits; a reader,
+// writer or image it refuses. Any other refusal counts as held, which costs
+// a rename and nothing else.
+func heldForIO(objAttrs *OBJECT_ATTRIBUTES) bool {
+	var h syscall.Handle
+	err := NtOpenFile(
+		&h,
+		DELETE,
+		objAttrs,
+		&IO_STATUS_BLOCK{},
+		FILE_SHARE_DELETE,
+		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT,
+	)
+	if err != nil {
+		return true
+	}
+	syscall.CloseHandle(h)
+	return false
+}
+
 // setAsideForDelete moves the file open on h off the name it was reached by,
 // preferring the staging directory so that the file leaves the tree entirely.
 // A rename cannot cross volumes, and it needs every other handle to the file
 // to share deletion, so this reports whether it happened.
 func setAsideForDelete(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, data *syscall.ByHandleFileInformation) bool {
+	if TestDeleteatSetAside != nil {
+		TestDeleteatSetAside()
+	}
 	dir := objAttrs.RootDirectory
 	if s := deleteStaging(); s.ok && s.volume == data.VolumeSerialNumber {
 		dir = s.h

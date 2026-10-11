@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] runtime, crypto/internal/sysrand: fall back to RtlGenRandom when ProcessPrng is absent
 
 The runtime and crypto/rand ask the operating system for random bytes.
@@ -18,7 +18,6 @@ Look up RtlGenRandom in advapi32.dll when ProcessPrng is missing, and read from
 whichever one was found. The choice depends on what GetProcAddress returns, not
 on the Windows version. crypto/internal/sysrand reads at most 1<<31-1 bytes per
 call, as crypto/rand did before the switch.
-
 
 diff --git a/src/crypto/internal/sysrand/rand_windows.go b/src/crypto/internal/sysrand/rand_windows.go
 index 91f1490c..e164a38c 100644
@@ -197,7 +196,7 @@ index 4a22eb5b..9dd4a867 100644
 +	return readRandomFrom(fn, r)
 +}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index e1e14093..c7ecb272 100644
+index e3823a35..5946f20a 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
 @@ -128,8 +128,13 @@ var (

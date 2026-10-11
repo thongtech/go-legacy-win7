@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] net: fall back when WSA_FLAG_NO_HANDLE_INHERIT is rejected
 
 Creating a socket asks for WSA_FLAG_NO_HANDLE_INHERIT so that child processes
@@ -14,7 +14,6 @@ Retry without the flag and clear inheritance afterwards with CloseOnExec, in
 sysSocket and in dupSocket, which FileConn uses. The old retry held
 syscall.ForkLock. That lock is not restored, because a Windows child process
 only inherits the handles listed in PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
-
 
 diff --git a/src/net/file_windows.go b/src/net/file_windows.go
 index 6a630503..8bea68e1 100644

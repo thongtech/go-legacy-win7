@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] internal/poll: keep a handle that cannot leave its completion port
 
 DisassociateIOCP (CL 664455, Go 1.25) removes a handle from its completion port
@@ -17,9 +17,8 @@ caller that wants to attach the handle to a port of its own still cannot. A
 handle passed back in through FileConn is accepted, and Close ends a pending
 read on it.
 
-
 diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
-index 26319548..cad1bbbd 100644
+index 2e4b97cf..fc5ea338 100644
 --- a/src/internal/poll/fd_windows.go
 +++ b/src/internal/poll/fd_windows.go
 @@ -330,7 +330,7 @@ func (fd *FD) execIO(mode int, submit func(o *operation) (uint32, error)) (int,
@@ -31,7 +30,7 @@ index 26319548..cad1bbbd 100644
  			// Close uses CancelIoEx to interrupt concurrent I/O for pipes.
  			// If the fd is a pipe and the Write was interrupted by CancelIoEx,
  			// we assume it is interrupted by Close.
-@@ -474,7 +474,14 @@ func (fd *FD) Init(net string, pollable bool) error {
+@@ -494,7 +494,14 @@ func (fd *FD) Init(net string, pollable bool) error {
  	// I/O completion notifications not initiated by us.
  	err := fd.pd.init(fd)
  	if err != nil {
@@ -45,9 +44,9 @@ index 26319548..cad1bbbd 100644
 +		// does not own. See canDetachFromIOCP.
 +		return nil
  	}
- 	if fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes {
+ 	if !fd.KeepFileCompletionModes && (fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes) {
  		// Non-socket handles can use SetFileCompletionNotificationModes without problems.
-@@ -486,6 +493,57 @@ func (fd *FD) Init(net string, pollable bool) error {
+@@ -506,6 +513,57 @@ func (fd *FD) Init(net string, pollable bool) error {
  	return nil
  }
  
@@ -105,7 +104,7 @@ index 26319548..cad1bbbd 100644
  // DisassociateIOCP disassociates the file handle from the IOCP.
  // The disassociate operation will not succeed if there is any
  // in-progress IO operation on the file handle.
-@@ -500,6 +558,13 @@ func (fd *FD) DisassociateIOCP() error {
+@@ -520,6 +578,13 @@ func (fd *FD) DisassociateIOCP() error {
  		return nil
  	}
  
@@ -119,7 +118,7 @@ index 26319548..cad1bbbd 100644
  	info := windows.FILE_COMPLETION_INFORMATION{}
  	if err := windows.NtSetInformationFile(fd.Sysfd, &windows.IO_STATUS_BLOCK{}, unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), windows.FileReplaceCompletionInformation); err != nil {
  		return err
-@@ -537,7 +602,11 @@ func (fd *FD) Close() error {
+@@ -557,7 +622,11 @@ func (fd *FD) Close() error {
  		return errClosing(fd.isFile)
  	}
  

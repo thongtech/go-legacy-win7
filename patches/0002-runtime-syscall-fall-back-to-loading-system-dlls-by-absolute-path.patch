@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] runtime, syscall: fall back to loading system DLLs by absolute path
 
 The runtime and syscall load system DLLs with LoadLibraryExW and the flag
@@ -21,7 +21,6 @@ what the flag was for. In syscall the retry is in LoadDLL rather than in
 loadsystemlibrary, because golang.org/x/sys/windows reaches loadsystemlibrary
 through go:linkname and depends on its signature.
 
-
 diff --git a/src/runtime/export_windows_test.go b/src/runtime/export_windows_test.go
 index f44e24bb..4a22eb5b 100644
 --- a/src/runtime/export_windows_test.go
@@ -39,7 +38,7 @@ index f44e24bb..4a22eb5b 100644
 +	return loadSystemLibFromSysDir(name)
 +}
 diff --git a/src/runtime/os_windows.go b/src/runtime/os_windows.go
-index 1688ba91..e1e14093 100644
+index 12b20adb..e3823a35 100644
 --- a/src/runtime/os_windows.go
 +++ b/src/runtime/os_windows.go
 @@ -37,6 +37,7 @@ const (

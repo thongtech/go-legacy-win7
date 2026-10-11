@@ -19,15 +19,15 @@ tree already does. This is upstream's own fix, CL 744282 (Go 1.27), which was
 not backported to Go 1.26. Nothing is gated, because the pointer is correct on
 every Windows.
 
-The symlink tests in os cover the call. Measured on Windows 7 RTM, where
-TestSymlink took the whole os test binary down with the exception above, and
-where the fixed binary runs past it.
+The symlink tests in os cover the call. On Windows 7 TestSymlink took the
+whole os test binary down with the exception above, and runs past it once
+the count is passed.
 
 diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
-index f90ca93b..7d3556ab 100644
+index e78e3e8e..2bf4b219 100644
 --- a/src/internal/syscall/windows/at_windows.go
 +++ b/src/internal/syscall/windows/at_windows.go
-@@ -915,6 +915,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
+@@ -1145,6 +1145,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
  	namebuf := rdbbuf[bufferSize:]
  	copy(namebuf, unsafe.String((*byte)(unsafe.Pointer(&oldnameu16[0])), 2*len(oldnameu16)))
  
@@ -35,7 +35,7 @@ index f90ca93b..7d3556ab 100644
  	err = syscall.DeviceIoControl(
  		h,
  		FSCTL_SET_REPARSE_POINT,
-@@ -922,7 +923,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
+@@ -1152,7 +1153,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
  		uint32(len(rdbbuf)),
  		nil,
  		0,

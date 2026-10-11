@@ -23,7 +23,6 @@ get_insecure.txt is covered against the same host by get_insecure_env.txt and
 get_insecure_custom_domain.txt, and the module half of get_404_meta.txt still
 exercises the 404 path it was written for.
 
-
 diff --git a/src/cmd/go/alldocs.go b/src/cmd/go/alldocs.go
 index dc20c7a1..bf78bb96 100644
 --- a/src/cmd/go/alldocs.go

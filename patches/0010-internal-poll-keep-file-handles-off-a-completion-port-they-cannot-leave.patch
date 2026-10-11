@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] internal/poll: keep file handles off a completion port they cannot leave
 
 os.(*File).Fd guarantees that the handle it returns is not attached to the
@@ -18,6 +18,13 @@ what lets one process serve more connections than it has threads.
 The cost is one thread per waiting operation, which is how Windows 7 file and
 pipe I/O worked through Go 1.24 anyway.
 
+CL 828584 (Go 1.28, 1.26.9 and 1.27.2) lets a handle given to os.NewFile keep the
+completion modes it came with, because every handle to the file object
+shares them, and Init reads the skip-on-success flag off such a handle
+instead of setting it.
+The choice between the poller and the deadline events is made after that
+read and before the modes are set, so a NewFile handle on those kernels
+keeps its modes and its own deadlines alike.
 
 diff --git a/src/internal/poll/fd_poll_runtime.go b/src/internal/poll/fd_poll_runtime.go
 index 2aef1124..d5b7d54f 100644
@@ -51,7 +58,7 @@ index f5617352..0b31d7a2 100644
  
  // WaitWrite waits until data can be written to fd.
 diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
-index 08c31dba..db7cb114 100644
+index 8a7e7217..6d7277b1 100644
 --- a/src/internal/poll/fd_windows.go
 +++ b/src/internal/poll/fd_windows.go
 @@ -235,11 +235,10 @@ func (fd *FD) waitIO(o *operation) error {
@@ -99,8 +106,8 @@ index 08c31dba..db7cb114 100644
  	skipSyncNotif bool
  
  	// Whether this is a streaming descriptor, as opposed to a
-@@ -486,19 +500,31 @@ func (fd *FD) Init(net string, pollable bool) error {
- 		return nil
+@@ -506,19 +520,31 @@ func (fd *FD) Init(net string, pollable bool) error {
+ 		fd.skipSyncNotif = info.Flags&syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS != 0
  	}
  
 -	// It is safe to add overlapped handles that also perform I/O
@@ -140,9 +147,9 @@ index 08c31dba..db7cb114 100644
 +			return nil
 +		}
  	}
- 	if fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes {
+ 	if !fd.KeepFileCompletionModes && (fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes) {
  		// Non-socket handles can use SetFileCompletionNotificationModes without problems.
-@@ -513,6 +539,30 @@ func (fd *FD) Init(net string, pollable bool) error {
+@@ -533,6 +559,30 @@ func (fd *FD) Init(net string, pollable bool) error {
  	return nil
  }
  
@@ -173,7 +180,7 @@ index 08c31dba..db7cb114 100644
  // offPoller reports whether fd does overlapped I/O that the runtime poller
  // does not own, a file kept off the completion port or a socket the poller
  // could not adopt. Only CancelIoEx can end a wait on such a handle.
-@@ -520,11 +570,105 @@ func (fd *FD) offPoller() bool {
+@@ -540,11 +590,105 @@ func (fd *FD) offPoller() bool {
  	return !fd.isBlocking && fd.pd.runtimeCtx == 0
  }
  
@@ -280,7 +287,7 @@ index 08c31dba..db7cb114 100644
  func canDetachFromIOCP() bool {
  	if TestDisassociateIOCPUnsupported {
  		return false
-@@ -559,6 +703,13 @@ var detachFromIOCPSupported = sync.OnceValue(func() bool {
+@@ -579,6 +723,13 @@ var detachFromIOCPSupported = sync.OnceValue(func() bool {
  		uint32(unsafe.Sizeof(info)), windows.FileReplaceCompletionInformation) == nil
  })
  
@@ -294,7 +301,7 @@ index 08c31dba..db7cb114 100644
  // TestDisassociateIOCPUnsupported should only be used for testing purposes.
  // When set, [FD.DisassociateIOCP] behaves as it does on a kernel without
  // FileReplaceCompletionInformation.
-@@ -611,6 +762,11 @@ func (fd *FD) destroy() error {
+@@ -631,6 +782,11 @@ func (fd *FD) destroy() error {
  		err = syscall.CloseHandle(fd.Sysfd)
  	}
  	fd.Sysfd = syscall.InvalidHandle
@@ -371,10 +378,10 @@ index 73de1eb9..0d1346ee 100644
  	r0, _, _ := syscall.SyscallN(procNetShareAdd.Addr(), uintptr(unsafe.Pointer(serverName)), uintptr(level), uintptr(unsafe.Pointer(buf)), uintptr(unsafe.Pointer(parmErr)))
  	if r0 != 0 {
 diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
-index 62141d9e..74a6d73a 100644
+index 3d9e29fd..2e12d24f 100644
 --- a/src/os/os_windows_test.go
 +++ b/src/os/os_windows_test.go
-@@ -2395,3 +2395,116 @@ func TestConsoleNames(t *testing.T) {
+@@ -2459,3 +2459,116 @@ func TestConsoleNames(t *testing.T) {
  		}
  	}
  }

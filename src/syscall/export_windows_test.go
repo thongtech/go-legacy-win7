@@ -18,4 +18,6 @@ var EnvSorted = envSorted
 var SystemDirectory = systemDirectory
 var LoadSystemDLLByPath = loadSystemDLLByPath
 
+var MismatchedLink = mismatchedLink
+
 var RtlGetNtVersionNumbers = rtlGetNtVersionNumbers

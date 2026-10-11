@@ -71,10 +71,13 @@ var (
 	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
 	procCreateIoCompletionPort            = modkernel32.NewProc("CreateIoCompletionPort")
 	procCreateNamedPipeW                  = modkernel32.NewProc("CreateNamedPipeW")
+	procCreateThreadpool                  = modkernel32.NewProc("CreateThreadpool")
+	procCreateThreadpoolWork              = modkernel32.NewProc("CreateThreadpoolWork")
 	procGetACP                            = modkernel32.NewProc("GetACP")
 	procGetComputerNameExW                = modkernel32.NewProc("GetComputerNameExW")
 	procGetConsoleCP                      = modkernel32.NewProc("GetConsoleCP")
 	procGetCurrentThread                  = modkernel32.NewProc("GetCurrentThread")
+	procGetCurrentThreadId                = modkernel32.NewProc("GetCurrentThreadId")
 	procGetFileInformationByHandleEx      = modkernel32.NewProc("GetFileInformationByHandleEx")
 	procGetFileSizeEx                     = modkernel32.NewProc("GetFileSizeEx")
 	procGetFinalPathNameByHandleW         = modkernel32.NewProc("GetFinalPathNameByHandleW")
@@ -94,6 +97,10 @@ var (
 	procRtlVirtualUnwind                  = modkernel32.NewProc("RtlVirtualUnwind")
 	procSetEvent                          = modkernel32.NewProc("SetEvent")
 	procSetFileInformationByHandle        = modkernel32.NewProc("SetFileInformationByHandle")
+	procSetThreadpoolThreadMaximum        = modkernel32.NewProc("SetThreadpoolThreadMaximum")
+	procSetThreadpoolThreadMinimum        = modkernel32.NewProc("SetThreadpoolThreadMinimum")
+	procSleep                             = modkernel32.NewProc("Sleep")
+	procSubmitThreadpoolWork              = modkernel32.NewProc("SubmitThreadpoolWork")
 	procUnlockFileEx                      = modkernel32.NewProc("UnlockFileEx")
 	procVirtualQuery                      = modkernel32.NewProc("VirtualQuery")
 	procWaitForMultipleObjects            = modkernel32.NewProc("WaitForMultipleObjects")
@@ -333,6 +340,24 @@ func CreateNamedPipe(name *uint16, flags uint32, pipeMode uint32, maxInstances u
 	return
 }
 
+func CreateThreadpool(reserved uintptr) (pool uintptr, err error) {
+	r0, _, e1 := syscall.SyscallN(procCreateThreadpool.Addr(), uintptr(reserved))
+	pool = uintptr(r0)
+	if pool == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func CreateThreadpoolWork(callback uintptr, context uintptr, env *TP_CALLBACK_ENVIRON) (work uintptr, err error) {
+	r0, _, e1 := syscall.SyscallN(procCreateThreadpoolWork.Addr(), uintptr(callback), uintptr(context), uintptr(unsafe.Pointer(env)))
+	work = uintptr(r0)
+	if work == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
 func GetACP() (acp uint32) {
 	r0, _, _ := syscall.SyscallN(procGetACP.Addr())
 	acp = uint32(r0)
@@ -359,6 +384,12 @@ func GetCurrentThread() (pseudoHandle syscall.Handle, err error) {
 	if pseudoHandle == 0 {
 		err = errnoErr(e1)
 	}
+	return
+}
+
+func GetCurrentThreadId() (id uint32) {
+	r0, _, _ := syscall.SyscallN(procGetCurrentThreadId.Addr())
+	id = uint32(r0)
 	return
 }
 
@@ -517,6 +548,29 @@ func SetFileInformationByHandle(handle syscall.Handle, fileInformationClass uint
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
+	return
+}
+
+func SetThreadpoolThreadMaximum(pool uintptr, max uint32) {
+	syscall.SyscallN(procSetThreadpoolThreadMaximum.Addr(), uintptr(pool), uintptr(max))
+	return
+}
+
+func SetThreadpoolThreadMinimum(pool uintptr, min uint32) (err error) {
+	r1, _, e1 := syscall.SyscallN(procSetThreadpoolThreadMinimum.Addr(), uintptr(pool), uintptr(min))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func Sleep(milliseconds uint32) {
+	syscall.SyscallN(procSleep.Addr(), uintptr(milliseconds))
+	return
+}
+
+func SubmitThreadpoolWork(work uintptr) {
+	syscall.SyscallN(procSubmitThreadpoolWork.Addr(), uintptr(work))
 	return
 }
 

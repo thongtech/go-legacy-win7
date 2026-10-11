@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] runtime/race, cmd/link: let -race binaries start on Windows 7
 
 Every -race binary fails to start on Windows 7, because of the
@@ -30,7 +30,6 @@ The library was linked only for the address wait functions, which the race
 runtime no longer needs from it, so stop linking it. The test covers both link
 modes. This deviates from upstream, which links the import library and
 requires Windows 8.
-
 
 diff --git a/src/cmd/link/internal/ld/ld_test.go b/src/cmd/link/internal/ld/ld_test.go
 index 83441f6a..6bd335d4 100644
@@ -102,7 +101,7 @@ index 83441f6a..6bd335d4 100644
  // runtime.disableMemoryProfiling if the runtime.MemProfile
  // symbol is unreachable after deadcode (and not dynlinking).
 diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
-index 1427f9c7..37ca0fbe 100644
+index 314478ee..a934b157 100644
 --- a/src/cmd/link/internal/ld/lib.go
 +++ b/src/cmd/link/internal/ld/lib.go
 @@ -711,11 +711,6 @@ func loadWindowsHostArchives(ctxt *Link) {
@@ -117,7 +116,7 @@ index 1427f9c7..37ca0fbe 100644
  		if p := ctxt.findLibPath("libmingwex.a"); p != "none" {
  			hostArchive(ctxt, p)
  		}
-@@ -1979,15 +1974,6 @@ func (ctxt *Link) hostlink() {
+@@ -1987,15 +1982,6 @@ func (ctxt *Link) hostlink() {
  			p := writeGDBLinkerScript()
  			argv = append(argv, "-Wl,-T,"+p)
  		}

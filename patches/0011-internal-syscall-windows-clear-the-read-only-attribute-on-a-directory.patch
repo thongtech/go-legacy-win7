@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] internal/syscall/windows: clear the read-only attribute on a directory
 
 os.RemoveAll leaves a read-only directory behind before Windows 10, version
@@ -19,12 +19,11 @@ hands between the two opens.
 This is not specific to Windows 7. Forcing the fallback reproduces the problem
 on Windows 11.
 
-
 diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
-index d754958f..ca9bcc4a 100644
+index 1939e985..828569ec 100644
 --- a/src/internal/syscall/windows/at_windows.go
 +++ b/src/internal/syscall/windows/at_windows.go
-@@ -339,7 +339,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+@@ -351,7 +351,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
  	defer syscall.CloseHandle(h)
  
  	if TestDeleteatFallback {
@@ -33,7 +32,7 @@ index d754958f..ca9bcc4a 100644
  	}
  
  	const FileDispositionInformationEx = 64
-@@ -375,7 +375,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+@@ -387,7 +387,7 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
  	case STATUS_INVALID_INFO_CLASS, // the operating system doesn't support FileDispositionInformationEx
  		STATUS_INVALID_PARAMETER, // the operating system doesn't support one of the flags
  		STATUS_NOT_SUPPORTED:     // the file system doesn't support FILE_DISPOSITION_INFORMATION_EX or one of the flags
@@ -42,7 +41,7 @@ index d754958f..ca9bcc4a 100644
  	default:
  		return err.(NTStatus).Errno()
  	}
-@@ -385,30 +385,50 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+@@ -397,30 +397,50 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
  // When set, [Deleteat] uses the fallback path unconditionally.
  var TestDeleteatFallback bool
  
@@ -110,7 +109,7 @@ index d754958f..ca9bcc4a 100644
  		if err != nil {
  			return err
 diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
-index e1e1cc4d..5996967a 100644
+index eea2b58e..c554f8f8 100644
 --- a/src/os/path_windows_test.go
 +++ b/src/os/path_windows_test.go
 @@ -247,6 +247,19 @@ func TestRemoveAllFallback(t *testing.T) {
@@ -133,7 +132,7 @@ index e1e1cc4d..5996967a 100644
  
  	if err := os.RemoveAll(dir); err != nil {
  		t.Fatal(err)
-@@ -370,3 +383,56 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
+@@ -295,3 +308,56 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
  		os.AddExtendedPrefix(veryLong)
  	}
  }

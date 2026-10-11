@@ -35,6 +35,7 @@ const (
 	ERROR_INVALID_HANDLE         syscall.Errno = 6
 	ERROR_BAD_LENGTH             syscall.Errno = 24
 	ERROR_SHARING_VIOLATION      syscall.Errno = 32
+	ERROR_DIRECTORY              syscall.Errno = 267
 	ERROR_LOCK_VIOLATION         syscall.Errno = 33
 	ERROR_NOT_SUPPORTED          syscall.Errno = 50
 	ERROR_CALL_NOT_IMPLEMENTED   syscall.Errno = 120
@@ -380,6 +381,7 @@ const MB_ERR_INVALID_CHARS = 8
 //sys	GetConsoleCP() (ccp uint32) = kernel32.GetConsoleCP
 //sys	MultiByteToWideChar(codePage uint32, dwFlags uint32, str *byte, nstr int32, wchar *uint16, nwchar int32) (nwrite int32, err error) = kernel32.MultiByteToWideChar
 //sys	GetCurrentThread() (pseudoHandle syscall.Handle, err error) = kernel32.GetCurrentThread
+//sys	GetCurrentThreadId() (id uint32) = kernel32.GetCurrentThreadId
 
 // Constants from lmshare.h
 const (
@@ -421,6 +423,7 @@ func ErrorLoadingGetTempPath2() error {
 //sys	DestroyEnvironmentBlock(block *uint16) (err error) = userenv.DestroyEnvironmentBlock
 //sys	CreateEvent(eventAttrs *SecurityAttributes, manualReset uint32, initialState uint32, name *uint16) (handle syscall.Handle, err error) = kernel32.CreateEventW
 //sys	SetEvent(event syscall.Handle) (err error) = kernel32.SetEvent
+//sys	Sleep(milliseconds uint32) = kernel32.Sleep
 //sys	WaitForMultipleObjects(count uint32, handles *syscall.Handle, waitAll bool, waitMilliseconds uint32) (event uint32, err error) [failretval==0xffffffff] = kernel32.WaitForMultipleObjects
 
 //sys	ProcessPrng(buf []byte) (err error) = bcryptprimitives.ProcessPrng
@@ -542,6 +545,32 @@ const (
 //sys	GetOverlappedResult(handle syscall.Handle, overlapped *syscall.Overlapped, done *uint32, wait bool) (err error)
 //sys	CreateNamedPipe(name *uint16, flags uint32, pipeMode uint32, maxInstances uint32, outSize uint32, inSize uint32, defaultTimeout uint32, sa *syscall.SecurityAttributes) (handle syscall.Handle, err error)  [failretval==syscall.InvalidHandle] = CreateNamedPipeW
 
+// TP_CALLBACK_ENVIRON is the version 3 thread pool callback environment,
+// which the SDK builds in TpInitializeCallbackEnviron.
+type TP_CALLBACK_ENVIRON struct {
+	Version                    uint32
+	Pool                       uintptr
+	CleanupGroup               uintptr
+	CleanupGroupCancelCallback uintptr
+	RaceDll                    uintptr
+	ActivationContext          uintptr
+	FinalizationCallback       uintptr
+	Flags                      uint32
+	CallbackPriority           int32
+	Size                       uint32
+}
+
+const (
+	TP_CALLBACK_ENVIRON_VERSION = 3
+	TP_CALLBACK_PRIORITY_NORMAL = 1
+)
+
+//sys	CreateThreadpool(reserved uintptr) (pool uintptr, err error) [failretval==0] = kernel32.CreateThreadpool
+//sys	SetThreadpoolThreadMinimum(pool uintptr, min uint32) (err error) = kernel32.SetThreadpoolThreadMinimum
+//sys	SetThreadpoolThreadMaximum(pool uintptr, max uint32) = kernel32.SetThreadpoolThreadMaximum
+//sys	CreateThreadpoolWork(callback uintptr, context uintptr, env *TP_CALLBACK_ENVIRON) (work uintptr, err error) [failretval==0] = kernel32.CreateThreadpoolWork
+//sys	SubmitThreadpoolWork(work uintptr) = kernel32.SubmitThreadpoolWork
+
 //sys	ReOpenFile(filehandle syscall.Handle, desiredAccess uint32, shareMode uint32, flagAndAttributes uint32) (handle syscall.Handle, err error) [failretval==syscall.InvalidHandle]
 
 // NTStatus corresponds with NTSTATUS, error values returned by ntdll.dll and
@@ -568,6 +597,9 @@ const (
 	STATUS_DIRECTORY_NOT_EMPTY       NTStatus = 0xC0000101
 	STATUS_NOT_A_DIRECTORY           NTStatus = 0xC0000103
 	STATUS_CANNOT_DELETE             NTStatus = 0xC0000121
+	STATUS_SHARING_VIOLATION         NTStatus = 0xC0000043
+	STATUS_DELETE_PENDING            NTStatus = 0xC0000056
+	STATUS_OBJECT_NAME_NOT_FOUND     NTStatus = 0xC0000034
 	STATUS_REPARSE_POINT_ENCOUNTERED NTStatus = 0xC000050B
 	STATUS_NOT_SUPPORTED             NTStatus = 0xC00000BB
 	STATUS_INVALID_PARAMETER         NTStatus = 0xC000000D

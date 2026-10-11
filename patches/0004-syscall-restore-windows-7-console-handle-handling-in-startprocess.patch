@@ -20,7 +20,6 @@ property of the kernel, not of a function that can be looked up. The version
 is read from ntdll!RtlGetNtVersionNumbers, whose declaration in syscall was
 removed with the workaround and is restored with it.
 
-
 diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
 index 96089fcd..45aa5f00 100644
 --- a/src/syscall/exec_windows.go

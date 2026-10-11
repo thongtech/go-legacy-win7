@@ -1,15 +1,19 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] internal/poll: do not skip the completion port for datagram sockets
 
 FILE_SKIP_COMPLETION_PORT_ON_SUCCESS lets a handle skip the completion packet
 when an overlapped operation completes immediately. CL 463839 (Go 1.21) enabled
-it for datagram sockets. Before Windows 8 the packet is also skipped for a
-receive that went pending and was then truncated.
+it for datagram sockets. Before Windows 8 a receive posted while a datagram
+too large for its buffer is already queued reports pending, and the packet
+that should follow is skipped as though the receive had completed inline.
 
-	UDP read, buffer smaller than the datagram
-	  ->  no completion packet  ->  nothing wakes the goroutine
-	                            ->  the read never completes
+	UDP read, buffer smaller than the datagram already waiting
+	  ->  WSARecvFrom says pending  ->  no completion packet
+	  ->  nothing wakes the goroutine, and the deadline's cancel finds
+	      nothing to cancel, so the read never completes
+
+A receive posted before the datagram arrives completes normally.
 
 Do not set the flag on sockets that can truncate, which are the ones that are
 not SOCK_STREAM. A short read on a stream socket is an ordinary success and no
@@ -18,7 +22,6 @@ packet is lost.
 This checks the Windows version instead of probing for the behaviour. The only
 way to observe it is to wait for a packet that never arrives, and FD.Init
 cannot block to find out.
-
 
 diff --git a/src/internal/poll/export_windows_test.go b/src/internal/poll/export_windows_test.go
 new file mode 100644
@@ -43,7 +46,7 @@ index 00000000..3ef17951
 +	TruncatedRecvSkipsCompletion = truncatedRecvSkipsCompletion
 +)
 diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
-index cad1bbbd..08c31dba 100644
+index fc5ea338..8a7e7217 100644
 --- a/src/internal/poll/fd_windows.go
 +++ b/src/internal/poll/fd_windows.go
 @@ -55,6 +55,23 @@ func checkSetFileCompletionNotificationModes() {
@@ -70,9 +73,9 @@ index cad1bbbd..08c31dba 100644
  // InitWSA initiates the use of the Winsock DLL by the current process.
  // It is called from the net package at init time to avoid
  // loading ws2_32.dll when net is not used.
-@@ -485,10 +502,13 @@ func (fd *FD) Init(net string, pollable bool) error {
+@@ -505,10 +522,13 @@ func (fd *FD) Init(net string, pollable bool) error {
  	}
- 	if fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes {
+ 	if !fd.KeepFileCompletionModes && (fd.kind != kindNet || socketCanUseSetFileCompletionNotificationModes) {
  		// Non-socket handles can use SetFileCompletionNotificationModes without problems.
 -		err := syscall.SetFileCompletionNotificationModes(fd.Sysfd,
 -			syscall.FILE_SKIP_SET_EVENT_ON_HANDLE|syscall.FILE_SKIP_COMPLETION_PORT_ON_SUCCESS,

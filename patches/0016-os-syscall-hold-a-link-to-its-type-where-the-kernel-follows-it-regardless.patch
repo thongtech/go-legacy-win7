@@ -1,0 +1,412 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Sun, 11 Oct 2026 21:42:52 +1300
+Subject: [PATCH] os, syscall: hold a link to its type where the kernel follows it regardless
+
+A Windows link has a type. A junction and a directory symlink are directory
+links, a file symlink is a file link. Windows 10 and later hold a link to
+its type when they open it with FILE_FLAG_BACKUP_SEMANTICS, and Windows 7, 8
+and 8.1 follow it to whatever is there. Without that flag every Windows refuses
+a directory entry, so writes through one fail alike. The os.Root comparison
+tests (CL 847305, Go 1.28, 1.27.2) hold every plain os call on such a link
+to the newer answer.
+
+	open of                          Windows 10, 11   Windows 7, 8, 8.1
+	junction or dir symlink -> file  errno 267        the file opens
+	file symlink -> directory        errno 5          the directory opens
+	file symlink -> file             ok               ok
+
+Open, Utimes and UtimesNano look at what a successful open with the flag
+went through on those kernels. A directory link followed to anything but a
+directory gets the first answer, and a file symlink followed to a directory
+entry gets the second, which means reading the link's target when the
+handle is a file. Stat has the link's attributes in hand and answers the
+same way. os.Root is not affected, since it resolves links itself.
+
+The difference can only be observed by creating such a link, which nothing
+here may do, so the check is gated on the kernel version, like 0004 and
+0009. It costs one attribute query per successful open with the flag on
+those kernels and nothing elsewhere.
+
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 1d58d089..aa02a46d 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -35,6 +35,7 @@ const (
+ 	ERROR_INVALID_HANDLE         syscall.Errno = 6
+ 	ERROR_BAD_LENGTH             syscall.Errno = 24
+ 	ERROR_SHARING_VIOLATION      syscall.Errno = 32
++	ERROR_DIRECTORY              syscall.Errno = 267
+ 	ERROR_LOCK_VIOLATION         syscall.Errno = 33
+ 	ERROR_NOT_SUPPORTED          syscall.Errno = 50
+ 	ERROR_CALL_NOT_IMPLEMENTED   syscall.Errno = 120
+diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
+index 2e12d24f..bb0a4074 100644
+--- a/src/os/os_windows_test.go
++++ b/src/os/os_windows_test.go
+@@ -2572,3 +2572,35 @@ func TestFileEventDrivenCloseUnblocks(t *testing.T) {
+ 		t.Fatal("Close did not interrupt the read that was waiting")
+ 	}
+ }
++
++// TestStatJunctionToFile checks that Stat refuses a junction whose target is a
++// regular file the way Windows 10 and later do, while Lstat still describes
++// the junction. Those kernels refuse the follow themselves; Windows 7, 8 and
++// 8.1 follow it and stat has to give the same answer.
++func TestStatJunctionToFile(t *testing.T) {
++	dir := t.TempDir()
++	target := filepath.Join(dir, "target")
++	if err := os.WriteFile(target, []byte("target"), 0o666); err != nil {
++		t.Fatal(err)
++	}
++	link := filepath.Join(dir, "link")
++	var rd reparseData
++	rd.addSubstituteName(`\??\` + target)
++	rd.addPrintName(target)
++	if err := createMountPoint(link, &rd); err != nil {
++		t.Fatal(err)
++	}
++	for _, name := range []string{link, link + `\`} {
++		_, err := os.Stat(name)
++		if !errors.Is(err, windows.ERROR_DIRECTORY) {
++			t.Errorf("Stat(%q) = %v, want ERROR_DIRECTORY", name, err)
++		}
++	}
++	fi, err := os.Lstat(link)
++	if err != nil {
++		t.Fatalf("Lstat(junction to a file) = %v", err)
++	}
++	if fi.Mode()&os.ModeIrregular == 0 {
++		t.Errorf("Lstat(junction to a file) mode = %v, want ModeIrregular", fi.Mode())
++	}
++}
+diff --git a/src/os/stat_windows.go b/src/os/stat_windows.go
+index 9687f8dc..79433475 100644
+--- a/src/os/stat_windows.go
++++ b/src/os/stat_windows.go
+@@ -8,6 +8,7 @@ import (
+ 	"errors"
+ 	"internal/filepathlite"
+ 	"internal/syscall/windows"
++	"sync"
+ 	"syscall"
+ 	"unsafe"
+ )
+@@ -110,11 +111,63 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
+ 			return nil, &PathError{Op: "CreateFile", Path: name, Err: err}
+ 		}
+ 		defer syscall.CloseHandle(h)
+-		return statHandle(name, h)
++		target, err := statHandle(name, h)
++		if err == nil && followsMismatchedLinks() {
++			if e := mismatchedLink(name, fi.(*fileStat), target.(*fileStat)); e != nil {
++				return nil, &PathError{Op: "CreateFile", Path: name, Err: e}
++			}
++		}
++		return target, err
+ 	}
+ 	return fi, err
+ }
+ 
++// followsMismatchedLinks reports whether this kernel follows a link to
++// something of the other type, which Windows 7, 8 and 8.1 do and Windows 10
++// and later refuse before stat can look. It is the gate syscall keeps under
++// the same name, so that only those kernels pay for the look.
++var followsMismatchedLinks = sync.OnceValue(func() bool {
++	major, _, _ := windows.Version()
++	return major < 10
++})
++
++// mismatchedLink reports what Windows 10 and later answer when the link at
++// name, whose own attributes are in link, is followed to target, or nil
++// where the kernel's answer stands. They hold a link to its type. A
++// directory link, a junction or a directory symlink, that leads to anything
++// but a directory is refused with ERROR_DIRECTORY, and a file symlink whose
++// own target is a directory entry, whatever that entry leads to, with
++// ERROR_ACCESS_DENIED. Those kernels never reach this; Windows 7, 8 and 8.1
++// follow either link and do.
++func mismatchedLink(name string, link, target *fileStat) error {
++	if link.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
++		if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
++			return windows.ERROR_DIRECTORY
++		}
++		return nil
++	}
++	if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
++		return syscall.ERROR_ACCESS_DENIED
++	}
++	// A chain ending at a file can still begin at a junction or a directory
++	// symlink to that file, so the link's own target is looked at.
++	t, err := readlink(name)
++	if err != nil || t == "" {
++		return nil
++	}
++	if !filepathlite.IsAbs(t) && !IsPathSeparator(t[0]) {
++		t = filepathlite.Dir(name) + `\` + t
++	}
++	lfi, err := Lstat(t)
++	if err != nil {
++		return nil
++	}
++	if lfi.(*fileStat).FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
++		return syscall.ERROR_ACCESS_DENIED
++	}
++	return nil
++}
++
+ // isConsoleName reports whether name is one of the console devices, with or
+ // without the \\.\ prefix. GetFileAttributesEx reports them as missing
+ // before Windows 8, where CreateFile opens them, so stat cannot take a
+diff --git a/src/syscall/export_windows_test.go b/src/syscall/export_windows_test.go
+index f31ad22f..564e0428 100644
+--- a/src/syscall/export_windows_test.go
++++ b/src/syscall/export_windows_test.go
+@@ -18,4 +18,6 @@ var EnvSorted = envSorted
+ var SystemDirectory = systemDirectory
+ var LoadSystemDLLByPath = loadSystemDLLByPath
+ 
++var MismatchedLink = mismatchedLink
++
+ var RtlGetNtVersionNumbers = rtlGetNtVersionNumbers
+diff --git a/src/syscall/syscall_windows.go b/src/syscall/syscall_windows.go
+index c2bd42d6..91ef14d6 100644
+--- a/src/syscall/syscall_windows.go
++++ b/src/syscall/syscall_windows.go
+@@ -355,6 +355,78 @@ func NewCallbackCDecl(fn any) uintptr {
+ 
+ // syscall interface implementation for other packages
+ 
++// followsMismatchedLinks reports whether this kernel follows a link whatever
++// it leads to. Windows 10 and later hold a link to its type. A directory
++// link, a junction or a directory symlink, that leads to anything but a
++// directory is refused with ERROR_DIRECTORY, and a file symlink whose own
++// target is a directory entry, whatever that entry leads to, is refused with
++// ERROR_ACCESS_DENIED. Windows 7, 8 and 8.1 follow either to whatever is
++// there, when the open asked for FILE_FLAG_BACKUP_SEMANTICS; without the flag
++// they refuse a directory entry as every Windows does. Nothing short of
++// creating such a link can observe the difference, so this is one of the
++// deliberate version gates of the series.
++var followsMismatchedLinks = sync.OnceValue(func() bool {
++	var major, minor, build uint32
++	rtlGetNtVersionNumbers(&major, &minor, &build)
++	return major < 10
++})
++
++// mismatchedLink reports what Windows 10 and later answer for an open of
++// name that the kernel followed to h, or zero where the open stands. See
++// followsMismatchedLinks.
++func mismatchedLink(name string, h Handle) Errno {
++	namep, err := UTF16PtrFromString(name)
++	if err != nil {
++		return 0
++	}
++	var fa Win32FileAttributeData
++	if GetFileAttributesEx(namep, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil || fa.FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT == 0 {
++		return 0
++	}
++	var fi ByHandleFileInformation
++	if GetFileInformationByHandle(h, &fi) != nil {
++		return 0
++	}
++	isDir := fi.FileAttributes&FILE_ATTRIBUTE_DIRECTORY != 0
++	if fa.FileAttributes&FILE_ATTRIBUTE_DIRECTORY != 0 {
++		// A directory link, which has to lead to a directory.
++		if isDir {
++			return 0
++		}
++		return _ERROR_DIRECTORY
++	}
++	// A file symlink, whose own target must not be a directory entry. The
++	// handle settles that for a chain ending at a directory. One ending at
++	// a file can still begin at a junction or a directory symlink to that
++	// file, so the target itself is looked at.
++	if isDir {
++		return ERROR_ACCESS_DENIED
++	}
++	buf := make([]byte, 32*1024)
++	n, err := Readlink(name, buf)
++	if err != nil || n <= 0 {
++		return 0
++	}
++	target := string(buf[:n])
++	isSep := func(c byte) bool { return c == '\\' || c == '/' }
++	if !(isSep(target[0]) || (len(target) >= 3 && target[1] == ':' && isSep(target[2]))) {
++		// Relative to the directory the link is in.
++		i := len(name)
++		for i > 0 && !isSep(name[i-1]) {
++			i--
++		}
++		target = name[:i] + target
++	}
++	targetp, err := UTF16PtrFromString(target)
++	if err != nil {
++		return 0
++	}
++	if GetFileAttributesEx(targetp, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil || fa.FileAttributes&FILE_ATTRIBUTE_DIRECTORY == 0 {
++		return 0
++	}
++	return ERROR_ACCESS_DENIED
++}
++
+ func makeInheritSa() *SecurityAttributes {
+ 	var sa SecurityAttributes
+ 	sa.Length = uint32(unsafe.Sizeof(sa))
+@@ -453,6 +525,15 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
+ 		}
+ 		return h, err
+ 	}
++	if attrs&FILE_FLAG_BACKUP_SEMANTICS != 0 && followsMismatchedLinks() {
++		// Answer as Windows 10 and later do. Without the flag every Windows
++		// refuses a directory entry, with the access denied that is mapped
++		// to EISDIR above. See followsMismatchedLinks.
++		if e := mismatchedLink(name, h); e != 0 {
++			CloseHandle(h)
++			return InvalidHandle, e
++		}
++	}
+ 	if flag&o_DIRECTORY != 0 {
+ 		// Check if the file is a directory, else return ENOTDIR.
+ 		var fi ByHandleFileInformation
+@@ -713,6 +794,12 @@ func Utimes(path string, tv []Timeval) (err error) {
+ 		return e
+ 	}
+ 	defer Close(h)
++	if followsMismatchedLinks() {
++		// Answer as Windows 10 and later do. See followsMismatchedLinks.
++		if e := mismatchedLink(path, h); e != 0 {
++			return e
++		}
++	}
+ 	a := Filetime{}
+ 	w := Filetime{}
+ 	if tv[0].Nanoseconds() != 0 {
+@@ -742,6 +829,12 @@ func UtimesNano(path string, ts []Timespec) (err error) {
+ 		return e
+ 	}
+ 	defer Close(h)
++	if followsMismatchedLinks() {
++		// Answer as Windows 10 and later do. See followsMismatchedLinks.
++		if e := mismatchedLink(path, h); e != 0 {
++			return e
++		}
++	}
+ 	a := Filetime{}
+ 	w := Filetime{}
+ 	if ts[0].Nsec != _UTIME_OMIT {
+diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
+index 5e94fa4d..77bb21ab 100644
+--- a/src/syscall/syscall_windows_test.go
++++ b/src/syscall/syscall_windows_test.go
+@@ -343,3 +343,101 @@ func TestRtlGetNtVersionNumbers(t *testing.T) {
+ 		t.Errorf("RtlGetNtVersionNumbers reports %v, RtlGetVersion reports %v", got, want)
+ 	}
+ }
++
++// TestMismatchedLink covers the check Open makes on a kernel that follows a
++// link whatever it leads to, which Windows 7, 8 and 8.1 do and Windows 10
++// and later refuse before any check can run. The check itself runs on any
++// Windows given a handle opened on the chain's end directly, and the opens
++// at the end are the answers every Windows must give.
++func TestMismatchedLink(t *testing.T) {
++	dir := t.TempDir()
++	file := filepath.Join(dir, "file")
++	if err := os.WriteFile(file, []byte("x"), 0666); err != nil {
++		t.Fatal(err)
++	}
++	sub := filepath.Join(dir, "sub")
++	if err := os.Mkdir(sub, 0777); err != nil {
++		t.Fatal(err)
++	}
++	// mklink makes a junction with /J, a directory symlink with /D and a
++	// file symlink with neither, whatever the target is. The symlinks need
++	// the symlink privilege.
++	mklink := func(flag, link, target string) bool {
++		args := []string{"/c", "mklink"}
++		if flag != "" {
++			args = append(args, flag)
++		}
++		out, err := exec.Command("cmd", append(args, link, target)...).CombinedOutput()
++		if err != nil && flag == "/J" {
++			t.Fatalf("mklink /J %s: %v\n%s", link, err, out)
++		}
++		if err != nil {
++			t.Logf("mklink %s %s: %v\n%s", flag, filepath.Base(link), err, out)
++		}
++		return err == nil
++	}
++	jf := filepath.Join(dir, "jf")   // junction -> file
++	jd := filepath.Join(dir, "jd")   // junction -> directory
++	sdf := filepath.Join(dir, "sdf") // directory symlink -> file
++	sff := filepath.Join(dir, "sff") // file symlink -> file
++	sfd := filepath.Join(dir, "sfd") // file symlink -> directory
++	sfj := filepath.Join(dir, "sfj") // file symlink -> junction -> file
++	mklink("/J", jf, file)
++	mklink("/J", jd, sub)
++	haveSymlinks := mklink("/D", sdf, file) && mklink("", sff, file) && mklink("", sfd, sub) && mklink("", sfj, jf)
++
++	// open opens what name is, directly, the way the kernel would have
++	// opened the end of the chain.
++	open := func(name string) syscall.Handle {
++		p, err := syscall.UTF16PtrFromString(name)
++		if err != nil {
++			t.Fatal(err)
++		}
++		h, err := syscall.CreateFile(p, 0, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
++		if err != nil {
++			t.Fatalf("CreateFile(%s): %v", name, err)
++		}
++		return h
++	}
++	type testCase struct {
++		name string
++		end  string
++		want syscall.Errno
++	}
++	cases := []testCase{
++		{jf, file, syscall.Errno(267)},
++		{jf + `\`, file, syscall.Errno(267)},
++		{jd, sub, 0},
++		{file, file, 0},
++		{sub, sub, 0},
++	}
++	if haveSymlinks {
++		cases = append(cases,
++			testCase{sdf, file, syscall.Errno(267)},
++			testCase{sff, file, 0},
++			testCase{sfd, sub, syscall.ERROR_ACCESS_DENIED},
++			testCase{sfj, file, syscall.ERROR_ACCESS_DENIED})
++	}
++	for _, tt := range cases {
++		h := open(tt.end)
++		got := syscall.MismatchedLink(tt.name, h)
++		syscall.CloseHandle(h)
++		if got != tt.want {
++			t.Errorf("mismatchedLink(%q) = %v, want %v", filepath.Base(tt.name), got, tt.want)
++		}
++	}
++
++	// What a program sees, on every Windows.
++	for _, tt := range cases {
++		h, err := syscall.Open(tt.name, syscall.O_RDONLY|syscall.O_CLOEXEC, 0)
++		if err == nil {
++			syscall.CloseHandle(h)
++		}
++		if tt.want == 0 && err != nil {
++			t.Errorf("Open(%s) = %v, want nil", filepath.Base(tt.name), err)
++		}
++		if tt.want != 0 && err != tt.want {
++			t.Errorf("Open(%s) = %v, want %v", filepath.Base(tt.name), err, tt.want)
++		}
++	}
++}
+diff --git a/src/syscall/types_windows.go b/src/syscall/types_windows.go
+index 1bffb276..fb80b549 100644
+--- a/src/syscall/types_windows.go
++++ b/src/syscall/types_windows.go
+@@ -36,6 +36,7 @@ const (
+ 
+ const (
+ 	_ERROR_INVALID_PARAMETER Errno = 87
++	_ERROR_DIRECTORY         Errno = 267
+ )
+ 
+ const (

@@ -1,5 +1,5 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Fri, 04 Sep 2026 17:22:25 +1200
 Subject: [PATCH] os: fall back to FILE_ID_BOTH_DIR_INFO when reading directories
 
 readdir requests FileFullDirectoryRestartInfo, introduced by
@@ -17,7 +17,6 @@ be listed.
 Read the directory with FileIdBothDirectoryRestartInfo instead, which contains
 every field readdir uses. The choice is made per directory, so no conclusion
 about the kernel is stored.
-
 
 diff --git a/src/os/dir_windows.go b/src/os/dir_windows.go
 index 52d5acda..556a7cdb 100644
@@ -78,7 +77,7 @@ index 5b939b4c..3f1ad86e 100644
 +	SplitPath                  = splitPath
  )
 diff --git a/src/os/os_windows_test.go b/src/os/os_windows_test.go
-index d549608b..eb41e4a8 100644
+index 32f1b6a5..eabdae07 100644
 --- a/src/os/os_windows_test.go
 +++ b/src/os/os_windows_test.go
 @@ -1566,6 +1566,38 @@ func TestReadDirNoFileID(t *testing.T) {

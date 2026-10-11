@@ -36,6 +36,7 @@ const (
 
 const (
 	_ERROR_INVALID_PARAMETER Errno = 87
+	_ERROR_DIRECTORY         Errno = 267
 )
 
 const (
