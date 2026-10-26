@@ -1,37 +1,52 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 17:22:25 +1200
+Date: Mon, 26 Oct 2026 19:57:20 +1300
 Subject: [PATCH] crypto/x509: skip system verify cases whose root the store lacks
 
-TestSystemVerify runs the verifyTests table through the platform verifier.
-CL 472295 (Go 1.21) rebuilt that table on chains rooted at GTS Root R1, issued
-in 2016. The store Windows 7 shipped with predates it, and the automatic root
-update adds it only where Microsoft's update servers can be reached.
+TestSystemVerify (CL 472295, commit bb8f9a6, Go 1.21) runs its table
+through the Windows verifier, and its chains end at GTS Root R1, which the
+store Windows 7 shipped with lacks and an offline system never fetches.
 
-	chain rooted at GTS Root R1  ->  signed by an unknown authority
-	                             ->  name and dates never looked at
+Keep those cases from failing on such a store. Skip them, as upstream Go
+already does for its Windows 2008 builders, and skip TestHybridPool, which
+needs the same root.
 
-Skip those cases rather than fail them, as the check below them does for
-upstream's Windows 2008 builders. That covers the cases expecting a hostname
-or expiry error as well, because the verifier reports a missing root before
-it checks anything else. The skip cannot hide a fault in the verifier,
-because the same table runs against the fixture roots in TestGoVerify.
+	                       before                 after
+	-----------------------------------------------------------------------
+	offline Windows 7      those cases fail,      those cases skip
+	                       unknown authority
+	-----------------------------------------------------------------------
+	with the root          passes                 passes
 
+Gate: query (the verifier's answer, each case) | Remembered: N
+
+diff --git a/src/crypto/x509/hybrid_pool_test.go b/src/crypto/x509/hybrid_pool_test.go
+index d591c2e7..b6c0be1f 100644
+--- a/src/crypto/x509/hybrid_pool_test.go
++++ b/src/crypto/x509/hybrid_pool_test.go
+@@ -91,6 +91,11 @@ func TestHybridPool(t *testing.T) {
+ 
+ 	_, err = googChain[0].Verify(opts)
+ 	if err != nil {
++		if runtime.GOOS == "windows" && err.Error() == "x509: certificate signed by unknown authority" {
++			// The root store of Windows 7 lacks the root of this
++			// chain. Skip, as TestSystemVerify does.
++			t.Skipf("skipping: %v; the system store does not carry the root this chain ends at", err)
++		}
+ 		t.Fatalf("verification failed for google.com chain (system only pool): %s", err)
+ 	}
+ 
 diff --git a/src/crypto/x509/verify_test.go b/src/crypto/x509/verify_test.go
-index d32d8152..2a40b3b1 100644
+index d32d8152..a008d08a 100644
 --- a/src/crypto/x509/verify_test.go
 +++ b/src/crypto/x509/verify_test.go
-@@ -470,6 +470,16 @@ func testVerify(t *testing.T, test verifyTest, useSystemRoots bool) {
+@@ -470,6 +470,12 @@ func testVerify(t *testing.T, test verifyTest, useSystemRoots bool) {
  
  	chains, err := leaf.Verify(opts)
  
 +	if useSystemRoots && err != nil && err.Error() == "x509: certificate signed by unknown authority" {
-+		// The chains in this table end at roots the platform verifier is
-+		// expected to carry, and the store Windows 7 shipped with predates
-+		// some of them. The verifier reports a missing root before it looks
-+		// at the name or the dates, so a case expecting another error gets
-+		// this one too. What is missing is a certificate, not anything in
-+		// this toolchain, so skip rather than fail, as the check below does
-+		// for upstream's Windows 2008 builders.
++		// The root store of Windows 7 lacks some roots these chains
++		// end at, which the verifier reports before any name or expiry
++		// error. Skip, as below for upstream's Windows 2008 builders.
 +		t.Skipf("skipping: %v; the system store does not carry the root this chain ends at", err)
 +	}
  	if test.errorCallback == nil && err != nil {

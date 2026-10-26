@@ -1,0 +1,92 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 12:00:39 +1300
+Subject: [PATCH] os, internal/syscall/windows: fall back to FILE_ID_BOTH_DIR_INFO when reading directories
+
+Since Go 1.22 os lists a directory on a drive without file IDs, such as
+FAT32, exFAT or a network share, in the format FileFullDirectoryRestartInfo
+(CL 518195, commit be0b8e8), and Go 1.23 made that format the starting
+point for every directory (CL 574155, commit 2860e01). Windows 8 added it,
+so Windows 7 cannot list directories on those drives.
+
+Let Windows 7 list directories on FAT32, exFAT and network shares. There
+read them in the older format, which Windows 7 has.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, FAT32,      listing a directory    listing works
+	exFAT or a share       fails
+	-----------------------------------------------------------------------
+	Windows 7, NTFS        listing works          listing works
+	-----------------------------------------------------------------------
+	Windows 8 and later    listing works          listing works
+
+Gate: version (before Windows 8) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/version_windows.go b/src/internal/syscall/windows/version_windows.go
+index 5edf7a01..7269517d 100644
+--- a/src/internal/syscall/windows/version_windows.go
++++ b/src/internal/syscall/windows/version_windows.go
+@@ -28,6 +28,15 @@ type _OSVERSIONINFOEXW struct {
+ 
+ // According to documentation, RtlGetVersion function always succeeds.
+ //sys	rtlGetVersion(info *_OSVERSIONINFOEXW) = ntdll.RtlGetVersion
++//sys	rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) = ntdll.RtlGetNtVersionNumbers
++
++// KernelVersion reads RtlGetNtVersionNumbers, which a compatibility mode set
++// on the program does not change, unlike RtlGetVersion behind Version.
++func KernelVersion() (major, minor, build uint32) {
++	rtlGetNtVersionNumbers(&major, &minor, &build)
++	// The high bits of the build carry flags, not the number.
++	return major, minor, build & 0xffff
++}
+ 
+ // Retrieves version information of the current Windows OS
+ // from the RtlGetVersion API.
+diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
+index 472f4fb0..e0118d67 100644
+--- a/src/internal/syscall/windows/zsyscall_windows.go
++++ b/src/internal/syscall/windows/zsyscall_windows.go
+@@ -105,6 +105,7 @@ var (
+ 	procNtOpenFile                        = modntdll.NewProc("NtOpenFile")
+ 	procNtQueryInformationFile            = modntdll.NewProc("NtQueryInformationFile")
+ 	procNtSetInformationFile              = modntdll.NewProc("NtSetInformationFile")
++	procRtlGetNtVersionNumbers            = modntdll.NewProc("RtlGetNtVersionNumbers")
+ 	procRtlGetVersion                     = modntdll.NewProc("RtlGetVersion")
+ 	procRtlIsDosDeviceName_U              = modntdll.NewProc("RtlIsDosDeviceName_U")
+ 	procRtlNtStatusToDosErrorNoTeb        = modntdll.NewProc("RtlNtStatusToDosErrorNoTeb")
+@@ -605,6 +606,11 @@ func NtSetInformationFile(handle syscall.Handle, iosb *IO_STATUS_BLOCK, inBuffer
+ 	return
+ }
+ 
++func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
++	syscall.SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
++	return
++}
++
+ func rtlGetVersion(info *_OSVERSIONINFOEXW) {
+ 	syscall.SyscallN(procRtlGetVersion.Addr(), uintptr(unsafe.Pointer(info)))
+ 	return
+diff --git a/src/os/dir_windows.go b/src/os/dir_windows.go
+index 52d5acda..02885a57 100644
+--- a/src/os/dir_windows.go
++++ b/src/os/dir_windows.go
+@@ -59,9 +59,19 @@ func (d *dirInfo) close() {
+ // Useful for testing purposes.
+ var allowReadDirFileID = true
+ 
++// kernelLacksFileFullDirInfo reports whether the kernel predates
++// FileFullDirectoryRestartInfo, which Windows 8 added.
++var kernelLacksFileFullDirInfo = sync.OnceValue(func() bool {
++	major, minor, _ := windows.KernelVersion()
++	return major == 6 && minor < 2
++})
++
+ func (d *dirInfo) init(h syscall.Handle) {
+ 	d.h = h
+ 	d.class = windows.FileFullDirectoryRestartInfo
++	if kernelLacksFileFullDirInfo() {
++		d.class = windows.FileIdBothDirectoryRestartInfo
++	}
+ 	// The previous settings are enough to read the directory entries.
+ 	// The following code is only needed to support os.SameFile.
+ 

@@ -9,21 +9,3 @@ package poll
 func SkipsCompletionPortOnSuccess(fd *FD) bool {
 	return !fd.waitOnSuccess
 }
-
-var (
-	IsStreamSocket               = isStreamSocket
-	TruncatedRecvSkipsCompletion = truncatedRecvSkipsCompletion
-	AcceptCompletionNeedsThread  = acceptCompletionNeedsThread
-)
-
-// AcceptThreadID is the OS thread the accept thread runs on, or zero if it
-// has not been started.
-func AcceptThreadID() uint32 {
-	return acceptThreadID.Load()
-}
-
-// AcceptThreadPosts is the number of AcceptEx calls posted from the accept
-// thread so far.
-func AcceptThreadPosts() uint64 {
-	return acceptThreadPosts.Load()
-}

@@ -1,25 +1,27 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 17:22:25 +1200
+Date: Mon, 26 Oct 2026 11:47:43 +1300
 Subject: [PATCH] syscall: restore Windows 7 console handle handling in StartProcess
 
-CL 531235 (Go 1.22) deleted the Windows 7 console handle workaround from
-StartProcess. Before Windows 8 a console handle is not a real kernel handle. It
-is a tagged value that only the owning process understands, which has two
-consequences.
+On Windows 7 a console handle is a tagged value only its own process
+understands. Since Go 1.17 StartProcess passes the standard handles in the
+list a child inherits (CL 288297, commit 2d76081), and Go 1.22 deleted the
+workaround that kept such handles out of it (CL 531235, commit 48042aa).
 
-	duplicate into a parent process  ->  fails
-	put in the inherit list          ->  CreateProcess refuses the whole call
+Let programs, the go command included, start child processes from a Windows
+7 console. Restore the workaround as Go 1.21 had it.
 
-CL 288297 (Go 1.17) made StartProcess pass the standard handles in that inherit
-list. Every os/exec call from a console then fails, including the go command
-running compile and link.
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7              starting a child       the child starts
+	                       fails, "Insufficient
+	                       system resources"
+	-----------------------------------------------------------------------
+	Windows 8 and later    the child starts       the child starts
 
-Restore the workaround as Go 1.21 had it. It checks the Windows version rather
-than probing for an API, because whether a handle is a pseudo-handle is a
-property of the kernel, not of a function that can be looked up.
+Gate: version (Windows 7 and older) | Remembered: N
 
 diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
-index 96089fcd..45aa5f00 100644
+index 96089fcd..09f45f85 100644
 --- a/src/syscall/exec_windows.go
 +++ b/src/syscall/exec_windows.go
 @@ -367,6 +367,17 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
@@ -31,7 +33,7 @@ index 96089fcd..45aa5f00 100644
 +	isWin7 := maj < 6 || (maj == 6 && min <= 1)
 +	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
 +	// a tag. The fully set tag correlates with the types of handles we're
-+	// concerned about here. Except, the kernel will interpret some
++	// concerned about here.  Except, the kernel will interpret some
 +	// special handle values, like -1, -2, and so forth, so kernelbase.dll
 +	// checks to see that those bottom three bits are checked, but that top
 +	// bit is not checked.
@@ -72,19 +74,28 @@ index 96089fcd..45aa5f00 100644
  	// The presence of a NULL handle in the list is enough to cause PROC_THREAD_ATTRIBUTE_HANDLE_LIST
  	// to treat the entire list as empty, so remove NULL handles.
  	j := 0
-diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
-index 5dd65bca..85f74e64 100644
---- a/src/syscall/syscall_windows_test.go
-+++ b/src/syscall/syscall_windows_test.go
-@@ -331,6 +331,11 @@ func TestLoadSystemDLLByPath(t *testing.T) {
- // does. An image stamped for Windows 7 is otherwise told Windows 8 by the
- // version compatibility shim on Windows 8.1 and later. The same code runs on
- // every Windows, so there is no second path to test.
-+//
-+// StartProcess uses the same lookup to decide whether a console handle is a
-+// Windows 7 pseudo-handle, and only the lookup is covered there. The branches
-+// it guards are inert on Windows 8 and later, and the tagged handles they work
-+// around exist only on Windows 7.
- func TestGetVersion(t *testing.T) {
- 	major, minor, build := windows.Version()
- 	ver, err := syscall.GetVersion()
+diff --git a/src/syscall/exec_windows_test.go b/src/syscall/exec_windows_test.go
+index 60a995e4..e50f345b 100644
+--- a/src/syscall/exec_windows_test.go
++++ b/src/syscall/exec_windows_test.go
+@@ -146,3 +146,20 @@ func TestChangingProcessParent(t *testing.T) {
+ 		t.Fatalf("child output: want %q, got %q", want, got)
+ 	}
+ }
++
++// TestStartProcessConsoleHandle checks that a child can be started with a
++// console handle as its standard output. Before Windows 8 a console handle is
++// a pseudo-handle, which CreateProcess refuses in the inherited handle list.
++func TestStartProcessConsoleHandle(t *testing.T) {
++	testenv.MustHaveExec(t)
++	con, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0)
++	if err != nil {
++		t.Skipf("no console to open: %v", err)
++	}
++	defer con.Close()
++	cmd := exec.Command("cmd", "/c", "rem")
++	cmd.Stdout = con
++	if err := cmd.Run(); err != nil {
++		t.Fatal(err)
++	}
++}

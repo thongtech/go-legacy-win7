@@ -139,38 +139,18 @@ func getprocaddress(handle uintptr, procname *uint8) (uintptr, Errno) {
 	return proc, err
 }
 
-// systemDirectory returns the Windows system directory with a trailing
-// separator, or an empty string if it cannot be determined. It is resolved
-// on first use.
-var systemDirectory = sync.OnceValue(func() string {
-	n := uint32(MAX_PATH)
-	for {
-		b := make([]uint16, n)
-		r, _, _ := SyscallN(uintptr(__GetSystemDirectoryW), uintptr(unsafe.Pointer(&b[0])), uintptr(n))
-		l := uint32(r)
-		if l == 0 {
-			return ""
-		}
-		if l <= n {
-			return UTF16ToString(b[:l]) + `\`
-		}
-		n = l
+func loadSystemDLLByPath(name string) (uintptr, Errno) {
+	var b [MAX_PATH]uint16
+	r, _, _ := SyscallN(uintptr(__GetSystemDirectoryW), uintptr(unsafe.Pointer(&b[0])), uintptr(len(b)))
+	l := uint32(r)
+	if l == 0 || l >= uint32(len(b)) {
+		return 0, ERROR_MOD_NOT_FOUND
 	}
-})
-
-// loadSystemDLLByPath loads the named system DLL by its absolute path in
-// the Windows system directory. It returns 0 if the DLL cannot be loaded.
-func loadSystemDLLByPath(name string) uintptr {
-	dir := systemDirectory()
-	if dir == "" {
-		return 0
-	}
-	namep, err := UTF16PtrFromString(dir + name)
+	namep, err := UTF16PtrFromString(UTF16ToString(b[:l]) + `\` + name)
 	if err != nil {
-		return 0
+		return 0, ERROR_MOD_NOT_FOUND
 	}
-	h, _ := loadlibrary(namep)
-	return h
+	return loadlibrary(namep)
 }
 
 // A DLL implements access to a single DLL.
@@ -196,14 +176,10 @@ func LoadDLL(name string) (*DLL, error) {
 	var e Errno
 	if sysdll.IsSystemDLL[name] {
 		h, e = loadsystemlibrary(namep)
-		if h == 0 {
-			// LoadLibraryExW rejects LOAD_LIBRARY_SEARCH_SYSTEM32 with
-			// ERROR_INVALID_PARAMETER on systems that predate the flag. Naming the file
-			// in the system directory is as safe against DLL preloading as the flag is.
-			// Keep the original error if that does not work either.
-			if h2 := loadSystemDLLByPath(name); h2 != 0 {
-				h, e = h2, 0
-			}
+		// Only a refused LOAD_LIBRARY_SEARCH_SYSTEM32 goes by path, since a
+		// load by path searches the program's directory first.
+		if h == 0 && e == _ERROR_INVALID_PARAMETER {
+			h, e = loadSystemDLLByPath(name)
 		}
 	} else {
 		h, e = loadlibrary(namep)

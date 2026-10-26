@@ -372,7 +372,7 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle 
 	isWin7 := maj < 6 || (maj == 6 && min <= 1)
 	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
 	// a tag. The fully set tag correlates with the types of handles we're
-	// concerned about here. Except, the kernel will interpret some
+	// concerned about here.  Except, the kernel will interpret some
 	// special handle values, like -1, -2, and so forth, so kernelbase.dll
 	// checks to see that those bottom three bits are checked, but that top
 	// bit is not checked.

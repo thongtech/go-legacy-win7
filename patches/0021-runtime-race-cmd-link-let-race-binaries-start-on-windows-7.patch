@@ -1,105 +1,28 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 17:22:25 +1200
+Date: Mon, 26 Oct 2026 17:54:14 +1300
 Subject: [PATCH] runtime/race, cmd/link: let -race binaries start on Windows 7
 
-Every -race binary fails to start on Windows 7, because of the
-CL 420197 (Go 1.21) and CL 413817 (Go 1.19) pair below. With KB2999226 the DLL
-exists as a forwarder, but kernel32 still lacks the functions, and the loader
-rejects the image on the missing entry point instead.
+Since Go 1.21 the race runtime calls WaitOnAddress and two related
+functions (CL 420197, commit cc82867), which Windows 8 added, and the
+linker takes them from libsynchronization.a (CL 413817, commit c3bea70,
+Go 1.19), which imports api-ms-win-core-synch-l1-2-0.dll, a DLL Windows 7
+does not ship with.
 
-	CL 420197  ->  race runtime calls WaitOnAddress and friends (Windows 8)
-	CL 413817  ->  linker resolves them from libsynchronization.a
-	           ->  which imports api-ms-win-core-synch-l1-2-0.dll
-	Win7       ->  no such DLL, the image is rejected
+Let -race programs start on Windows 7. Provide the three functions in
+runtime/race itself, passing calls to Windows where it has them and
+emulating them where it does not. Stop linking libsynchronization.a, which
+would tie other functions to that DLL too. Upstream Go needs Windows 8
+for -race.
 
-The race runtime is a prebuilt object that references these three functions
-directly, not through DLL import symbols, so the linker can resolve them from
-this package instead. Define them in runtime/race. Forward to the operating
-system where it has them, and emulate them where it does not.
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7              a -race program is     it starts
+	                       refused at load
+	-----------------------------------------------------------------------
+	Windows 8 and later    it starts              it starts
 
-With external linking the image is still rejected. The import library is
-linked ahead of kernel32, and binds three functions kernel32 has exported since
-Vista to the Windows 8 API set.
+Gate: query (the three functions present) | Remembered: Y
 
-	-lsynchronization ahead of kernel32
-	  ->  Sleep, SleepConditionVariableSRW, WakeAllConditionVariable
-	      bound to api-ms-win-core-synch-l1-2-0.dll
-	  ->  no such DLL on Win7, the image is rejected
-
-The library was linked only for the address wait functions, which the race
-runtime no longer needs from it, so stop linking it. The test covers both link
-modes. This deviates from upstream, which links the import library and
-requires Windows 8.
-
-diff --git a/src/cmd/link/internal/ld/ld_test.go b/src/cmd/link/internal/ld/ld_test.go
-index 6ac33500..50d1aa3a 100644
---- a/src/cmd/link/internal/ld/ld_test.go
-+++ b/src/cmd/link/internal/ld/ld_test.go
-@@ -8,6 +8,7 @@ import (
- 	"bytes"
- 	"debug/pe"
- 	"fmt"
-+	"internal/platform"
- 	"internal/testenv"
- 	"os"
- 	"path/filepath"
-@@ -344,6 +345,56 @@ func TestPEMinimumTargetVersion(t *testing.T) {
- 	}
- }
- 
-+// TestRaceNoAddressWaitImport checks that a -race binary imports nothing from
-+// api-ms-win-core-synch-l1-2-0.dll, the API set that arrived in Windows 8.
-+// runtime/race defines the address wait functions itself, so the import
-+// library that used to supply them is no longer linked.
-+func TestRaceNoAddressWaitImport(t *testing.T) {
-+	testenv.MustHaveGoBuild(t)
-+	testenv.MustHaveCGO(t)
-+	if runtime.GOOS != "windows" || !platform.RaceDetectorSupported(runtime.GOOS, runtime.GOARCH) {
-+		t.Skipf("skipping test: no race detector on %s/%s", runtime.GOOS, runtime.GOARCH)
-+	}
-+
-+	t.Parallel()
-+
-+	dir := t.TempDir()
-+	srcfile := filepath.Join(dir, "test.go")
-+	if err := os.WriteFile(srcfile, []byte(`package main; func main() {}`), 0666); err != nil {
-+		t.Fatal(err)
-+	}
-+
-+	for _, linkmode := range []string{"internal", "external"} {
-+		t.Run(linkmode, func(t *testing.T) {
-+			t.Parallel()
-+
-+			objfile := filepath.Join(dir, "test-"+linkmode+".exe")
-+			cmd := testenv.Command(t, testenv.GoToolPath(t), "build", "-race",
-+				"-ldflags=-linkmode="+linkmode, "-o", objfile, srcfile)
-+			if out, err := cmd.CombinedOutput(); err != nil {
-+				t.Fatalf("build failure: %s\n%s\n", err, out)
-+			}
-+
-+			f, err := pe.Open(objfile)
-+			if err != nil {
-+				t.Fatal(err)
-+			}
-+			defer f.Close()
-+			syms, err := f.ImportedSymbols()
-+			if err != nil {
-+				t.Fatal(err)
-+			}
-+			for _, sym := range syms {
-+				if i := strings.LastIndex(sym, ":"); i >= 0 {
-+					if dll := strings.ToLower(sym[i+1:]); strings.HasPrefix(dll, "api-ms-win-core-synch-l1-2") {
-+						t.Errorf("imports %s from %s, which Windows 7 does not have", sym[:i], dll)
-+					}
-+				}
-+			}
-+		})
-+	}
-+}
-+
- // TestMemProfileCheck tests that cmd/link sets
- // runtime.disableMemoryProfiling if the runtime.MemProfile
- // symbol is unreachable after deadcode (and not dynlinking).
 diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
 index b9848b23..8adba788 100644
 --- a/src/cmd/link/internal/ld/lib.go
@@ -134,21 +57,20 @@ index b9848b23..8adba788 100644
  			// so must use linker groups.
 diff --git a/src/runtime/race/waitonaddress_windows_amd64.c b/src/runtime/race/waitonaddress_windows_amd64.c
 new file mode 100644
-index 00000000..d0227f0e
+index 00000000..905ccd83
 --- /dev/null
 +++ b/src/runtime/race/waitonaddress_windows_amd64.c
-@@ -0,0 +1,170 @@
+@@ -0,0 +1,162 @@
 +// Copyright 2026 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
 +//go:build race
 +
-+// The ThreadSanitizer runtime in race_windows.syso calls WaitOnAddress,
-+// WakeByAddressSingle and WakeByAddressAll, which arrived in Windows 8. It
-+// names them directly rather than through __imp_, so defining them here
-+// resolves them at link time and no import of api-ms-win-core-synch-l1-2-0.dll
-+// is generated. Forward to the OS where it has them, emulate where it does not.
++// The race runtime calls WaitOnAddress, WakeByAddressSingle and
++// WakeByAddressAll (Windows 8) by name, not through __imp_, so defining them
++// here resolves them at link time with no import of the API set. Forward to
++// the OS where it has them, emulate where it does not.
 +
 +typedef int BOOL;
 +typedef unsigned long DWORD;
@@ -165,9 +87,8 @@ index 00000000..d0227f0e
 +	PVOID Ptr;
 +} CONDITION_VARIABLE;
 +
-+// Declared here rather than by including windows.h, which marks the three
-+// functions this file defines dllimport. A dllimport function cannot be
-+// defined, and the ones it declares for Windows 8 collide with these.
++// Declared here, since windows.h marks the three functions this file defines
++// dllimport, and a dllimport function cannot be defined.
 +extern void __stdcall AcquireSRWLockExclusive(SRWLOCK *lock);
 +extern void __stdcall ReleaseSRWLockExclusive(SRWLOCK *lock);
 +extern BOOL __stdcall SleepConditionVariableSRW(CONDITION_VARIABLE *cond, SRWLOCK *lock, DWORD milliseconds, DWORD flags);
@@ -187,10 +108,8 @@ index 00000000..d0227f0e
 +static wakeByAddressFunc wakeByAddressAllNative;
 +static int probed;
 +
-+// probeOnce looks the three functions up in KernelBase, which is where
-+// api-ms-win-core-synch-l1-2-0.dll forwards them and which is loaded into
-+// every process. Two threads may probe at once, and they write the same
-+// values.
++// probeOnce looks the three functions up in KernelBase, where the API set
++// forwards them. Racing probes write the same values.
 +static void
 +probeOnce(void)
 +{
@@ -222,8 +141,8 @@ index 00000000..d0227f0e
 +	CONDITION_VARIABLE cond;
 +} buckets[NBUCKET];
 +
-+// bucketFor returns the bucket that stands in for address. Addresses that
-+// share one wake each other spuriously, which the contract allows.
++// Addresses sharing a bucket wake each other spuriously, which the contract
++// allows.
 +static int
 +bucketFor(PVOID address)
 +{
@@ -262,18 +181,16 @@ index 00000000..d0227f0e
 +	AcquireSRWLockExclusive(&buckets[i].lock);
 +	woken = 1;
 +	if (unchanged(address, compareAddress, addressSize)) {
-+		// SleepConditionVariableSRW releases the lock before it sleeps
-+		// and sets ERROR_TIMEOUT itself when it times out, which is
-+		// what a caller of WaitOnAddress expects to find.
++		// SleepConditionVariableSRW sets ERROR_TIMEOUT itself, as a
++		// caller of WaitOnAddress expects.
 +		woken = SleepConditionVariableSRW(&buckets[i].cond, &buckets[i].lock, milliseconds, 0);
 +	}
 +	ReleaseSRWLockExclusive(&buckets[i].lock);
 +	return woken;
 +}
 +
-+// wakeBucket wakes everything waiting on the bucket address belongs to. Taking
-+// the lock first is what makes the wake safe. A waiter that has read the
-+// address but not yet slept holds it, so it cannot miss this wake.
++// wakeBucket wakes every waiter on address's bucket. A waiter that has read
++// the address but not yet slept holds the lock, so it cannot miss the wake.
 +static void
 +wakeBucket(PVOID address)
 +{
@@ -292,9 +209,7 @@ index 00000000..d0227f0e
 +		wakeByAddressSingleNative(address);
 +		return;
 +	}
-+	// Waking every waiter on the bucket rather than one of them is
-+	// allowed, because WaitOnAddress may return before it is woken at
-+	// all and callers recheck the address anyway.
++	// Waking all is allowed, since callers recheck the address anyway.
 +	wakeBucket(address);
 +}
 +

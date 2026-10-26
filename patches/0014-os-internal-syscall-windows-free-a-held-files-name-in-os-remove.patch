@@ -1,0 +1,510 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 15:16:42 +1300
+Subject: [PATCH] os, internal/syscall/windows: free a held file's name in os.Remove
+
+os.Remove deletes through DeleteFileW. On Windows 7, 8, 8.1 and some early
+versions of Windows 10 a file deleted that way keeps its name while any
+program still has it open.
+
+Free the name at once in os.Remove as well. There os.Remove deletes a file
+the way RemoveAll does (CL 713480, commit b31dc77, Go 1.26).
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, 8, 8.1,     os.Remove leaves the   the name is free at once
+	some early Windows 10  file's name
+	(file open elsewhere)
+	-----------------------------------------------------------------------
+	Windows 10 22H2, 11    the name is free at    the name is free at once
+	                       once
+
+Gate: version, then query (Windows 10 before 22H2) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index 373b7c89..72d1b175 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -310,6 +310,19 @@ func Mkdirat(dirfd syscall.Handle, name string, mode uint32) error {
+ 	return nil
+ }
+ 
++func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
++	if name == "." {
++		// NtOpenFile's documentation isn't explicit about what happens when deleting ".".
++		// Make this an error consistent with that of POSIX.
++		return syscall.EINVAL
++	}
++	objAttrs := &OBJECT_ATTRIBUTES{}
++	if err := objAttrs.init(dirfd, name); err != nil {
++		return err
++	}
++	return deleteat(objAttrs, name, options)
++}
++
+ // fileAttributeTagInformation is the class for a handle's attributes and
+ // reparse tag alone.
+ const fileAttributeTagInformation = 35
+@@ -344,16 +357,120 @@ func identityOf(h syscall.Handle) (fileIdentity, bool) {
+ 	return fileIdentity{volume: d.VolumeSerialNumber, index: uint64(d.FileIndexHigh)<<32 | uint64(d.FileIndexLow)}, true
+ }
+ 
+-func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+-	if name == "." {
+-		// NtOpenFile's documentation isn't explicit about what happens when deleting ".".
+-		// Make this an error consistent with that of POSIX.
++// ErrDeleteatHeld is Deletepath's answer for a file held open for I/O, which
++// must be deleted through its parent so that it can be set aside.
++var ErrDeleteatHeld error = deleteatHeld{}
++
++type deleteatHeld struct{}
++
++func (deleteatHeld) Error() string { return "file held open, delete from the parent directory" }
++
++// DeleteFileFreesHeldName reports whether DeleteFileW frees the name of a file
++// another handle holds at once, as a POSIX delete does. Some kernels take the
++// POSIX class (KernelDeletesAsUpstream), yet their DeleteFileW does not.
++var DeleteFileFreesHeldName = sync.OnceValue(func() bool {
++	return kernelHas(probeDeleteFileFreesName)
++})
++
++// probeDeleteFileFreesName deletes a new file it holds open with DeleteFileW,
++// as upstream's os.Remove does, and reports whether the name went at once.
++func probeDeleteFileFreesName() bool {
++	name, err := probeName("-remove")
++	if err != nil {
++		return false
++	}
++	p, err := syscall.UTF16PtrFromString(name)
++	if err != nil {
++		return false
++	}
++	const FILE_FLAG_DELETE_ON_CLOSE = 0x04000000
++	h, err := syscall.CreateFile(p, syscall.GENERIC_READ|DELETE,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
++		nil, syscall.CREATE_NEW, FILE_FLAG_DELETE_ON_CLOSE, 0)
++	if err != nil {
++		return false
++	}
++	defer syscall.CloseHandle(h)
++	if syscall.DeleteFile(p) != nil {
++		return false
++	}
++	_, err = syscall.GetFileAttributes(p)
++	return err == syscall.ERROR_FILE_NOT_FOUND
++}
++
++// Deletepath deletes the file at DOS path p as DeleteFileW resolves it, with
++// no handle to its parent. It answers ErrDeleteatHeld for a held file, EINVAL
++// for a name not on a disk and EISDIR for a directory.
++func Deletepath(p *uint16) error {
++	var nt NTUnicodeString
++	if RtlDosPathNameToNtPathName_U(p, &nt, nil, nil) == 0 {
+ 		return syscall.EINVAL
+ 	}
+-	objAttrs := &OBJECT_ATTRIBUTES{}
+-	if err := objAttrs.init(dirfd, name); err != nil {
+-		return err
++	defer RtlFreeUnicodeString(&nt)
++	if !onDiskName(&nt) {
++		return syscall.EINVAL
++	}
++	objAttrs := &OBJECT_ATTRIBUTES{ObjectName: &nt}
++	objAttrs.Length = uint32(unsafe.Sizeof(*objAttrs))
++	// No name is needed, since this route never sets a file aside.
++	return deleteat(objAttrs, "", FILE_NON_DIRECTORY_FILE)
++}
++
++// onDiskName reports whether nt names a drive, a volume or a share other than
++// PIPE and MAILSLOT. Opening a pipe or a device would connect to it.
++func onDiskName(nt *NTUnicodeString) bool {
++	s := unsafe.Slice(nt.Buffer, nt.Length/2)
++	fold := func(c uint16) uint16 {
++		if 'a' <= c && c <= 'z' {
++			c -= 'a' - 'A'
++		}
++		return c
+ 	}
++	prefix := func(s []uint16, p string) bool {
++		if len(s) < len(p) {
++			return false
++		}
++		for i := 0; i < len(p); i++ {
++			if fold(s[i]) != uint16(p[i]) {
++				return false
++			}
++		}
++		return true
++	}
++	if !prefix(s, `\??\`) {
++		return false
++	}
++	s = s[4:]
++	switch {
++	case len(s) >= 3 && 'A' <= fold(s[0]) && fold(s[0]) <= 'Z' && s[1] == ':' && s[2] == '\\':
++		return true
++	case prefix(s, "VOLUME{"):
++		return true
++	case prefix(s, `UNC\`):
++		// \??\UNC\server\share\...: the share decides.
++		s = s[4:]
++		i := 0
++		for i < len(s) && s[i] != '\\' {
++			i++
++		}
++		if i == 0 || i == len(s) {
++			return false
++		}
++		share := s[i+1:]
++		j := 0
++		for j < len(share) && share[j] != '\\' {
++			j++
++		}
++		share = share[:j]
++		return len(share) > 0 && !(len(share) == len("PIPE") && prefix(share, "PIPE")) &&
++			!(len(share) == len("MAILSLOT") && prefix(share, "MAILSLOT"))
++	}
++	return false
++}
++
++// deleteat deletes the entry objAttrs names. name, relative to its parent,
++// puts the file back if the delete is refused after moving it aside.
++func deleteat(objAttrs *OBJECT_ATTRIBUTES, name string, options uint32) error {
+ 	// Where the kernel takes the fallback (KernelDeletesAsUpstream), a
+ 	// file's delete open shares deletion alone, so it fails exactly when
+ 	// the file is held (see heldForIO). It also asks for write-attribute
+@@ -396,6 +513,9 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+ 			err = open(DELETE)
+ 		}
+ 		if probe && err == STATUS_SHARING_VIOLATION {
++			if objAttrs.RootDirectory == 0 {
++				return ErrDeleteatHeld
++			}
+ 			probe, held = false, true
+ 			share = FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE
+ 			continue
+diff --git a/src/internal/syscall/windows/at_windows_test.go b/src/internal/syscall/windows/at_windows_test.go
+index ce51cc3c..d69efe63 100644
+--- a/src/internal/syscall/windows/at_windows_test.go
++++ b/src/internal/syscall/windows/at_windows_test.go
+@@ -220,3 +220,41 @@ func TestRenameToKeepsExisting(t *testing.T) {
+ 		t.Fatalf("after the rename, b holds %q, %v; want %q", data, err, "a")
+ 	}
+ }
++
++// TestOnDiskName checks that the delete fallback takes names on a disk, in
++// every form, and none in the pipe, mailslot or device namespaces.
++func TestOnDiskName(t *testing.T) {
++	for _, tt := range []struct {
++		name string
++		want bool
++	}{
++		{`C:\dir\file`, true},
++		{`c:/dir/file`, true},
++		{`relative\file`, true},
++		{`\\?\C:\dir\file`, true},
++		{`\\.\C:\dir\file`, true},
++		{`\\server\share\dir\file`, true},
++		{`\\?\UNC\server\share\file`, true},
++		{`\\?\Volume{01234567-89ab-cdef-0123-456789abcdef}\file`, true},
++		{`\\.\pipe\name`, false},
++		{`\\?\pipe\name`, false},
++		{`\\server\pipe\name`, false},
++		{`\\server\PIPE\name`, false},
++		{`\\.\mailslot\name`, false},
++		{`\\server\mailslot\name`, false},
++		{`\\server\pipe`, false},
++		{`\\server\MailSlot`, false},
++		{`\\server\pipes\file`, true},
++		{`NUL`, false},
++		// A device name inside a directory follows the kernel's own
++		// conversion, which Windows 11 no longer maps to the device, so
++		// only the bare name is asked.
++		{`COM1`, false},
++		{`\\.\COM1`, false},
++		{`\\server`, false},
++	} {
++		if got := windows.OnDiskName(tt.name); got != tt.want {
++			t.Errorf("onDiskName(%q) = %v, want %v", tt.name, got, tt.want)
++		}
++	}
++}
+diff --git a/src/internal/syscall/windows/export_windows_test.go b/src/internal/syscall/windows/export_windows_test.go
+index 52e2a69d..507dacee 100644
+--- a/src/internal/syscall/windows/export_windows_test.go
++++ b/src/internal/syscall/windows/export_windows_test.go
+@@ -4,4 +4,19 @@
+ 
+ package windows
+ 
++import "syscall"
++
+ var RenameTo = renameTo
++
++func OnDiskName(name string) bool {
++	p, err := syscall.UTF16PtrFromString(name)
++	if err != nil {
++		return false
++	}
++	var nt NTUnicodeString
++	if RtlDosPathNameToNtPathName_U(p, &nt, nil, nil) == 0 {
++		return false
++	}
++	defer RtlFreeUnicodeString(&nt)
++	return onDiskName(&nt)
++}
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 9bfae90a..644ad1b4 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -587,6 +587,9 @@ type FILE_MODE_INFORMATION struct {
+ // NT Native APIs
+ //sys   NtCreateFile(handle *syscall.Handle, access uint32, oa *OBJECT_ATTRIBUTES, iosb *IO_STATUS_BLOCK, allocationSize *int64, attributes uint32, share uint32, disposition uint32, options uint32, eabuffer unsafe.Pointer, ealength uint32) (ntstatus error) = ntdll.NtCreateFile
+ //sys   NtOpenFile(handle *syscall.Handle, access uint32, oa *OBJECT_ATTRIBUTES, iosb *IO_STATUS_BLOCK, share uint32, options uint32) (ntstatus error) = ntdll.NtOpenFile
++// This function returns 1 byte BOOLEAN rather than the 4 byte BOOL.
++//sys   RtlDosPathNameToNtPathName_U(dosName *uint16, ntName *NTUnicodeString, filePart **uint16, reserved unsafe.Pointer) (ok uint8) = ntdll.RtlDosPathNameToNtPathName_U
++//sys   RtlFreeUnicodeString(s *NTUnicodeString) = ntdll.RtlFreeUnicodeString
+ //sys   rtlNtStatusToDosErrorNoTeb(ntstatus NTStatus) (ret syscall.Errno) = ntdll.RtlNtStatusToDosErrorNoTeb
+ //sys   NtSetInformationFile(handle syscall.Handle, iosb *IO_STATUS_BLOCK, inBuffer unsafe.Pointer, inBufferLen uint32, class uint32) (ntstatus error) = ntdll.NtSetInformationFile
+ //sys	RtlIsDosDeviceName_U(name *uint16) (ret uint32) = ntdll.RtlIsDosDeviceName_U
+diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
+index 92d740e5..515350ea 100644
+--- a/src/internal/syscall/windows/zsyscall_windows.go
++++ b/src/internal/syscall/windows/zsyscall_windows.go
+@@ -107,6 +107,8 @@ var (
+ 	procNtOpenFile                        = modntdll.NewProc("NtOpenFile")
+ 	procNtQueryInformationFile            = modntdll.NewProc("NtQueryInformationFile")
+ 	procNtSetInformationFile              = modntdll.NewProc("NtSetInformationFile")
++	procRtlDosPathNameToNtPathName_U      = modntdll.NewProc("RtlDosPathNameToNtPathName_U")
++	procRtlFreeUnicodeString              = modntdll.NewProc("RtlFreeUnicodeString")
+ 	procRtlGetNtVersionNumbers            = modntdll.NewProc("RtlGetNtVersionNumbers")
+ 	procRtlGetVersion                     = modntdll.NewProc("RtlGetVersion")
+ 	procRtlIsDosDeviceName_U              = modntdll.NewProc("RtlIsDosDeviceName_U")
+@@ -629,6 +631,17 @@ func NtSetInformationFile(handle syscall.Handle, iosb *IO_STATUS_BLOCK, inBuffer
+ 	return
+ }
+ 
++func RtlDosPathNameToNtPathName_U(dosName *uint16, ntName *NTUnicodeString, filePart **uint16, reserved unsafe.Pointer) (ok uint8) {
++	r0, _, _ := syscall.SyscallN(procRtlDosPathNameToNtPathName_U.Addr(), uintptr(unsafe.Pointer(dosName)), uintptr(unsafe.Pointer(ntName)), uintptr(unsafe.Pointer(filePart)), uintptr(reserved))
++	ok = uint8(r0)
++	return
++}
++
++func RtlFreeUnicodeString(s *NTUnicodeString) {
++	syscall.SyscallN(procRtlFreeUnicodeString.Addr(), uintptr(unsafe.Pointer(s)))
++	return
++}
++
+ func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
+ 	syscall.SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
+ 	return
+diff --git a/src/os/file_windows.go b/src/os/file_windows.go
+index 9f22413b..49e66bb1 100644
+--- a/src/os/file_windows.go
++++ b/src/os/file_windows.go
+@@ -227,10 +227,35 @@ func Truncate(name string, size int64) error {
+ // Remove removes the named file or directory.
+ // If there is an error, it will be of type [*PathError].
+ func Remove(name string) error {
++	// Where DeleteFileW keeps a held file's name, try Deleteat first, so
++	// that it goes at once. The calls below decide every other result,
++	// except a missing name or a directory, which they would answer the
++	// same way.
+ 	p, e := syscall.UTF16PtrFromString(fixLongPath(name))
+ 	if e != nil {
+ 		return &PathError{Op: "remove", Path: name, Err: e}
+ 	}
++	if len(name) > 0 && !IsPathSeparator(name[len(name)-1]) &&
++		(windows.TestDeleteatFallback || !windows.DeleteFileFreesHeldName()) {
++		// A held file needs its parent for the rename aside.
++		switch e := windows.Deletepath(p); e {
++		case nil:
++			return nil
++		case windows.ErrDeleteatHeld:
++			if removeFileAt(name) == nil {
++				return nil
++			}
++		case syscall.ERROR_FILE_NOT_FOUND, syscall.ERROR_PATH_NOT_FOUND:
++			return &PathError{Op: "remove", Path: name, Err: e}
++		case syscall.EISDIR:
++			// The calls below end at RemoveDirectoryW for a
++			// directory, so go there now.
++			if e := syscall.RemoveDirectory(p); e != nil {
++				return &PathError{Op: "remove", Path: name, Err: e}
++			}
++			return nil
++		}
++	}
+ 
+ 	// Go file interface forces us to know whether
+ 	// name is a file or directory. Try both.
+@@ -263,6 +288,19 @@ func Remove(name string) error {
+ 	return &PathError{Op: "remove", Path: name, Err: e}
+ }
+ 
++// removeFileAt deletes name, not a directory, through Deleteat from its
++// parent, opened only to read attributes as RemoveAll does.
++func removeFileAt(name string) error {
++	parentDir, base := splitPath(name)
++	// O_WRONLY|O_RDWR asks for no access, a handle only to open names under.
++	parent, err := OpenFile(parentDir, O_WRONLY|O_RDWR, 0)
++	if err != nil {
++		return err
++	}
++	defer parent.Close()
++	return removefileat(syscall.Handle(parent.Fd()), base)
++}
++
+ func rename(oldname, newname string) error {
+ 	e := windows.Rename(fixLongPath(oldname), fixLongPath(newname))
+ 	if e != nil {
+diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
+index 4196ae31..9f237504 100644
+--- a/src/os/path_windows_test.go
++++ b/src/os/path_windows_test.go
+@@ -5,9 +5,11 @@
+ package os_test
+ 
+ import (
++	"errors"
+ 	"fmt"
+ 	"internal/syscall/windows"
+ 	"internal/testenv"
++	"io/fs"
+ 	"os"
+ 	"path/filepath"
+ 	"strings"
+@@ -253,6 +255,134 @@ func TestRemoveAllFallback(t *testing.T) {
+ 	}
+ }
+ 
++// TestRemoveOpenFile checks that os.Remove of a file still open frees its
++// name at once, as DeleteFileW does where the kernel has POSIX delete.
++func TestRemoveOpenFile(t *testing.T) {
++	dir := t.TempDir()
++	name := filepath.Join(dir, "file")
++	if err := os.WriteFile(name, []byte("old"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	// Root.Open shares deletion, so the file can be removed while held.
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++	f, err := root.Open("file")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer f.Close()
++
++	if err := os.Remove(name); err != nil {
++		t.Fatal(err)
++	}
++	if _, err := os.Lstat(name); !errors.Is(err, fs.ErrNotExist) {
++		t.Errorf("Lstat after Remove = %v, want ErrNotExist", err)
++	}
++	// The name is free, so it can be taken again.
++	if err := os.WriteFile(name, []byte("new"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	b, err := os.ReadFile(name)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if string(b) != "new" {
++		t.Errorf("read %q, want %q", b, "new")
++	}
++}
++
++// TestRemoveFallbackAnswers checks that the fallback's errors for a missing
++// name, a missing path and a directory are DeleteFileW's and
++// RemoveDirectoryW's.
++func TestRemoveFallbackAnswers(t *testing.T) {
++	dir := t.TempDir()
++	full := filepath.Join(dir, "full")
++	if err := os.MkdirAll(filepath.Join(full, "entry"), 0777); err != nil {
++		t.Fatal(err)
++	}
++	mkdir := func(name string) func() {
++		return func() {
++			if err := os.Mkdir(filepath.Join(dir, name), 0777); err != nil {
++				t.Fatal(err)
++			}
++		}
++	}
++	write := func(name string) func() {
++		return func() {
++			if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0666); err != nil {
++				t.Fatal(err)
++			}
++		}
++	}
++	cases := []struct {
++		name string
++		path string
++		make func() // makes what the remove is to find, before each remove
++		ok   bool   // the remove must succeed
++	}{
++		{"missing name", filepath.Join(dir, "missing"), nil, false},
++		{"missing path", filepath.Join(dir, "missing", "name"), nil, false},
++		{"empty directory", filepath.Join(dir, "empty"), mkdir("empty"), true},
++		{"directory with an entry", full, nil, false},
++		// The name resolves as DeleteFileW and RemoveDirectoryW resolve it,
++		// without regard to case.
++		{"differently cased file", filepath.Join(dir, "CASED.TXT"), write("cased.txt"), true},
++		{"differently cased directory", filepath.Join(dir, "CASEDIR"), mkdir("casedir"), true},
++	}
++	errs := make([][]error, 2)
++	for i, hook := range []bool{false, true} {
++		windows.TestDeleteatFallback = hook
++		t.Cleanup(func() { windows.TestDeleteatFallback = false })
++		for _, c := range cases {
++			if c.make != nil {
++				c.make()
++			}
++			err := os.Remove(c.path)
++			if c.ok && err != nil {
++				t.Errorf("hook %v: Remove of %s: %v", hook, c.name, err)
++			}
++			errs[i] = append(errs[i], err)
++		}
++	}
++	for j, c := range cases {
++		a, b := errs[0][j], errs[1][j]
++		if (a == nil) != (b == nil) || (a != nil && a.(*os.PathError).Err != b.(*os.PathError).Err) {
++			t.Errorf("Remove of %s: %v without the hook, %v with it", c.name, a, b)
++		}
++	}
++	if _, err := os.Stat(filepath.Join(dir, "empty")); !os.IsNotExist(err) {
++		t.Errorf("empty directory still there after Remove: %v", err)
++	}
++}
++
++// TestRemoveFallbackReadOnlyAlone checks that a file whose only attribute is
++// read-only is deleted, which needs the normal attribute written.
++func TestRemoveFallbackReadOnlyAlone(t *testing.T) {
++	windows.TestDeleteatFallback = true
++	t.Cleanup(func() { windows.TestDeleteatFallback = false })
++	name := filepath.Join(t.TempDir(), "ro")
++	if err := os.WriteFile(name, []byte("x"), 0666); err != nil {
++		t.Fatal(err)
++	}
++	p, err := syscall.UTF16PtrFromString(name)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := syscall.SetFileAttributes(p, syscall.FILE_ATTRIBUTE_READONLY); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Remove(name); err != nil {
++		syscall.SetFileAttributes(p, syscall.FILE_ATTRIBUTE_NORMAL)
++		t.Fatalf("Remove of a file with the read-only attribute alone: %v", err)
++	}
++	if _, err := os.Stat(name); !os.IsNotExist(err) {
++		t.Errorf("file still there after Remove: %v", err)
++	}
++}
++
+ func testLongPathAbs(t *testing.T, target string) {
+ 	t.Helper()
+ 	testWalkFn := func(path string, info os.FileInfo, err error) error {

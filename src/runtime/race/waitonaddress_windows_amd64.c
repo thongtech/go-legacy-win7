@@ -4,11 +4,10 @@
 
 //go:build race
 
-// The ThreadSanitizer runtime in race_windows.syso calls WaitOnAddress,
-// WakeByAddressSingle and WakeByAddressAll, which arrived in Windows 8. It
-// names them directly rather than through __imp_, so defining them here
-// resolves them at link time and no import of api-ms-win-core-synch-l1-2-0.dll
-// is generated. Forward to the OS where it has them, emulate where it does not.
+// The race runtime calls WaitOnAddress, WakeByAddressSingle and
+// WakeByAddressAll (Windows 8) by name, not through __imp_, so defining them
+// here resolves them at link time with no import of the API set. Forward to
+// the OS where it has them, emulate where it does not.
 
 typedef int BOOL;
 typedef unsigned long DWORD;
@@ -25,9 +24,8 @@ typedef struct {
 	PVOID Ptr;
 } CONDITION_VARIABLE;
 
-// Declared here rather than by including windows.h, which marks the three
-// functions this file defines dllimport. A dllimport function cannot be
-// defined, and the ones it declares for Windows 8 collide with these.
+// Declared here, since windows.h marks the three functions this file defines
+// dllimport, and a dllimport function cannot be defined.
 extern void __stdcall AcquireSRWLockExclusive(SRWLOCK *lock);
 extern void __stdcall ReleaseSRWLockExclusive(SRWLOCK *lock);
 extern BOOL __stdcall SleepConditionVariableSRW(CONDITION_VARIABLE *cond, SRWLOCK *lock, DWORD milliseconds, DWORD flags);
@@ -47,10 +45,8 @@ static wakeByAddressFunc wakeByAddressSingleNative;
 static wakeByAddressFunc wakeByAddressAllNative;
 static int probed;
 
-// probeOnce looks the three functions up in KernelBase, which is where
-// api-ms-win-core-synch-l1-2-0.dll forwards them and which is loaded into
-// every process. Two threads may probe at once, and they write the same
-// values.
+// probeOnce looks the three functions up in KernelBase, where the API set
+// forwards them. Racing probes write the same values.
 static void
 probeOnce(void)
 {
@@ -82,8 +78,8 @@ static struct {
 	CONDITION_VARIABLE cond;
 } buckets[NBUCKET];
 
-// bucketFor returns the bucket that stands in for address. Addresses that
-// share one wake each other spuriously, which the contract allows.
+// Addresses sharing a bucket wake each other spuriously, which the contract
+// allows.
 static int
 bucketFor(PVOID address)
 {
@@ -122,18 +118,16 @@ WaitOnAddress(volatile PVOID address, PVOID compareAddress, SIZE_T addressSize, 
 	AcquireSRWLockExclusive(&buckets[i].lock);
 	woken = 1;
 	if (unchanged(address, compareAddress, addressSize)) {
-		// SleepConditionVariableSRW releases the lock before it sleeps
-		// and sets ERROR_TIMEOUT itself when it times out, which is
-		// what a caller of WaitOnAddress expects to find.
+		// SleepConditionVariableSRW sets ERROR_TIMEOUT itself, as a
+		// caller of WaitOnAddress expects.
 		woken = SleepConditionVariableSRW(&buckets[i].cond, &buckets[i].lock, milliseconds, 0);
 	}
 	ReleaseSRWLockExclusive(&buckets[i].lock);
 	return woken;
 }
 
-// wakeBucket wakes everything waiting on the bucket address belongs to. Taking
-// the lock first is what makes the wake safe. A waiter that has read the
-// address but not yet slept holds it, so it cannot miss this wake.
+// wakeBucket wakes every waiter on address's bucket. A waiter that has read
+// the address but not yet slept holds the lock, so it cannot miss the wake.
 static void
 wakeBucket(PVOID address)
 {
@@ -152,9 +146,7 @@ WakeByAddressSingle(PVOID address)
 		wakeByAddressSingleNative(address);
 		return;
 	}
-	// Waking every waiter on the bucket rather than one of them is
-	// allowed, because WaitOnAddress may return before it is woken at
-	// all and callers recheck the address anyway.
+	// Waking all is allowed, since callers recheck the address anyway.
 	wakeBucket(address);
 }
 

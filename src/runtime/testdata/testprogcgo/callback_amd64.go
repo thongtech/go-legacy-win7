@@ -13,10 +13,10 @@ package main
 void go_callback_amd64();
 
 static void call_go_callback_amd64() {
-	// Clobber X15. This is SSE2 rather than the VEX encoded vmovdqu the
-	// register invites, because VEX raises an invalid opcode unless the
-	// operating system enables AVX, and Windows 7 does that only from
-	// Service Pack 1 onwards.
+	// Clobber X15.
+	//
+	// Use SSE2, not VEX, which faults unless the system enables AVX, as
+	// Windows 7 does only from SP1.
 	uint64_t val = 42;
 	asm volatile(
 		"movdqu %0, %%xmm15;"

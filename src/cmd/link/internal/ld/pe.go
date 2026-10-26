@@ -281,11 +281,8 @@ type IMAGE_LOAD_CONFIG_DIRECTORY64 struct {
 	GuardMemcpyFunctionPointer               uint64
 }
 
-// PeMinimumTargetMajorVersion and PeMinimumTargetMinorVersion are stamped
-// into the PE image as the minimum operating system and subsystem version.
-// Upstream Go uses 10.0. This fork uses 6.1, because the Windows 7 loader
-// refuses to run an image whose subsystem version is newer than the
-// running system.
+// The loaders of Windows 7, 8 and 8.1 refuse an image stamped for a newer
+// Windows.
 const (
 	PeMinimumTargetMajorVersion = 6
 	PeMinimumTargetMinorVersion = 1

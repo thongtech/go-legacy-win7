@@ -639,10 +639,17 @@ func (sp *ImportStack) shorterThan(t []string) bool {
 // different module loaders use different caches.
 var packageCache = map[string]*Package{}
 
-// ClearPackageCache clears the in-memory package cache and the preload caches.
+// ClearPackageCache clears the package cache.
 // It cannot be used concurrently with calls to LoadImport or other functions
 // that use packageCache without synchronization.
 func ClearPackageCache() {
+	clear(packageCache)
+}
+
+// ClearPackageCacheAll clears the in-memory package cache and the preload caches.
+// It is only for use by GOPATH-based "go get".
+// TODO(jayconrod): When GOPATH-based "go get" is removed, delete this function.
+func ClearPackageCacheAll() {
 	clear(packageCache)
 	resolvedImportCache.Clear()
 	packageDataCache.Clear()

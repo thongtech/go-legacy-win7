@@ -1,0 +1,436 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 16:19:36 +1300
+Subject: [PATCH] internal/syscall/windows: replace a rename target where POSIX rename is missing
+
+Root.Rename (CL 659416, commit 2ffda87, Go 1.25) asks for a rename that
+replaces whatever the destination holds. Windows 7, 8 and 8.1 do not have
+that rename, some early versions of Windows 10 refuse it onto a link, and
+the older rename refuses to replace a link to a directory or a file another
+program has open.
+
+Let such a rename replace the destination there too. Move the destination
+aside, rename, then delete the moved copy.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, 8, 8.1,     renaming onto a        the destination is
+	some early Windows 10  directory link or an   replaced
+	                       open file fails
+	-----------------------------------------------------------------------
+	Windows 10 22H2, 11,   the destination is     the destination is
+	on NTFS                replaced               replaced
+
+Gate: version, then query (Windows 10 before 22H2) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index e9755f02..5e54ea17 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -1062,14 +1062,28 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
+ 		return err
+ 	}
+ 	var h syscall.Handle
+-	err := NtOpenFile(
+-		&h,
+-		SYNCHRONIZE|DELETE,
+-		objAttrs,
+-		&IO_STATUS_BLOCK{},
+-		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+-		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
+-	)
++	open := func(access uint32) error {
++		return NtOpenFile(
++			&h,
++			access,
++			objAttrs,
++			&IO_STATUS_BLOCK{},
++			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
++			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
++		)
++	}
++	// Where a POSIX rename cannot replace a link (posixRenameReplacesLinks)
++	// a target is replaced by hand, which needs FILE_READ_ATTRIBUTES. If that is
++	// refused, ask for only what the rename needs.
++	byHand := TestRenameatNoPosixSemantics || !posixRenameReplacesLinks()
++	access := uint32(SYNCHRONIZE | DELETE)
++	if byHand {
++		access |= FILE_READ_ATTRIBUTES
++	}
++	err := open(access)
++	if err == STATUS_ACCESS_DENIED && byHand {
++		err = open(SYNCHRONIZE | DELETE)
++	}
+ 	if err != nil {
+ 		return ntCreateFileError(err, 0)
+ 	}
+@@ -1094,15 +1108,17 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
+ 		FileRenameInformation   = 10
+ 		FileRenameInformationEx = 65
+ 	)
+-	err = NtSetInformationFile(
+-		h,
+-		&IO_STATUS_BLOCK{},
+-		unsafe.Pointer(&renameInfoEx),
+-		uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION_EX{})),
+-		FileRenameInformationEx,
+-	)
+-	if err == nil {
+-		return nil
++	if !byHand {
++		err = NtSetInformationFile(
++			h,
++			&IO_STATUS_BLOCK{},
++			unsafe.Pointer(&renameInfoEx),
++			uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION_EX{})),
++			FileRenameInformationEx,
++		)
++		if err == nil {
++			return nil
++		}
+ 	}
+ 
+ 	// If the prior rename failed, the filesystem might not support
+@@ -1117,19 +1133,204 @@ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle,
+ 	copy(renameInfo.FileName[:], p16)
+ 	renameInfo.FileNameLength = renameInfoEx.FileNameLength
+ 
+-	err = NtSetInformationFile(
+-		h,
+-		&IO_STATUS_BLOCK{},
+-		unsafe.Pointer(&renameInfo),
+-		uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION{})),
+-		FileRenameInformation,
+-	)
++	renameFile := func() error {
++		return NtSetInformationFile(
++			h,
++			&IO_STATUS_BLOCK{},
++			unsafe.Pointer(&renameInfo),
++			uint32(unsafe.Sizeof(FILE_RENAME_INFORMATION{})),
++			FileRenameInformation,
++		)
++	}
++	err = renameFile()
++	if err == STATUS_ACCESS_DENIED && byHand && !isDirectory(h) {
++		// The plain rename cannot replace a link (it counts as a
++		// directory) or a held file. A directory source is left to
++		// it.
++		if replaced, rerr := replaceRenameTarget(newdirfd, newpath, renameFile); replaced {
++			err = rerr
++		}
++	}
+ 	if st, ok := err.(NTStatus); ok {
+ 		return st.Errno()
+ 	}
+ 	return err
+ }
+ 
++// isDirectory reports whether h is a directory itself, not a link standing in
++// for one. Unsure, it says yes, which only leaves a target in place.
++func isDirectory(h syscall.Handle) bool {
++	info, err := fileAttributesAndTag(h)
++	if err != nil {
++		return true
++	}
++	const dirOrLink = syscall.FILE_ATTRIBUTE_DIRECTORY | syscall.FILE_ATTRIBUTE_REPARSE_POINT
++	return info.FileAttributes&dirOrLink == syscall.FILE_ATTRIBUTE_DIRECTORY
++}
++
++// TestRenameatNoPosixSemantics should only be used for testing purposes.
++// When set, [Renameat] replaces a target by hand, as where a POSIX rename
++// cannot replace a link.
++var TestRenameatNoPosixSemantics bool
++
++// TestRenameatRetryFails should only be used for testing purposes. When set,
++// the rename retried after the target was moved aside fails.
++var TestRenameatRetryFails bool
++
++// posixRenameReplacesLinks reports whether a POSIX rename replaces a link.
++// Some early versions of Windows 10 have POSIX rename yet refuse that.
++var posixRenameReplacesLinks = sync.OnceValue(func() bool {
++	return kernelHas(probePosixRenameOntoLink)
++})
++
++// probePosixRenameOntoLink renames a new file onto a new junction with POSIX
++// semantics, as Renameat does, and reports whether the junction was replaced.
++func probePosixRenameOntoLink() bool {
++	base, err := probeName("-rename")
++	if err != nil {
++		return false
++	}
++	dir, err1 := syscall.UTF16PtrFromString(base + "-dir")
++	link, err2 := syscall.UTF16PtrFromString(base + "-link")
++	file, err3 := syscall.UTF16PtrFromString(base + "-file")
++	if err1 != nil || err2 != nil || err3 != nil {
++		return false
++	}
++	if syscall.CreateDirectory(dir, nil) != nil {
++		return false
++	}
++	defer syscall.RemoveDirectory(dir)
++	if !makeJunction(link, base+"-dir") {
++		return false
++	}
++	h, err := syscall.CreateFile(file, DELETE|SYNCHRONIZE,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
++		nil, syscall.CREATE_NEW, 0, 0)
++	if err != nil {
++		syscall.RemoveDirectory(link)
++		return false
++	}
++	info := FILE_RENAME_INFORMATION_EX{
++		Flags: FILE_RENAME_REPLACE_IF_EXISTS | FILE_RENAME_POSIX_SEMANTICS,
++	}
++	nt, err := syscall.UTF16FromString(`\??\` + base + "-link")
++	if err == nil && len(nt) <= len(info.FileName) {
++		copy(info.FileName[:], nt)
++		info.FileNameLength = uint32((len(nt) - 1) * 2)
++		const FileRenameInformationEx = 65
++		err = NtSetInformationFile(h, &IO_STATUS_BLOCK{}, unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), FileRenameInformationEx)
++	} else if err == nil {
++		err = syscall.ENAMETOOLONG
++	}
++	syscall.CloseHandle(h)
++	if err == nil {
++		syscall.DeleteFile(link)
++		return true
++	}
++	syscall.DeleteFile(file)
++	syscall.RemoveDirectory(link)
++	return false
++}
++
++// makeJunction makes the directory link, a junction to the absolute path
++// target, and reports whether it did. It leaves nothing behind when it fails.
++func makeJunction(link *uint16, target string) bool {
++	sub, err := syscall.UTF16FromString(`\??\` + target)
++	if err != nil || syscall.CreateDirectory(link, nil) != nil {
++		return false
++	}
++	h, err := syscall.CreateFile(link, syscall.GENERIC_WRITE, 0, nil, syscall.OPEN_EXISTING,
++		syscall.FILE_FLAG_OPEN_REPARSE_POINT|syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
++	if err == nil {
++		// The reparse header, the name offsets, the name with its NUL and
++		// an empty print name.
++		n := 2 * len(sub)
++		buf := make([]byte, 16+n+2)
++		*(*uint32)(unsafe.Pointer(&buf[0])) = IO_REPARSE_TAG_MOUNT_POINT
++		*(*uint16)(unsafe.Pointer(&buf[4])) = uint16(len(buf) - 8)
++		*(*uint16)(unsafe.Pointer(&buf[10])) = uint16(n - 2)
++		*(*uint16)(unsafe.Pointer(&buf[12])) = uint16(n)
++		copy(buf[16:], unsafe.Slice((*byte)(unsafe.Pointer(&sub[0])), n))
++		var returned uint32
++		err = syscall.DeviceIoControl(h, FSCTL_SET_REPARSE_POINT, &buf[0], uint32(len(buf)), nil, 0, &returned, nil)
++		syscall.CloseHandle(h)
++	}
++	if err != nil {
++		syscall.RemoveDirectory(link)
++		return false
++	}
++	return true
++}
++
++// nameSurrogateBit marks the tag of a symlink or mount point, as opposed to a
++// reparse point carrying data for a filter driver.
++const nameSurrogateBit = 0x20000000
++
++// replaceRenameTarget moves the destination aside, renames again, and
++// deletes the moved copy, or moves it back on failure. It leaves what POSIX
++// rename refuses: a directory that is not a link, and a read-only file. It
++// reports whether the second rename was reached, and its result.
++func replaceRenameTarget(dirfd syscall.Handle, name string, rename func() error) (bool, error) {
++	objAttrs := &OBJECT_ATTRIBUTES{}
++	if err := objAttrs.init(dirfd, name); err != nil {
++		return false, nil
++	}
++	var th syscall.Handle
++	err := NtOpenFile(
++		&th,
++		SYNCHRONIZE|DELETE|FILE_READ_ATTRIBUTES,
++		objAttrs,
++		&IO_STATUS_BLOCK{},
++		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
++		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
++	)
++	if err != nil {
++		return false, nil
++	}
++	defer syscall.CloseHandle(th)
++
++	info, err := fileAttributesAndTag(th)
++	if err != nil {
++		return false, nil
++	}
++	if info.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
++		return false, nil
++	}
++	if info.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 &&
++		(info.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT == 0 || info.ReparseTag&nameSurrogateBit == 0) {
++		return false, nil
++	}
++	id, ok := identityOf(th)
++	if !ok || !setAsideForDelete(th, objAttrs, id) {
++		return false, nil
++	}
++
++	if TestRenameatRetryFails {
++		err = STATUS_ACCESS_DENIED
++	} else {
++		err = rename()
++	}
++	if err != nil {
++		// Put the target back unless its name was taken since.
++		if p16, e := syscall.UTF16FromString(name); e == nil {
++			renameTo(th, objAttrs.RootDirectory, p16[:len(p16)-1], false)
++		}
++		return true, err
++	}
++
++	// The rename succeeded. The moved copy is deleted when its last handle
++	// closes.
++	SetFileInformationByHandle(
++		th,
++		FileDispositionInfo,
++		unsafe.Pointer(&FILE_DISPOSITION_INFO{
++			DeleteFile: 1,
++		}),
++		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
++	)
++	return true, nil
++}
++
+ func Linkat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, newpath string) error {
+ 	objAttrs := &OBJECT_ATTRIBUTES{}
+ 	if err := objAttrs.init(olddirfd, oldpath); err != nil {
+diff --git a/src/os/path_windows_test.go b/src/os/path_windows_test.go
+index 9f237504..ed837a22 100644
+--- a/src/os/path_windows_test.go
++++ b/src/os/path_windows_test.go
+@@ -426,6 +426,127 @@ func BenchmarkAddExtendedPrefix(b *testing.B) {
+ 	}
+ }
+ 
++// TestRenameatReplaceLeavesNoStray checks that a rename onto a held file
++// through the fallback leaves no moved copy behind.
++func TestRenameatReplaceLeavesNoStray(t *testing.T) {
++	windows.TestRenameatNoPosixSemantics = true
++	t.Cleanup(func() { windows.TestRenameatNoPosixSemantics = false })
++
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "source"), []byte("source"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(dir, "target"), []byte("target"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++
++	// Root.Open shares deletion, so the rename may try, and the held
++	// target has to be moved aside.
++	for _, name := range []string{"source", "target"} {
++		f, err := root.Open(name)
++		if err != nil {
++			t.Fatal(err)
++		}
++		defer f.Close()
++	}
++	if err := root.Rename("source", "target"); err != nil {
++		t.Fatal(err)
++	}
++
++	names, err := os.ReadDir(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var got []string
++	for _, e := range names {
++		got = append(got, e.Name())
++	}
++	if len(got) != 1 || got[0] != "target" {
++		t.Errorf("directory holds %v after the rename, want only target", got)
++	}
++	if b, err := os.ReadFile(filepath.Join(dir, "target")); err != nil || string(b) != "source" {
++		t.Errorf("target holds %q, %v; want %q", b, err, "source")
++	}
++}
++
++// TestRenameatRetryFailsRestoresTarget checks that a failed retry puts the
++// target back with its content and leaves the source.
++func TestRenameatRetryFailsRestoresTarget(t *testing.T) {
++	windows.TestRenameatNoPosixSemantics = true
++	t.Cleanup(func() { windows.TestRenameatNoPosixSemantics = false })
++	windows.TestRenameatRetryFails = true
++	t.Cleanup(func() { windows.TestRenameatRetryFails = false })
++
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "source"), []byte("source"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(dir, "target"), []byte("target"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++	held, err := root.Open("target")
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer held.Close()
++
++	if err := root.Rename("source", "target"); err == nil {
++		t.Fatal("Rename succeeded with the retry forced to fail")
++	}
++	for name, want := range map[string]string{"source": "source", "target": "target"} {
++		if b, err := os.ReadFile(filepath.Join(dir, name)); err != nil || string(b) != want {
++			t.Errorf("%s holds %q, %v; want %q", name, b, err, want)
++		}
++	}
++	names, err := os.ReadDir(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if len(names) != 2 {
++		t.Errorf("directory holds %d entries after the refused rename, want 2", len(names))
++	}
++}
++
++// TestRenameatReadOnlyTargetKept checks that the fallback refuses a rename
++// onto a read-only file, as POSIX rename does.
++func TestRenameatReadOnlyTargetKept(t *testing.T) {
++	windows.TestRenameatNoPosixSemantics = true
++	t.Cleanup(func() { windows.TestRenameatNoPosixSemantics = false })
++
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "source"), []byte("source"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(filepath.Join(dir, "target"), []byte("target"), 0400); err != nil {
++		t.Fatal(err)
++	}
++	t.Cleanup(func() { os.Chmod(filepath.Join(dir, "target"), 0600) })
++
++	root, err := os.OpenRoot(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer root.Close()
++	if err := root.Rename("source", "target"); err == nil {
++		t.Fatal("Rename onto a read-only file succeeded")
++	}
++	for name, want := range map[string]string{"source": "source", "target": "target"} {
++		if b, err := os.ReadFile(filepath.Join(dir, name)); err != nil || string(b) != want {
++			t.Errorf("%s holds %q, %v; want %q", name, b, err, want)
++		}
++	}
++}
++
+ // TestRemoveFallbackReadOnlySwapped checks that the read-only attribute is
+ // cleared only on the entry being deleted, not on one given its name in
+ // between.

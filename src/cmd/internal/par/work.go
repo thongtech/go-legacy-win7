@@ -189,8 +189,8 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
 // TODO(jayconrod): Delete this after the package cache clearing functions
 // in internal/load have been removed.
 func (c *Cache[K, V]) Clear() {
-	// sync.Map.Clear arrived in Go 1.23, after the tree this was restored
-	// from, which ranged over the map deleting as it went.
+	// The restored code deleted entries one by one. sync.Map.Clear, added
+	// in Go 1.23, does it in one call.
 	c.m.Clear()
 }
 

@@ -485,10 +485,8 @@ func TestWalkDirectorySymlink(t *testing.T) {
 func createMountPartition(t *testing.T, vhd string, args string) []byte {
 	testenv.MustHaveExecPath(t, "powershell")
 
-	// The script below needs the Hyper-V cmdlets, which are not always
-	// installed. Ask for one of them rather than waiting for the script to
-	// fail, because PowerShell 2, which is what Windows 7 ships, exits
-	// zero when a script fails and the failure below would go unnoticed.
+	// The script needs the Hyper-V cmdlets. Probe for one first, since
+	// PowerShell 2 (Windows 7) exits zero when a script fails.
 	probe := testenv.Command(t, "powershell", "-Command",
 		"if (-not (Get-Command New-VHD -ErrorAction SilentlyContinue)) { exit 1 }")
 	if out, err := probe.CombinedOutput(); err != nil {

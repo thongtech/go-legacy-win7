@@ -264,6 +264,7 @@ func NewCallbackCDecl(fn any) uintptr {
 //sys	findNextFile1(handle Handle, data *win32finddata1) (err error) = FindNextFileW
 //sys	FindClose(handle Handle) (err error)
 //sys	GetFileInformationByHandle(handle Handle, data *ByHandleFileInformation) (err error)
+//sys	ntQueryInformationFile(handle Handle, iosb *_IO_STATUS_BLOCK, info unsafe.Pointer, length uint32, class uint32) (status uint32) = ntdll.NtQueryInformationFile
 //sys	GetCurrentDirectory(buflen uint32, buf *uint16) (n uint32, err error) = GetCurrentDirectoryW
 //sys	SetCurrentDirectory(path *uint16) (err error) = SetCurrentDirectoryW
 //sys	CreateDirectory(path *uint16, sa *SecurityAttributes) (err error) = CreateDirectoryW
@@ -354,70 +355,279 @@ func NewCallbackCDecl(fn any) uintptr {
 
 // syscall interface implementation for other packages
 
-// GetVersion reports the Windows version packed as kernel32!GetVersion packs
-// it, the major version in the low byte, the minor version above it and the
-// build number in the high word. It is read from ntdll!RtlGetNtVersionNumbers,
-// so that the version compatibility shim, which reports Windows 8 to an image
-// stamped for an older Windows, does not reach it.
+// GetVersion reads ntdll!RtlGetNtVersionNumbers, which the compatibility shim
+// does not reach (it reports Windows 8 to an image stamped 6.1).
 func GetVersion() (ver uint32, err error) {
 	var major, minor, build uint32
 	rtlGetNtVersionNumbers(&major, &minor, &build)
 	return major | minor<<8 | (build&0xffff)<<16, nil
 }
 
-// followsMismatchedLinks reports whether this kernel follows a link whatever
-// it leads to. Windows 10 and later hold a link to its type. A directory
-// link, a junction or a directory symlink, that leads to anything but a
-// directory is refused with ERROR_DIRECTORY, and a file symlink whose own
-// target is a directory entry, whatever that entry leads to, is refused with
-// ERROR_ACCESS_DENIED. Windows 7, 8 and 8.1 follow either to whatever is
-// there, when the open asked for FILE_FLAG_BACKUP_SEMANTICS; without the flag
-// they refuse a directory entry as every Windows does. Nothing short of
-// creating such a link can observe the difference, so this is one of the
-// deliberate version gates of the series.
-var followsMismatchedLinks = sync.OnceValue(func() bool {
+// followsMismatchedLinks reports whether the kernel follows a link to the
+// other type with backup semantics: yes before Windows 10, no from Windows 10
+// 22H2 (build 19045), and on earlier Windows 10 what a probe finds. os.stat
+// asks it too.
+//
+//go:linkname followsMismatchedLinks
+func followsMismatchedLinks() bool { return mismatchedLinksFollowed() }
+
+var mismatchedLinksFollowed = sync.OnceValue(func() bool {
 	var major, minor, build uint32
 	rtlGetNtVersionNumbers(&major, &minor, &build)
-	return major < 10
+	// The high bits of the build carry flags, not the number.
+	return major < 10 || build&0xffff < 19045 && probeFollowsJunctionToFile()
 })
 
-// mismatchedLink reports what Windows 10 and later answer for an open of
-// name that the kernel followed to h, or zero where the open stands. See
-// followsMismatchedLinks.
+// probeFollowsJunctionToFile opens a new junction to a new file with backup
+// semantics and reports whether the kernel followed it. Unsure, it says yes,
+// which only costs the check.
+func probeFollowsJunctionToFile() bool {
+	var buf [MAX_PATH]uint16
+	n, err := GetTempPath(uint32(len(buf)), &buf[0])
+	if err != nil || n >= uint32(len(buf)) {
+		return true
+	}
+	base := UTF16ToString(buf[:n]) + "go-probe-" + strconv.Itoa(Getpid()) + "-open"
+	file, err1 := UTF16PtrFromString(base + "-file")
+	link, err2 := UTF16PtrFromString(base + "-link")
+	sub, err3 := UTF16FromString(`\??\` + base + "-file")
+	if err1 != nil || err2 != nil || err3 != nil {
+		return true
+	}
+	h, err := CreateFile(file, GENERIC_WRITE, 0, nil, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, 0)
+	if err != nil {
+		return true
+	}
+	CloseHandle(h)
+	defer DeleteFile(file)
+	if CreateDirectory(link, nil) != nil {
+		return true
+	}
+	defer RemoveDirectory(link)
+	h, err = CreateFile(link, GENERIC_WRITE, 0, nil, OPEN_EXISTING, FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return true
+	}
+	// FSCTL_SET_REPARSE_POINT's buffer: header, offsets, name, empty print name.
+	n2 := 2 * len(sub)
+	rdb := make([]byte, 16+n2+2)
+	*(*uint32)(unsafe.Pointer(&rdb[0])) = _IO_REPARSE_TAG_MOUNT_POINT
+	*(*uint16)(unsafe.Pointer(&rdb[4])) = uint16(len(rdb) - 8)
+	*(*uint16)(unsafe.Pointer(&rdb[10])) = uint16(n2 - 2)
+	*(*uint16)(unsafe.Pointer(&rdb[12])) = uint16(n2)
+	copy(rdb[16:], unsafe.Slice((*byte)(unsafe.Pointer(&sub[0])), n2))
+	var returned uint32
+	err = DeviceIoControl(h, 0x000900A4, &rdb[0], uint32(len(rdb)), nil, 0, &returned, nil)
+	CloseHandle(h)
+	if err == nil {
+		h, err = CreateFile(link, GENERIC_READ, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, nil, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0)
+		if err == nil {
+			CloseHandle(h)
+		}
+	}
+	return err != _ERROR_DIRECTORY
+}
+
+// testHoldLinks should only be used for testing purposes. When set, Open
+// holds links to their type on every kernel.
+var testHoldLinks bool
+
+// mismatchedLink returns the refusal of a link to the other type for an open
+// of name that the kernel followed to h, or zero where the open stands.
 func mismatchedLink(name string, h Handle) Errno {
+	if !onDisk(h) {
+		return 0
+	}
 	namep, err := UTF16PtrFromString(name)
 	if err != nil {
 		return 0
 	}
 	var fa Win32FileAttributeData
-	if GetFileAttributesEx(namep, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil || fa.FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT == 0 {
+	if GetFileAttributesEx(namep, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil {
 		return 0
 	}
-	var fi ByHandleFileInformation
-	if GetFileInformationByHandle(h, &fi) != nil {
+	return mismatchedLinkOf(name, fa.FileAttributes, "", h)
+}
+
+// onDisk reports whether h is open on a disk file or directory, the only kind
+// of entry a link can be or lead to. A path query of a named pipe would take
+// one of its instances.
+func onDisk(h Handle) bool {
+	t, err := GetFileType(h)
+	return err == nil && t == FILE_TYPE_DISK
+}
+
+// isPipeName reports whether name is a named pipe, local or remote.
+func isPipeName(name string) bool {
+	isSep := func(c byte) bool { return c == '\\' || c == '/' }
+	isWord := func(s, word string) bool {
+		if len(s) <= len(word) || !isSep(s[len(word)]) {
+			return false
+		}
+		for i := 0; i < len(word); i++ {
+			if c := s[i]; c != word[i] && c != word[i]-'a'+'A' {
+				return false
+			}
+		}
+		return true
+	}
+	if len(name) < 2 || !isSep(name[0]) || !isSep(name[1]) {
+		return false
+	}
+	s := name[2:]
+	if len(s) >= 2 && (s[0] == '.' || s[0] == '?') && isSep(s[1]) {
+		s = s[2:]
+		if !isWord(s, "unc") {
+			return isWord(s, "pipe")
+		}
+		s = s[len("unc")+1:]
+	}
+	// A server, then its share.
+	i := 0
+	for i < len(s) && !isSep(s[i]) {
+		i++
+	}
+	return i > 0 && i < len(s) && isWord(s[i+1:], "pipe")
+}
+
+type _FILE_ATTRIBUTE_TAG_INFO struct {
+	FileAttributes uint32
+	ReparseTag     uint32
+}
+
+type _IO_STATUS_BLOCK struct {
+	Status      uintptr
+	Information uintptr
+}
+
+const (
+	_FileAttributeTagInformation = 35
+	_ERROR_SHARING_VIOLATION     = Errno(32)
+	// _nameSurrogateBit marks the tag of a symlink or junction, as opposed
+	// to a reparse point a filter answers for.
+	_nameSurrogateBit = 0x20000000
+)
+
+// fileAttributesAndTag reads h's attributes and reparse tag in one NT call,
+// without the kernel32 wrapper.
+func fileAttributesAndTag(h Handle) (tag _FILE_ATTRIBUTE_TAG_INFO, ok bool) {
+	var iosb _IO_STATUS_BLOCK
+	return tag, ntQueryInformationFile(h, &iosb, unsafe.Pointer(&tag), uint32(unsafe.Sizeof(tag)), _FileAttributeTagInformation) == 0
+}
+
+// openHoldingLinks is createFile for a backup-semantics open that neither
+// creates nor truncates. It opens the entry itself first and, only for a link,
+// opens again as asked and holds it to its type. A link that refuses the first
+// open is followed and its path checked instead.
+func openHoldingLinks(namep *uint16, name string, access, sharemode uint32, sa *SecurityAttributes, createmode, attrs uint32) (Handle, error) {
+	if attrs&_FILE_FLAG_DELETE_ON_CLOSE != 0 {
+		// Closing a delete-on-close handle deletes its entry, so the
+		// check opens without the flag and the open as asked follows.
+		// A pipe keeps its handle, since a second open would take
+		// another instance.
+		h, err := openHoldingLinks(namep, name, access, sharemode, sa, createmode, attrs&^_FILE_FLAG_DELETE_ON_CLOSE)
+		if h == InvalidHandle {
+			return h, err
+		}
+		if t, err := GetFileType(h); err == nil && t == FILE_TYPE_PIPE {
+			return h, nil
+		}
+		CloseHandle(h)
+		return createFile(namep, access, sharemode, sa, createmode, attrs, 0)
+	}
+	h, err := createFile(namep, access, sharemode, sa, createmode, attrs|FILE_FLAG_OPEN_REPARSE_POINT, 0)
+	if h == InvalidHandle {
+		if err != ERROR_ACCESS_DENIED && err != _ERROR_SHARING_VIOLATION {
+			return h, err
+		}
+		h, err = createFile(namep, access, sharemode, sa, createmode, attrs, 0)
+		if h == InvalidHandle {
+			return h, err
+		}
+		if e := mismatchedLink(name, h); e != 0 {
+			CloseHandle(h)
+			return InvalidHandle, e
+		}
+		return h, nil
+	}
+	tag, ok := fileAttributesAndTag(h)
+	if !ok {
+		// A pipe or a device is no link, so its handle is kept. A disk
+		// file system that cannot answer is asked by path whether the
+		// entry is a reparse point.
+		if !onDisk(h) {
+			return h, nil
+		}
+		var fa Win32FileAttributeData
+		if GetFileAttributesEx(namep, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) == nil && fa.FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT == 0 {
+			return h, nil
+		}
+		CloseHandle(h)
+		h, err = createFile(namep, access, sharemode, sa, createmode, attrs, 0)
+		if h == InvalidHandle {
+			return h, err
+		}
+		if e := mismatchedLinkOf(name, fa.FileAttributes, "", h); e != 0 {
+			CloseHandle(h)
+			return InvalidHandle, e
+		}
+		return h, nil
+	}
+	if tag.FileAttributes&FILE_ATTRIBUTE_REPARSE_POINT == 0 {
+		return h, nil
+	}
+	// Read a file symlink's target through this handle, unless it is for
+	// overlapped I/O, where the control call would need an OVERLAPPED.
+	var target string
+	if tag.FileAttributes&FILE_ATTRIBUTE_DIRECTORY == 0 && tag.ReparseTag == IO_REPARSE_TAG_SYMLINK && attrs&FILE_FLAG_OVERLAPPED == 0 {
+		target, _ = readlinkHandle(h)
+	}
+	CloseHandle(h)
+	h, err = createFile(namep, access, sharemode, sa, createmode, attrs, 0)
+	if h == InvalidHandle {
+		return h, err
+	}
+	if tag.ReparseTag&_nameSurrogateBit == 0 {
+		// A filter's reparse point is opened as asked.
+		return h, nil
+	}
+	if e := mismatchedLinkOf(name, tag.FileAttributes, target, h); e != 0 {
+		CloseHandle(h)
+		return InvalidHandle, e
+	}
+	return h, nil
+}
+
+// mismatchedLinkOf is mismatchedLink given the entry's attributes and, for a
+// file symlink, its target if already read.
+func mismatchedLinkOf(name string, entry uint32, target string, h Handle) Errno {
+	if entry&FILE_ATTRIBUTE_REPARSE_POINT == 0 {
+		return 0
+	}
+	fi, ok := fileAttributesAndTag(h)
+	if !ok {
 		return 0
 	}
 	isDir := fi.FileAttributes&FILE_ATTRIBUTE_DIRECTORY != 0
-	if fa.FileAttributes&FILE_ATTRIBUTE_DIRECTORY != 0 {
+	if entry&FILE_ATTRIBUTE_DIRECTORY != 0 {
 		// A directory link, which has to lead to a directory.
 		if isDir {
 			return 0
 		}
 		return _ERROR_DIRECTORY
 	}
-	// A file symlink, whose own target must not be a directory entry. The
-	// handle settles that for a chain ending at a directory. One ending at
-	// a file can still begin at a junction or a directory symlink to that
-	// file, so the target itself is looked at.
+	// A file symlink, whose target must not be a directory entry. The
+	// handle rules out a chain ending at a directory, but one ending at a
+	// file may start at a directory link, so the target itself is checked.
 	if isDir {
 		return ERROR_ACCESS_DENIED
 	}
-	buf := make([]byte, 32*1024)
-	n, err := Readlink(name, buf)
-	if err != nil || n <= 0 {
-		return 0
+	if target == "" {
+		var err error
+		if target, err = readLinkTarget(name); err != nil || target == "" {
+			return 0
+		}
 	}
-	target := string(buf[:n])
 	isSep := func(c byte) bool { return c == '\\' || c == '/' }
 	if !(isSep(target[0]) || (len(target) >= 3 && target[1] == ':' && isSep(target[2]))) {
 		// Relative to the directory the link is in.
@@ -431,6 +641,7 @@ func mismatchedLink(name string, h Handle) Errno {
 	if err != nil {
 		return 0
 	}
+	var fa Win32FileAttributeData
 	if GetFileAttributesEx(targetp, GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil || fa.FileAttributes&FILE_ATTRIBUTE_DIRECTORY == 0 {
 		return 0
 	}
@@ -524,7 +735,29 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
 	default:
 		createmode = OPEN_EXISTING
 	}
-	h, err := createFile(namep, access, sharemode, sa, createmode, attrs, 0)
+	// Hold links to their type. An open that neither creates nor truncates
+	// checks the handle (see openHoldingLinks), any other the path once open.
+	// An open of the link itself, or of a pipe's name, is not checked.
+	holdLinks := attrs&FILE_FLAG_BACKUP_SEMANTICS != 0 && attrs&FILE_FLAG_OPEN_REPARSE_POINT == 0 &&
+		(testHoldLinks || followsMismatchedLinks()) && !isPipeName(name)
+	var h Handle
+	if holdLinks && createmode == OPEN_EXISTING {
+		h, err = openHoldingLinks(namep, name, access, sharemode, sa, createmode, attrs)
+		holdLinks = false
+	} else {
+		if holdLinks && attrs&_FILE_FLAG_DELETE_ON_CLOSE != 0 {
+			// Check what is there first, without the flag, so that
+			// a refusal deletes nothing.
+			ch, e := openHoldingLinks(namep, name, access, sharemode, nil, OPEN_EXISTING, attrs&^_FILE_FLAG_DELETE_ON_CLOSE)
+			if ch == InvalidHandle && e != ERROR_FILE_NOT_FOUND {
+				return InvalidHandle, e
+			}
+			if ch != InvalidHandle {
+				CloseHandle(ch)
+			}
+		}
+		h, err = createFile(namep, access, sharemode, sa, createmode, attrs, 0)
+	}
 	if h == InvalidHandle {
 		if err == ERROR_ACCESS_DENIED && (attrs&FILE_FLAG_BACKUP_SEMANTICS == 0) {
 			// We should return EISDIR when we are trying to open a directory with write access.
@@ -535,10 +768,7 @@ func Open(name string, flag int, perm uint32) (fd Handle, err error) {
 		}
 		return h, err
 	}
-	if attrs&FILE_FLAG_BACKUP_SEMANTICS != 0 && followsMismatchedLinks() {
-		// Answer as Windows 10 and later do. Without the flag every Windows
-		// refuses a directory entry, with the access denied that is mapped
-		// to EISDIR above. See followsMismatchedLinks.
+	if holdLinks {
 		if e := mismatchedLink(name, h); e != 0 {
 			CloseHandle(h)
 			return InvalidHandle, e
@@ -789,6 +1019,16 @@ func Pipe(p []Handle) (err error) {
 	return nil
 }
 
+// openForTimes opens path to set its times, holding a link to its type as Open
+// does.
+func openForTimes(pathp *uint16, path string) (Handle, error) {
+	const access, share, attrs = FILE_WRITE_ATTRIBUTES, FILE_SHARE_WRITE, FILE_FLAG_BACKUP_SEMANTICS
+	if testHoldLinks || followsMismatchedLinks() {
+		return openHoldingLinks(pathp, path, access, share, nil, OPEN_EXISTING, attrs)
+	}
+	return CreateFile(pathp, access, share, nil, OPEN_EXISTING, attrs, 0)
+}
+
 func Utimes(path string, tv []Timeval) (err error) {
 	if len(tv) != 2 {
 		return EINVAL
@@ -797,19 +1037,11 @@ func Utimes(path string, tv []Timeval) (err error) {
 	if e != nil {
 		return e
 	}
-	h, e := CreateFile(pathp,
-		FILE_WRITE_ATTRIBUTES, FILE_SHARE_WRITE, nil,
-		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0)
+	h, e := openForTimes(pathp, path)
 	if e != nil {
 		return e
 	}
 	defer Close(h)
-	if followsMismatchedLinks() {
-		// Answer as Windows 10 and later do. See followsMismatchedLinks.
-		if e := mismatchedLink(path, h); e != 0 {
-			return e
-		}
-	}
 	a := Filetime{}
 	w := Filetime{}
 	if tv[0].Nanoseconds() != 0 {
@@ -832,19 +1064,11 @@ func UtimesNano(path string, ts []Timespec) (err error) {
 	if e != nil {
 		return e
 	}
-	h, e := CreateFile(pathp,
-		FILE_WRITE_ATTRIBUTES, FILE_SHARE_WRITE, nil,
-		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0)
+	h, e := openForTimes(pathp, path)
 	if e != nil {
 		return e
 	}
 	defer Close(h)
-	if followsMismatchedLinks() {
-		// Answer as Windows 10 and later do. See followsMismatchedLinks.
-		if e := mismatchedLink(path, h); e != 0 {
-			return e
-		}
-	}
 	a := Filetime{}
 	w := Filetime{}
 	if ts[0].Nsec != _UTIME_OMIT {
@@ -1206,7 +1430,7 @@ func LoadConnectEx() error {
 		if connectExFunc.err != nil {
 			return
 		}
-		defer CloseHandle(s)
+		defer Closesocket(s)
 		var n uint32
 		connectExFunc.err = WSAIoctl(s,
 			SIO_GET_EXTENSION_FUNCTION_POINTER,
@@ -1489,12 +1713,36 @@ func Readlink(path string, buf []byte) (n int, err error) {
 		return -1, err
 	}
 	defer CloseHandle(fd)
-
-	rdbbuf := make([]byte, MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
-	var bytesReturned uint32
-	err = DeviceIoControl(fd, FSCTL_GET_REPARSE_POINT, nil, 0, &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
+	s, err := readlinkHandle(fd)
 	if err != nil {
 		return -1, err
+	}
+	return copy(buf, s), nil
+}
+
+// readLinkTarget is Readlink through an open asking no access, which takes no
+// part in sharing.
+func readLinkTarget(path string) (string, error) {
+	pathp, err := UTF16PtrFromString(path)
+	if err != nil {
+		return "", err
+	}
+	fd, err := CreateFile(pathp, 0, FILE_SHARE_READ|FILE_SHARE_WRITE|FILE_SHARE_DELETE, nil, OPEN_EXISTING,
+		FILE_FLAG_OPEN_REPARSE_POINT|FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		return "", err
+	}
+	defer CloseHandle(fd)
+	return readlinkHandle(fd)
+}
+
+// readlinkHandle is Readlink on the reparse point open on fd.
+func readlinkHandle(fd Handle) (string, error) {
+	rdbbuf := make([]byte, MAXIMUM_REPARSE_DATA_BUFFER_SIZE)
+	var bytesReturned uint32
+	err := DeviceIoControl(fd, FSCTL_GET_REPARSE_POINT, nil, 0, &rdbbuf[0], uint32(len(rdbbuf)), &bytesReturned, nil)
+	if err != nil {
+		return "", err
 	}
 
 	rdb := (*reparseDataBuffer)(unsafe.Pointer(&rdbbuf[0]))
@@ -1531,11 +1779,9 @@ func Readlink(path string, buf []byte) (n int, err error) {
 	default:
 		// the path is not a symlink or junction but another type of reparse
 		// point
-		return -1, ENOENT
+		return "", ENOENT
 	}
-	n = copy(buf, []byte(s))
-
-	return n, nil
+	return s, nil
 }
 
 // Deprecated: CreateIoCompletionPort has the wrong function signature. Use x/sys/windows.CreateIoCompletionPort.

@@ -683,8 +683,7 @@ func (fd *FD) Dup() (int, string, error) {
 	return DupCloseOnExec(fd.Sysfd)
 }
 
-// setDeadlineNoPoller reports that fd has nowhere to keep a deadline. Only
-// Windows keeps them outside the poller, for handles it leaves off it.
+// Only Windows keeps deadlines outside the poller.
 func (fd *FD) setDeadlineNoPoller(d int64, mode int) error {
 	return ErrNoDeadline
 }

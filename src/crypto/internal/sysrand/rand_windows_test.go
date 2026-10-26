@@ -1,26 +1,28 @@
-// Copyright 2026 The Go Authors. All rights reserved.
+// Copyright 2014 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 package sysrand
 
-import "testing"
+import (
+	"bytes"
+	"testing"
+)
 
-// TestReadBatched checks that a buffer longer than one RtlGenRandom call
-// may take is filled to its end. The real limit is 1<<31-1, too large to
-// allocate here, so a small one stands in for it.
-func TestReadBatched(t *testing.T) {
-	b := make([]byte, 1000)
-	if err := readBatched(b, 7); err != nil {
-		t.Fatal(err)
-	}
-	// The tail lies well past the first chunk, so it is only written if
-	// the loop advanced. All zeroes there means it did not.
-	tail := b[len(b)-32:]
-	for _, c := range tail {
-		if c != 0 {
-			return
+func TestBatched(t *testing.T) {
+	fillBatched := batched(func(p []byte) error {
+		for i := range p {
+			p[i] = byte(i)
 		}
+		return nil
+	}, 5)
+
+	p := make([]byte, 13)
+	if err := fillBatched(p); err != nil {
+		t.Fatalf("batched function returned error: %s", err)
 	}
-	t.Error("the end of the buffer was left unwritten")
+	expected := []byte{0, 1, 2, 3, 4, 0, 1, 2, 3, 4, 0, 1, 2}
+	if !bytes.Equal(expected, p) {
+		t.Errorf("incorrect batch result: got %x, want %x", p, expected)
+	}
 }

@@ -1,0 +1,425 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 14:45:05 +1300
+Subject: [PATCH] internal/syscall/windows: move a held file aside before deleting it
+
+Where Windows refuses the newer delete (0011), RemoveAll and Root.Remove
+delete through a fallback (CL 713480, commit b31dc77, Go 1.26) that only
+marks a file. The file keeps its name while any program still has it open,
+so RemoveAll cannot remove the directory it was in.
+
+Free the name at once even while another program has the file open. Move
+such a file out of the way first, into the temporary folder if it is on the
+same drive and within its own folder if not, then delete it.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, 8, 8.1,     the name stays, so     the name is free at once
+	some early Windows 10  RemoveAll fails
+	(file open elsewhere)
+	-----------------------------------------------------------------------
+	Windows 10 22H2, 11    the name is free at    the name is free at once
+	                       once
+
+Gate: version, then query (10 before 22H2, 0011's check) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index ae9ac9fb..373b7c89 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -354,39 +354,61 @@ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+ 	if err := objAttrs.init(dirfd, name); err != nil {
+ 		return err
+ 	}
++	// Where the kernel takes the fallback (KernelDeletesAsUpstream), a
++	// file's delete open shares deletion alone, so it fails exactly when
++	// the file is held (see heldForIO). It also asks for write-attribute
++	// access, to clear a read-only file on this handle.
++	fallback := TestDeleteatFallback || !KernelDeletesAsUpstream()
++	probe := fallback && options&FILE_NON_DIRECTORY_FILE != 0
++	share := uint32(FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE)
++	if probe {
++		share = FILE_SHARE_DELETE
++	}
++	held := false
++	writeAttrs := false
+ 	var h syscall.Handle
+-	err := NtOpenFile(
+-		&h,
+-		FILE_READ_ATTRIBUTES|DELETE,
+-		objAttrs,
+-		&IO_STATUS_BLOCK{},
+-		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+-		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|options,
+-	)
+-	if err != nil {
+-		if ntStatus, ok := err.(NTStatus); !ok || ntStatus != STATUS_ACCESS_DENIED {
+-			return ntCreateFileError(err, 0)
++	var err error
++	for {
++		open := func(access uint32) error {
++			return NtOpenFile(
++				&h,
++				access,
++				objAttrs,
++				&IO_STATUS_BLOCK{},
++				share,
++				FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|options,
++			)
+ 		}
+-
+-		// Access denied, try opening with DELETE only.
+-		// This may succeed if the file has restrictive permissions
+-		// but the caller has delete child permission on the parent directory.
+-		err = NtOpenFile(
+-			&h,
+-			DELETE,
+-			objAttrs,
+-			&IO_STATUS_BLOCK{},
+-			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+-			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|options,
+-		)
+-		if err != nil {
+-			return ntCreateFileError(err, 0)
++		writeAttrs = probe
++		if writeAttrs {
++			err = open(FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | DELETE)
++			if err == STATUS_ACCESS_DENIED {
++				writeAttrs = false
++			}
++		}
++		if !writeAttrs {
++			err = open(FILE_READ_ATTRIBUTES | DELETE)
++		}
++		if err == STATUS_ACCESS_DENIED {
++			// Access denied, try opening with DELETE only.
++			// This may succeed if the file has restrictive permissions
++			// but the caller has delete child permission on the parent directory.
++			err = open(DELETE)
++		}
++		if probe && err == STATUS_SHARING_VIOLATION {
++			probe, held = false, true
++			share = FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE
++			continue
+ 		}
++		break
++	}
++	if err != nil {
++		return ntCreateFileError(err, 0)
+ 	}
+ 	defer syscall.CloseHandle(h)
+ 
+-	if TestDeleteatFallback || !KernelDeletesAsUpstream() {
+-		return deleteatLegacy(h, objAttrs)
++	if fallback {
++		return deleteatLegacy(h, objAttrs, name, probe || held, held, writeAttrs)
+ 	}
+ 
+ 	const FileDispositionInformationEx = 64
+@@ -550,14 +572,36 @@ func deleteatFallback(h syscall.Handle) error {
+ 
+ // deleteatLegacy is deleteat for a kernel without upstream's call (see
+ // KernelDeletesAsUpstream).
+-func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES) error {
+-	if info, err := fileAttributesAndTag(h); err == nil && info.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
+-		if err := clearReadOnly(h, objAttrs, info.FileAttributes); err != nil {
+-			return err
++//
++// known says the delete open has answered whether the file is held (held),
++// and writeAttrs that h can clear the read-only attribute.
++func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string, known, held, writeAttrs bool) error {
++	var attrs uint32
++	info, e := fileAttributesAndTag(h)
++	haveData := e == nil
++	if haveData {
++		attrs = info.FileAttributes
++		if attrs&syscall.FILE_ATTRIBUTE_READONLY != 0 {
++			if err := clearReadOnly(h, writeAttrs, objAttrs, attrs); err != nil {
++				return err
++			}
+ 		}
+ 	}
+ 
+-	return SetFileInformationByHandle(
++	// Without POSIX semantics a name lives until its last handle closes,
++	// so a held file is moved aside first. A directory is never moved. It
++	// must fail while it has entries, and these kernels cannot rename a
++	// held one.
++	var id fileIdentity
++	haveID := false
++	aside := false
++	if haveData && attrs&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 && (held || !known && heldForIO(objAttrs)) {
++		if id, haveID = identityOf(h); haveID {
++			aside = setAsideForDelete(h, objAttrs, id)
++		}
++	}
++
++	err := SetFileInformationByHandle(
+ 		h,
+ 		FileDispositionInfo,
+ 		unsafe.Pointer(&FILE_DISPOSITION_INFO{
+@@ -565,16 +609,35 @@ func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES) error {
+ 		}),
+ 		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
+ 	)
++	if err != nil && aside {
++		// The file stays. Put its name back unless something has taken
++		// it since.
++		if p16, err := syscall.UTF16FromString(name); err == nil {
++			renameTo(h, objAttrs.RootDirectory, p16[:len(p16)-1], false)
++		}
++	}
++	return err
+ }
+ 
+-// clearReadOnly clears the read-only attribute through a fresh open of the
+-// name (ReOpenFile refuses a directory), if it still leads to the same file.
+-func clearReadOnly(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, attrs uint32) error {
++// clearReadOnly clears the read-only attribute on h where it has
++// write-attribute access, else through a fresh open of the name (ReOpenFile
++// refuses a directory) if it still leads to the same file.
++func clearReadOnly(h syscall.Handle, writeAttrs bool, objAttrs *OBJECT_ATTRIBUTES, attrs uint32) error {
+ 	// Zero attributes means no change, so a file is given NORMAL instead.
+ 	attrs &^= FILE_ATTRIBUTE_READONLY
+ 	if attrs == 0 {
+ 		attrs = syscall.FILE_ATTRIBUTE_NORMAL
+ 	}
++	if writeAttrs {
++		return SetFileInformationByHandle(
++			h,
++			FileBasicInfo,
++			unsafe.Pointer(&FILE_BASIC_INFO{
++				FileAttributes: attrs,
++			}),
++			uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
++		)
++	}
+ 	id, ok := identityOf(h)
+ 	if !ok {
+ 		// Without its identity the entry cannot be matched, so leave
+@@ -611,6 +674,138 @@ func clearReadOnly(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, attrs uint32)
+ 	return err
+ }
+ 
++// deleteStagingDir is where a file that cannot go at once is parked, out of
++// the tree being removed. It is opened per use, since a handle kept open would
++// block renaming or removing the program's temporary directory.
++type deleteStagingDir struct {
++	path   []uint16 // NUL-terminated
++	volume uint32
++	ok     bool
++}
++
++// open returns a handle for a rename into the directory, or 0.
++func (s deleteStagingDir) open() syscall.Handle {
++	h, err := syscall.CreateFile(
++		&s.path[0],
++		syscall.GENERIC_READ,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
++		nil,
++		syscall.OPEN_EXISTING,
++		syscall.FILE_FLAG_BACKUP_SEMANTICS,
++		0,
++	)
++	if err != nil {
++		return 0
++	}
++	return h
++}
++
++var deleteStaging = sync.OnceValue(func() (s deleteStagingDir) {
++	var buf []uint16
++	n := uint32(syscall.MAX_PATH)
++	for {
++		buf = make([]uint16, n)
++		var err error
++		n, err = syscall.GetTempPath(uint32(len(buf)), &buf[0])
++		if err != nil || n == 0 {
++			return
++		}
++		if n <= uint32(len(buf)) {
++			break
++		}
++	}
++	h, err := syscall.CreateFile(
++		&buf[0],
++		syscall.GENERIC_READ,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
++		nil,
++		syscall.OPEN_EXISTING,
++		syscall.FILE_FLAG_BACKUP_SEMANTICS,
++		0,
++	)
++	if err != nil {
++		return
++	}
++	id, ok := identityOf(h)
++	syscall.CloseHandle(h)
++	if !ok {
++		return
++	}
++	return deleteStagingDir{path: buf[:n+1], volume: id.volume, ok: true}
++})
++
++// heldForIO reports whether another handle has the file open for I/O. An open
++// asking delete access alone and sharing deletion alone fails exactly then.
++// Any other failure counts as held, which costs only a rename.
++func heldForIO(objAttrs *OBJECT_ATTRIBUTES) bool {
++	var h syscall.Handle
++	err := NtOpenFile(
++		&h,
++		DELETE,
++		objAttrs,
++		&IO_STATUS_BLOCK{},
++		FILE_SHARE_DELETE,
++		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT,
++	)
++	if err != nil {
++		return true
++	}
++	syscall.CloseHandle(h)
++	return false
++}
++
++// setAsideForDelete moves the file open on h off its name, into the staging
++// directory where it can. It reports whether that happened, since a rename
++// cannot cross volumes and needs every handle to share deletion.
++func setAsideForDelete(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, id fileIdentity) bool {
++	dir := objAttrs.RootDirectory
++	if s := deleteStaging(); s.ok && s.volume == id.volume {
++		if sh := s.open(); sh != 0 {
++			defer syscall.CloseHandle(sh)
++			dir = sh
++		}
++	}
++	if dir == 0 {
++		return false
++	}
++	// The file index is unique on the volume, so two names cannot collide.
++	const hex = "0123456789abcdef"
++	name := make([]uint16, 0, len(".go-deleted-")+16)
++	for _, c := range ".go-deleted-" {
++		name = append(name, uint16(c))
++	}
++	for _, v := range [2]uint32{uint32(id.index >> 32), uint32(id.index)} {
++		for shift := 28; shift >= 0; shift -= 4 {
++			name = append(name, uint16(hex[(v>>uint(shift))&0xf]))
++		}
++	}
++	return renameTo(h, dir, name, true) == nil
++}
++
++// renameTo renames the file open on h to name in dir, on the same volume,
++// replacing what is there only if replace is set.
++func renameTo(h syscall.Handle, dir syscall.Handle, name []uint16, replace bool) error {
++	info := FILE_RENAME_INFORMATION{
++		RootDirectory: dir,
++	}
++	if replace {
++		info.ReplaceIfExists = 1
++	}
++	if len(name) > len(info.FileName) {
++		return syscall.EINVAL
++	}
++	copy(info.FileName[:], name)
++	info.FileNameLength = uint32(len(name) * 2)
++	const FileRenameInformation = 10
++	return NtSetInformationFile(
++		h,
++		&IO_STATUS_BLOCK{},
++		unsafe.Pointer(&info),
++		uint32(unsafe.Sizeof(info)),
++		FileRenameInformation,
++	)
++}
++
+ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, newpath string) error {
+ 	objAttrs := &OBJECT_ATTRIBUTES{}
+ 	if err := objAttrs.init(olddirfd, oldpath); err != nil {
+diff --git a/src/internal/syscall/windows/at_windows_test.go b/src/internal/syscall/windows/at_windows_test.go
+index a0b8e15d..ce51cc3c 100644
+--- a/src/internal/syscall/windows/at_windows_test.go
++++ b/src/internal/syscall/windows/at_windows_test.go
+@@ -165,3 +165,58 @@ func makeFileNotReadable(t *testing.T, name string) {
+ 		t.Fatal(err)
+ 	}
+ }
++
++// TestRenameToKeepsExisting checks that renameTo replaces a name only when
++// told to, which the way back from a rename aside relies on.
++func TestRenameToKeepsExisting(t *testing.T) {
++	dir := t.TempDir()
++	for _, name := range []string{"a", "b"} {
++		if err := os.WriteFile(filepath.Join(dir, name), []byte(name), 0600); err != nil {
++			t.Fatal(err)
++		}
++	}
++	open := func(name string, access uint32, flags uint32) syscall.Handle {
++		p, err := syscall.UTF16PtrFromString(filepath.Join(dir, name))
++		if err != nil {
++			t.Fatal(err)
++		}
++		h, err := syscall.CreateFile(p, access,
++			syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE,
++			nil, syscall.OPEN_EXISTING, flags, 0)
++		if err != nil {
++			t.Fatal(err)
++		}
++		return h
++	}
++	dh := open(".", syscall.GENERIC_READ, syscall.FILE_FLAG_BACKUP_SEMANTICS)
++	defer syscall.CloseHandle(dh)
++	// h holds DELETE access, which a reader that does not share deletion
++	// cannot coexist with, so it is closed before the file is read back.
++	h := open("a", windows.DELETE|windows.SYNCHRONIZE, 0)
++	closed := false
++	defer func() {
++		if !closed {
++			syscall.CloseHandle(h)
++		}
++	}()
++	b16, err := syscall.UTF16FromString("b")
++	if err != nil {
++		t.Fatal(err)
++	}
++	b16 = b16[:len(b16)-1]
++
++	if err := windows.RenameTo(h, dh, b16, false); err == nil {
++		t.Fatal("renameTo replaced b without being asked to")
++	}
++	if data, err := os.ReadFile(filepath.Join(dir, "b")); err != nil || string(data) != "b" {
++		t.Fatalf("after the refused rename, b holds %q, %v; want %q", data, err, "b")
++	}
++	if err := windows.RenameTo(h, dh, b16, true); err != nil {
++		t.Fatal(err)
++	}
++	syscall.CloseHandle(h)
++	closed = true
++	if data, err := os.ReadFile(filepath.Join(dir, "b")); err != nil || string(data) != "a" {
++		t.Fatalf("after the rename, b holds %q, %v; want %q", data, err, "a")
++	}
++}
+diff --git a/src/internal/syscall/windows/export_windows_test.go b/src/internal/syscall/windows/export_windows_test.go
+new file mode 100644
+index 00000000..52e2a69d
+--- /dev/null
++++ b/src/internal/syscall/windows/export_windows_test.go
+@@ -0,0 +1,7 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package windows
++
++var RenameTo = renameTo
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 9e0c4da9..9bfae90a 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -565,6 +565,7 @@ const (
+ 	STATUS_DIRECTORY_NOT_EMPTY       NTStatus = 0xC0000101
+ 	STATUS_NOT_A_DIRECTORY           NTStatus = 0xC0000103
+ 	STATUS_CANNOT_DELETE             NTStatus = 0xC0000121
++	STATUS_SHARING_VIOLATION         NTStatus = 0xC0000043
+ 	STATUS_REPARSE_POINT_ENCOUNTERED NTStatus = 0xC000050B
+ 	STATUS_NOT_SUPPORTED             NTStatus = 0xC00000BB
+ 	STATUS_INVALID_PARAMETER         NTStatus = 0xC000000D

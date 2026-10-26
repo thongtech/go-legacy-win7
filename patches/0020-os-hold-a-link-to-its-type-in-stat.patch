@@ -1,0 +1,117 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 17:32:49 +1300
+Subject: [PATCH] os: hold a link to its type in Stat
+
+Windows 10 22H2 and 11 refuse a junction that leads to a file and a file
+symlink that leads to a directory. Windows 7, 8 and 8.1 follow both, and
+some early versions of Windows 10 the junction, so there os.Stat describes
+whatever the link leads to, where the os.Root tests of a security fix
+expect the refusal (CL 847305, commit b19851b, Go 1.28).
+
+Give the refusal in os.Stat as well, holding the link to its type as
+syscall.Open does (0018).
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, 8, 8.1,     os.Stat of such a      refused, as on 22H2
+	some early Windows 10  link describes what
+	                       it leads to
+	-----------------------------------------------------------------------
+	Windows 10 22H2, 11    refused                refused
+
+Gate: version, then query (10 before 22H2, 0018's check) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 2aaed517..8c89dc50 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -41,6 +41,7 @@ const (
+ 	ERROR_INVALID_NAME           syscall.Errno = 123
+ 	ERROR_NEGATIVE_SEEK          syscall.Errno = 131
+ 	ERROR_LOCK_FAILED            syscall.Errno = 167
++	ERROR_DIRECTORY              syscall.Errno = 267
+ 	ERROR_IO_INCOMPLETE          syscall.Errno = 996
+ 	ERROR_NO_TOKEN               syscall.Errno = 1008
+ 	ERROR_NO_UNICODE_TRANSLATION syscall.Errno = 1113
+diff --git a/src/os/stat_windows.go b/src/os/stat_windows.go
+index de785779..20a64e08 100644
+--- a/src/os/stat_windows.go
++++ b/src/os/stat_windows.go
+@@ -96,6 +96,13 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
+ 	}
+ 
+ 	fi, err := statHandle(name, h)
++	var linkTarget string
++	if err == nil && followSurrogates && followsMismatchedLinks() &&
++		fi.(*fileStat).isReparseTagNameSurrogate() && fi.(*fileStat).FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
++		// Read a file symlink's target through the handle in hand for
++		// mismatchedLink.
++		linkTarget, _ = readReparseLinkHandle(h)
++	}
+ 	syscall.CloseHandle(h)
+ 	if err == nil && followSurrogates && fi.(*fileStat).isReparseTagNameSurrogate() {
+ 		// To obtain information about the link target, we reopen the file without
+@@ -107,11 +114,62 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
+ 			return nil, &PathError{Op: "CreateFile", Path: name, Err: err}
+ 		}
+ 		defer syscall.CloseHandle(h)
+-		return statHandle(name, h)
++		target, err := statHandle(name, h)
++		if err == nil && followsMismatchedLinks() {
++			if e := mismatchedLink(name, fi.(*fileStat), target.(*fileStat), linkTarget); e != nil {
++				return nil, &PathError{Op: "CreateFile", Path: name, Err: e}
++			}
++		}
++		return target, err
+ 	}
+ 	return fi, err
+ }
+ 
++// followsMismatchedLinks is syscall's gate of the same name.
++//
++//go:linkname followsMismatchedLinks syscall.followsMismatchedLinks
++func followsMismatchedLinks() bool
++
++// mismatchedLink returns the refusal of a link to the other type when the
++// link at name, with attributes link, is followed to target, or nil where
++// the answer stands.
++func mismatchedLink(name string, link, target *fileStat, linkTarget string) error {
++	if link.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
++		if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
++			return windows.ERROR_DIRECTORY
++		}
++		return nil
++	}
++	if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
++		return syscall.ERROR_ACCESS_DENIED
++	}
++	// A chain ending at a file may start at a directory link, so check the
++	// link's own target, read through its handle or else by name.
++	t := linkTarget
++	if t == "" {
++		var err error
++		if t, err = readlink(name); err != nil || t == "" {
++			return nil
++		}
++	}
++	if !filepathlite.IsAbs(t) && !IsPathSeparator(t[0]) {
++		t = filepathlite.Dir(name) + `\` + t
++	}
++	// Only the target's own directory attribute matters.
++	tp, err := syscall.UTF16PtrFromString(fixLongPath(t))
++	if err != nil {
++		return nil
++	}
++	var fa syscall.Win32FileAttributeData
++	if syscall.GetFileAttributesEx(tp, syscall.GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil {
++		return nil
++	}
++	if fa.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
++		return syscall.ERROR_ACCESS_DENIED
++	}
++	return nil
++}
++
+ // isConsoleName reports whether name is a console device, with or without
+ // the \\.\ prefix. Before Windows 8 GetFileAttributesEx reports them missing.
+ func isConsoleName(name string) bool {

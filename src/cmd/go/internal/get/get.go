@@ -185,7 +185,7 @@ func runGet(ctx context.Context, cmd *base.Command, args []string) {
 	// the information will be recomputed. Instead of keeping
 	// track of the reverse dependency information, evict
 	// everything.
-	load.ClearPackageCache()
+	load.ClearPackageCacheAll()
 
 	pkgs := load.PackagesAndErrors(ld, ctx, load.PackageOpts{}, args)
 	load.CheckPackageErrors(pkgs)

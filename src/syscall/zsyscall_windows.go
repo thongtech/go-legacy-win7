@@ -132,7 +132,6 @@ var (
 	procGetSystemTimeAsFileTime            = modkernel32.NewProc("GetSystemTimeAsFileTime")
 	procGetTempPathW                       = modkernel32.NewProc("GetTempPathW")
 	procGetTimeZoneInformation             = modkernel32.NewProc("GetTimeZoneInformation")
-	procRtlGetNtVersionNumbers             = modntdll.NewProc("RtlGetNtVersionNumbers")
 	procInitializeProcThreadAttributeList  = modkernel32.NewProc("InitializeProcThreadAttributeList")
 	procLoadLibraryW                       = modkernel32.NewProc("LoadLibraryW")
 	procLocalAlloc                         = modkernel32.NewProc("LocalAlloc")
@@ -170,6 +169,8 @@ var (
 	procNetApiBufferFree                   = modnetapi32.NewProc("NetApiBufferFree")
 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
+	procNtQueryInformationFile             = modntdll.NewProc("NtQueryInformationFile")
+	procRtlGetNtVersionNumbers             = modntdll.NewProc("RtlGetNtVersionNumbers")
 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
 	procCommandLineToArgvW                 = modshell32.NewProc("CommandLineToArgvW")
@@ -896,11 +897,6 @@ func GetTimeZoneInformation(tzi *Timezoneinformation) (rc uint32, err error) {
 	return
 }
 
-func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
-	SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
-	return
-}
-
 func initializeProcThreadAttributeList(attrlist *_PROC_THREAD_ATTRIBUTE_LIST, attrcount uint32, flags uint32, size *uintptr) (err error) {
 	r1, _, e1 := SyscallN(procInitializeProcThreadAttributeList.Addr(), uintptr(unsafe.Pointer(attrlist)), uintptr(attrcount), uintptr(flags), uintptr(unsafe.Pointer(size)))
 	if r1 == 0 {
@@ -1223,6 +1219,17 @@ func NetUserGetInfo(serverName *uint16, userName *uint16, level uint32, buf **by
 	if r0 != 0 {
 		neterr = Errno(r0)
 	}
+	return
+}
+
+func ntQueryInformationFile(handle Handle, iosb *_IO_STATUS_BLOCK, info unsafe.Pointer, length uint32, class uint32) (status uint32) {
+	r0, _, _ := SyscallN(procNtQueryInformationFile.Addr(), uintptr(handle), uintptr(unsafe.Pointer(iosb)), uintptr(info), uintptr(length), uintptr(class))
+	status = uint32(r0)
+	return
+}
+
+func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
+	SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
 	return
 }
 

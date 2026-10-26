@@ -8,7 +8,6 @@ import (
 	"errors"
 	"internal/filepathlite"
 	"internal/syscall/windows"
-	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -75,19 +74,16 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 	var flags uint32 = syscall.FILE_FLAG_BACKUP_SEMANTICS | syscall.FILE_FLAG_OPEN_REPARSE_POINT
 	h, err := syscall.CreateFile(namep, 0, 0, nil, syscall.OPEN_EXISTING, flags, 0)
 
+	// Windows 7 answers a console opened without access as missing, not
+	// with ERROR_INVALID_PARAMETER.
 	if err == windows.ERROR_INVALID_PARAMETER || (isConsoleName(name) && errors.Is(err, ErrNotExist)) {
 		// Console handles, like "\\.\con", require generic read access. See
 		// https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew#consoles.
 		// We haven't set it previously because it is normally not required
 		// to read attributes and some files may not allow it.
-		//
-		// Windows 7 reports a console opened without that access as
-		// missing rather than as a bad parameter, so there the name is
-		// what says to retry.
 		h, err = syscall.CreateFile(namep, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, flags, 0)
 	}
 	if bare, ok := consoleDeviceName(name); ok && errors.Is(err, ErrNotExist) {
-		// See the comment on consoleDeviceName.
 		if barep, err2 := syscall.UTF16PtrFromString(bare); err2 == nil {
 			h, err = syscall.CreateFile(barep, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, flags, 0)
 		}
@@ -100,6 +96,13 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 	}
 
 	fi, err := statHandle(name, h)
+	var linkTarget string
+	if err == nil && followSurrogates && followsMismatchedLinks() &&
+		fi.(*fileStat).isReparseTagNameSurrogate() && fi.(*fileStat).FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
+		// Read a file symlink's target through the handle in hand for
+		// mismatchedLink.
+		linkTarget, _ = readReparseLinkHandle(h)
+	}
 	syscall.CloseHandle(h)
 	if err == nil && followSurrogates && fi.(*fileStat).isReparseTagNameSurrogate() {
 		// To obtain information about the link target, we reopen the file without
@@ -113,7 +116,7 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 		defer syscall.CloseHandle(h)
 		target, err := statHandle(name, h)
 		if err == nil && followsMismatchedLinks() {
-			if e := mismatchedLink(name, fi.(*fileStat), target.(*fileStat)); e != nil {
+			if e := mismatchedLink(name, fi.(*fileStat), target.(*fileStat), linkTarget); e != nil {
 				return nil, &PathError{Op: "CreateFile", Path: name, Err: e}
 			}
 		}
@@ -122,24 +125,15 @@ func stat(funcname, name string, followSurrogates bool) (FileInfo, error) {
 	return fi, err
 }
 
-// followsMismatchedLinks reports whether this kernel follows a link to
-// something of the other type, which Windows 7, 8 and 8.1 do and Windows 10
-// and later refuse before stat can look. It is the gate syscall keeps under
-// the same name, so that only those kernels pay for the look.
-var followsMismatchedLinks = sync.OnceValue(func() bool {
-	major, _, _ := windows.Version()
-	return major < 10
-})
+// followsMismatchedLinks is syscall's gate of the same name.
+//
+//go:linkname followsMismatchedLinks syscall.followsMismatchedLinks
+func followsMismatchedLinks() bool
 
-// mismatchedLink reports what Windows 10 and later answer when the link at
-// name, whose own attributes are in link, is followed to target, or nil
-// where the kernel's answer stands. They hold a link to its type. A
-// directory link, a junction or a directory symlink, that leads to anything
-// but a directory is refused with ERROR_DIRECTORY, and a file symlink whose
-// own target is a directory entry, whatever that entry leads to, with
-// ERROR_ACCESS_DENIED. Those kernels never reach this; Windows 7, 8 and 8.1
-// follow either link and do.
-func mismatchedLink(name string, link, target *fileStat) error {
+// mismatchedLink returns the refusal of a link to the other type when the
+// link at name, with attributes link, is followed to target, or nil where
+// the answer stands.
+func mismatchedLink(name string, link, target *fileStat, linkTarget string) error {
 	if link.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
 		if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY == 0 {
 			return windows.ERROR_DIRECTORY
@@ -149,30 +143,35 @@ func mismatchedLink(name string, link, target *fileStat) error {
 	if target.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
 		return syscall.ERROR_ACCESS_DENIED
 	}
-	// A chain ending at a file can still begin at a junction or a directory
-	// symlink to that file, so the link's own target is looked at.
-	t, err := readlink(name)
-	if err != nil || t == "" {
-		return nil
+	// A chain ending at a file may start at a directory link, so check the
+	// link's own target, read through its handle or else by name.
+	t := linkTarget
+	if t == "" {
+		var err error
+		if t, err = readlink(name); err != nil || t == "" {
+			return nil
+		}
 	}
 	if !filepathlite.IsAbs(t) && !IsPathSeparator(t[0]) {
 		t = filepathlite.Dir(name) + `\` + t
 	}
-	lfi, err := Lstat(t)
+	// Only the target's own directory attribute matters.
+	tp, err := syscall.UTF16PtrFromString(fixLongPath(t))
 	if err != nil {
 		return nil
 	}
-	if lfi.(*fileStat).FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
+	var fa syscall.Win32FileAttributeData
+	if syscall.GetFileAttributesEx(tp, syscall.GetFileExInfoStandard, (*byte)(unsafe.Pointer(&fa))) != nil {
+		return nil
+	}
+	if fa.FileAttributes&syscall.FILE_ATTRIBUTE_DIRECTORY != 0 {
 		return syscall.ERROR_ACCESS_DENIED
 	}
 	return nil
 }
 
-// isConsoleName reports whether name is one of the console devices, with or
-// without the \\.\ prefix. GetFileAttributesEx reports them as missing
-// before Windows 8, where CreateFile opens them, so stat cannot take a
-// not-exist answer for these names at face value. Nothing else is named
-// this way, since they are reserved device names.
+// isConsoleName reports whether name is a console device, with or without
+// the \\.\ prefix. Before Windows 8 GetFileAttributesEx reports them missing.
 func isConsoleName(name string) bool {
 	if len(name) >= 4 && IsPathSeparator(name[0]) && IsPathSeparator(name[1]) &&
 		name[2] == '.' && IsPathSeparator(name[3]) {
@@ -196,11 +195,9 @@ func isConsoleName(name string) bool {
 	return false
 }
 
-// consoleDeviceName returns the console device that name asks for through the
-// \\.\ prefix, without it. The console devices reach the object namespace,
-// and so that prefix, only from Windows 8 on. Before it CreateFile knows
-// CONIN$ and CONOUT$ by their bare names alone. The two forms name the same
-// console, so a prefixed open that comes back missing is retried bare.
+// consoleDeviceName returns a \\.\ console name without the prefix. Before
+// Windows 8 a prefixed name does not reach the console, so an open that comes
+// back missing is retried bare.
 func consoleDeviceName(name string) (string, bool) {
 	if len(name) >= 4 && IsPathSeparator(name[0]) && IsPathSeparator(name[1]) &&
 		name[2] == '.' && IsPathSeparator(name[3]) && isConsoleName(name) {

@@ -146,3 +146,20 @@ func TestChangingProcessParent(t *testing.T) {
 		t.Fatalf("child output: want %q, got %q", want, got)
 	}
 }
+
+// TestStartProcessConsoleHandle checks that a child can be started with a
+// console handle as its standard output. Before Windows 8 a console handle is
+// a pseudo-handle, which CreateProcess refuses in the inherited handle list.
+func TestStartProcessConsoleHandle(t *testing.T) {
+	testenv.MustHaveExec(t)
+	con, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0)
+	if err != nil {
+		t.Skipf("no console to open: %v", err)
+	}
+	defer con.Close()
+	cmd := exec.Command("cmd", "/c", "rem")
+	cmd.Stdout = con
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+}

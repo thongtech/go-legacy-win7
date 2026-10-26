@@ -7,8 +7,17 @@ package net
 import (
 	"internal/syscall/windows"
 	"os"
+	"sync"
 	"syscall"
 )
+
+// kernelLacksNoHandleInherit reports whether ws2_32 lacks the flag, as Windows
+// 7 before Service Pack 1 does. Elsewhere a refusal comes from a provider and
+// stands.
+var kernelLacksNoHandleInherit = sync.OnceValue(func() bool {
+	major, minor, build := windows.KernelVersion()
+	return major == 6 && minor == 1 && build < 7601
+})
 
 func maxListenerBacklog() int {
 	// When the socket backlog is SOMAXCONN, Windows will set the backlog to
@@ -17,22 +26,25 @@ func maxListenerBacklog() int {
 	return syscall.SOMAXCONN
 }
 
-func sysSocket(family, sotype, proto int) (syscall.Handle, error) {
-	s, err := wsaSocketFunc(int32(family), int32(sotype), int32(proto),
-		nil, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
-	if err == nil {
-		return s, nil
+// wsaSocket makes a socket as sysSocket and dupSocket ask. Where ws2_32 lacks
+// WSA_FLAG_NO_HANDLE_INHERIT the socket is made inheritable and the flag
+// cleared, with no ForkLock, since a child inherits only the handles in its
+// handle list.
+func wsaSocket(family, sotype, proto int32, info *syscall.WSAProtocolInfo) (syscall.Handle, error) {
+	if !kernelLacksNoHandleInherit() {
+		return wsaSocketFunc(family, sotype, proto, info, 0, windows.WSA_FLAG_OVERLAPPED|windows.WSA_FLAG_NO_HANDLE_INHERIT)
 	}
-	// WSA_FLAG_NO_HANDLE_INHERIT needs Windows 7 SP1, and WSASocket rejects the
-	// flag outright without it. Create an inheritable socket instead and clear
-	// the flag afterwards. Unlike the equivalent code before Go 1.22 this does
-	// not take syscall.ForkLock, since a child only inherits the handles listed
-	// in PROC_THREAD_ATTRIBUTE_HANDLE_LIST.
-	s, err = wsaSocketFunc(int32(family), int32(sotype), int32(proto),
-		nil, 0, windows.WSA_FLAG_OVERLAPPED)
+	s, err := wsaSocketFunc(family, sotype, proto, info, 0, windows.WSA_FLAG_OVERLAPPED)
+	if err == nil {
+		syscall.CloseOnExec(s)
+	}
+	return s, err
+}
+
+func sysSocket(family, sotype, proto int) (syscall.Handle, error) {
+	s, err := wsaSocket(int32(family), int32(sotype), int32(proto), nil)
 	if err != nil {
 		return syscall.InvalidHandle, os.NewSyscallError("socket", err)
 	}
-	syscall.CloseOnExec(s)
 	return s, nil
 }

@@ -1,0 +1,241 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 15:52:57 +1300
+Subject: [PATCH] internal/syscall/windows: wait for a deleted name its last handle is about to release
+
+Where Windows refuses the newer delete (0011), a deleted file or
+directory keeps its name until every handle on it closes, which can be
+a moment after the program itself has closed it, and a directory that
+still lists such a name cannot be removed. RemoveAll counts on the names going
+(CL 713480, commit b31dc77, Go 1.26).
+
+Let RemoveAll finish while such a name is on its way out. Wait up to
+0.1 seconds for it to go.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, 8, 8.1,     RemoveAll fails with   succeeds, waiting at
+	some early Windows 10  "directory not empty"  most 0.1 seconds
+	                       while a deleted
+	                       name inside is
+	                       still going
+	-----------------------------------------------------------------------
+	Windows 10 22H2, 11    succeeds               succeeds
+
+Gate: version, then query (10 before 22H2, 0011's check) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index 06a532a4..e9755f02 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -347,6 +347,14 @@ type fileIdentity struct {
+ 	index  uint64
+ }
+ 
++// aligned8 returns the first 8-byte aligned address in buf, which is made 8
++// bytes longer for it. The kernel refuses an unaligned buffer for an answer
++// with 64-bit fields, and 386 aligns locals to 4.
++func aligned8(buf []byte) unsafe.Pointer {
++	p := unsafe.Pointer(&buf[0])
++	return unsafe.Add(p, (8-uintptr(p)%8)%8)
++}
++
+ // identityOf reads the volume serial number and file index of the file h is
+ // open on.
+ func identityOf(h syscall.Handle) (fileIdentity, bool) {
+@@ -485,7 +493,7 @@ func deleteat(objAttrs *OBJECT_ATTRIBUTES, name string, options uint32) error {
+ 	writeAttrs := false
+ 	var h syscall.Handle
+ 	var err error
+-	var again waiter
++	var again, pending waiter
+ 	for {
+ 		open := func(access uint32) error {
+ 			return NtOpenFile(
+@@ -526,6 +534,11 @@ func deleteat(objAttrs *OBJECT_ATTRIBUTES, name string, options uint32) error {
+ 		if err == STATUS_SHARING_VIOLATION && imageLingers() && again.again() {
+ 			continue
+ 		}
++		// Without POSIX semantics a marked entry keeps its name until
++		// its last handle closes, so wait a moment for it to go.
++		if fallback && err == STATUS_DELETE_PENDING && pending.again() {
++			continue
++		}
+ 		break
+ 	}
+ 	if err != nil {
+@@ -728,7 +741,7 @@ func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string,
+ 	}
+ 
+ 	var err error
+-	var again waiter
++	var again, pending waiter
+ 	for {
+ 		err = SetFileInformationByHandle(
+ 			h,
+@@ -743,6 +756,14 @@ func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string,
+ 		if err == syscall.ERROR_ACCESS_DENIED && imageLingers() && again.again() {
+ 			continue
+ 		}
++		// A directory whose entries are all marked for deletion
++		// empties as their handles close, so wait a moment.
++		if err == syscall.ERROR_DIR_NOT_EMPTY && !haveID {
++			id, haveID = identityOf(h)
++		}
++		if err == syscall.ERROR_DIR_NOT_EMPTY && haveID && onlyDeletePending(objAttrs, id) && pending.again() {
++			continue
++		}
+ 		break
+ 	}
+ 	if err != nil && aside {
+@@ -836,6 +857,73 @@ func (w *waiter) again() bool {
+ 	return true
+ }
+ 
++// onlyDeletePending reports whether every entry the directory still lists is
++// pending deletion (STATUS_DELETE_PENDING, or STATUS_OBJECT_NAME_NOT_FOUND,
++// which some kernels answer instead). It reopens the directory by name,
++// which must still lead to the same directory.
++func onlyDeletePending(objAttrs *OBJECT_ATTRIBUTES, id fileIdentity) bool {
++	var dir syscall.Handle
++	err := NtOpenFile(
++		&dir,
++		SYNCHRONIZE|FILE_LIST_DIRECTORY|FILE_READ_ATTRIBUTES,
++		objAttrs,
++		&IO_STATUS_BLOCK{},
++		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
++		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_DIRECTORY_FILE|FILE_SYNCHRONOUS_IO_NONALERT,
++	)
++	if err != nil {
++		return false
++	}
++	defer syscall.CloseHandle(dir)
++	if again, ok := identityOf(dir); !ok || again != id {
++		return false
++	}
++	// See aligned8.
++	var bufRaw [4096 + 8]byte
++	buf := aligned8(bufRaw[:])
++	for {
++		err := GetFileInformationByHandleEx(dir, FileIdBothDirectoryInfo, (*byte)(buf), 4096)
++		if err == syscall.ERROR_NO_MORE_FILES {
++			// Nothing listed, yet not empty. The entry went
++			// between the calls, or the kernel hides marked
++			// entries while counting them, as some kernels do.
++			return true
++		}
++		if err != nil {
++			return false
++		}
++		for off := uint32(0); ; {
++			info := (*FILE_ID_BOTH_DIR_INFO)(unsafe.Add(buf, off))
++			name := unsafe.Slice(&info.FileName[0], info.FileNameLength/2)
++			if !(len(name) == 1 && name[0] == '.') && !(len(name) == 2 && name[0] == '.' && name[1] == '.') {
++				entryAttrs := &OBJECT_ATTRIBUTES{}
++				if err := entryAttrs.init(dir, syscall.UTF16ToString(name)); err != nil {
++					return false
++				}
++				var eh syscall.Handle
++				err := NtOpenFile(
++					&eh,
++					FILE_READ_ATTRIBUTES,
++					entryAttrs,
++					&IO_STATUS_BLOCK{},
++					FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
++					FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT,
++				)
++				if err == nil {
++					syscall.CloseHandle(eh)
++				}
++				if err != STATUS_DELETE_PENDING && err != STATUS_OBJECT_NAME_NOT_FOUND {
++					return false
++				}
++			}
++			if info.NextEntryOffset == 0 {
++				break
++			}
++			off += info.NextEntryOffset
++		}
++	}
++}
++
+ // deleteStagingDir is where a file that cannot go at once is parked, out of
+ // the tree being removed. It is opened per use, since a handle kept open would
+ // block renaming or removing the program's temporary directory.
+diff --git a/src/internal/syscall/windows/at_windows_test.go b/src/internal/syscall/windows/at_windows_test.go
+index d69efe63..8082aa70 100644
+--- a/src/internal/syscall/windows/at_windows_test.go
++++ b/src/internal/syscall/windows/at_windows_test.go
+@@ -10,6 +10,7 @@ import (
+ 	"path/filepath"
+ 	"syscall"
+ 	"testing"
++	"time"
+ 	"unsafe"
+ )
+ 
+@@ -258,3 +259,52 @@ func TestOnDiskName(t *testing.T) {
+ 		}
+ 	}
+ }
++
++// TestDeleteatAnswersPendingAtOnce checks that a kernel with POSIX delete
++// answers a name pending deletion at once, as upstream, without the wait.
++func TestDeleteatAnswersPendingAtOnce(t *testing.T) {
++	// The hook takes the wait on any kernel.
++	if !windows.KernelDeletesAsUpstream() || windows.TestDeleteatFallback {
++		t.Skip("the wait is for this kernel")
++	}
++	dir := t.TempDir()
++	name := filepath.Join(dir, "f")
++	if err := os.WriteFile(name, nil, 0666); err != nil {
++		t.Fatal(err)
++	}
++	p, err := syscall.UTF16PtrFromString(name)
++	if err != nil {
++		t.Fatal(err)
++	}
++	h, err := syscall.CreateFile(p, windows.DELETE,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil,
++		syscall.OPEN_EXISTING, 0, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer syscall.CloseHandle(h)
++	// The old disposition class keeps the name until h closes.
++	mark := byte(1)
++	if err := windows.SetFileInformationByHandle(h, windows.FileDispositionInfo, unsafe.Pointer(&mark), 1); err != nil {
++		t.Fatal(err)
++	}
++	dp, err := syscall.UTF16PtrFromString(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	d, err := syscall.CreateFile(dp, syscall.GENERIC_READ,
++		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil,
++		syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer syscall.CloseHandle(d)
++	start := time.Now()
++	err = windows.Deleteat(d, "f", 0)
++	if elapsed := time.Since(start); elapsed >= 50*time.Millisecond {
++		t.Errorf("Deleteat of a name marked for deletion took %v, want an answer at once", elapsed)
++	}
++	if err == nil {
++		t.Error("Deleteat of a name marked for deletion = nil, want the refusal upstream gives")
++	}
++}
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 9cfad1c7..2aaed517 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -567,6 +567,8 @@ const (
+ 	STATUS_NOT_A_DIRECTORY           NTStatus = 0xC0000103
+ 	STATUS_CANNOT_DELETE             NTStatus = 0xC0000121
+ 	STATUS_SHARING_VIOLATION         NTStatus = 0xC0000043
++	STATUS_DELETE_PENDING            NTStatus = 0xC0000056
++	STATUS_OBJECT_NAME_NOT_FOUND     NTStatus = 0xC0000034
+ 	STATUS_REPARSE_POINT_ENCOUNTERED NTStatus = 0xC000050B
+ 	STATUS_NOT_SUPPORTED             NTStatus = 0xC00000BB
+ 	STATUS_INVALID_PARAMETER         NTStatus = 0xC000000D
