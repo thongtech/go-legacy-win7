@@ -1,0 +1,148 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 15:39:38 +1300
+Subject: [PATCH] internal/syscall/windows: wait out a just-run image where the kernel keeps it mapped
+
+Windows 8 and 8.1 keep a program's file in use for some milliseconds after
+the program has exited, longer when many exit at once. Go 1.20 slept 5 ms
+at the end of (*Process).Wait for this (issue 25965), too short for either
+system, and Go 1.22 removed that sleep (CL 509335, commit f0894a0).
+
+Let a program's file be deleted right after the program exits. On those
+systems retry the delete for up to 0.1 seconds.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 8, 8.1         deleting a program     succeeds, waiting at
+	                       that just exited       most 0.1 seconds
+	                       fails
+	-----------------------------------------------------------------------
+	Windows 7, 10 22H2, 11 succeeds               succeeds
+
+Gate: version (Windows 8 and 8.1) | Remembered: Y
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index 2974c66f..08df3d8b 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -485,6 +485,7 @@ func deleteat(objAttrs *OBJECT_ATTRIBUTES, name string, options uint32) error {
+ 	writeAttrs := false
+ 	var h syscall.Handle
+ 	var err error
++	var again waiter
+ 	for {
+ 		open := func(access uint32) error {
+ 			return NtOpenFile(
+@@ -520,6 +521,11 @@ func deleteat(objAttrs *OBJECT_ATTRIBUTES, name string, options uint32) error {
+ 			share = FILE_SHARE_DELETE | FILE_SHARE_READ | FILE_SHARE_WRITE
+ 			continue
+ 		}
++		// A sharing violation can be the file object of a just-run image
++		// on its way out. See imageLingers.
++		if err == STATUS_SHARING_VIOLATION && imageLingers() && again.again() {
++			continue
++		}
+ 		break
+ 	}
+ 	if err != nil {
+@@ -722,14 +728,24 @@ func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, name string,
+ 		}
+ 	}
+ 
+-	err := SetFileInformationByHandle(
+-		h,
+-		FileDispositionInfo,
+-		unsafe.Pointer(&FILE_DISPOSITION_INFO{
+-			DeleteFile: true,
+-		}),
+-		uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
+-	)
++	var err error
++	var again waiter
++	for {
++		err = SetFileInformationByHandle(
++			h,
++			FileDispositionInfo,
++			unsafe.Pointer(&FILE_DISPOSITION_INFO{
++				DeleteFile: true,
++			}),
++			uint32(unsafe.Sizeof(FILE_DISPOSITION_INFO{})),
++		)
++		// STATUS_CANNOT_DELETE (an image still mapped) arrives as
++		// access denied. See imageLingers.
++		if err == syscall.ERROR_ACCESS_DENIED && imageLingers() && again.again() {
++			continue
++		}
++		break
++	}
+ 	if err != nil && aside {
+ 		// The file stays. Put its name back unless something has taken
+ 		// it since.
+@@ -795,6 +811,32 @@ func clearReadOnly(h syscall.Handle, writeAttrs bool, objAttrs *OBJECT_ATTRIBUTE
+ 	return err
+ }
+ 
++// imageLingers reports whether a just-run image stays mapped for a moment
++// after its process exits, as on Windows 8 and 8.1.
++var imageLingers = sync.OnceValue(func() bool {
++	major, minor, _ := KernelVersion()
++	return major == 6 && minor >= 2
++})
++
++// A waiter bounds one delete's retries at 100 ms, sleeping 1 ms between them.
++// It reads the clock only once a retry is needed.
++type waiter struct {
++	deadline int64 // nanoseconds, zero until the first retry
++}
++
++// again sleeps a millisecond and reports whether Deleteat should try again.
++func (w *waiter) again() bool {
++	var now syscall.Filetime
++	syscall.GetSystemTimeAsFileTime(&now)
++	if w.deadline == 0 {
++		w.deadline = now.Nanoseconds() + 100e6
++	} else if now.Nanoseconds() >= w.deadline {
++		return false
++	}
++	Sleep(1)
++	return true
++}
++
+ // deleteStagingDir is where a file that cannot go at once is parked, out of
+ // the tree being removed. It is opened per use, since a handle kept open would
+ // block renaming or removing the program's temporary directory.
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 6634ae41..6c2f086b 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -421,6 +421,7 @@ func ErrorLoadingGetTempPath2() error {
+ //sys	DestroyEnvironmentBlock(block *uint16) (err error) = userenv.DestroyEnvironmentBlock
+ //sys	CreateEvent(eventAttrs *SecurityAttributes, manualReset uint32, initialState uint32, name *uint16) (handle syscall.Handle, err error) = kernel32.CreateEventW
+ //sys	SetEvent(event syscall.Handle) (err error) = kernel32.SetEvent
++//sys	Sleep(milliseconds uint32) = kernel32.Sleep
+ //sys	WaitForMultipleObjects(count uint32, handles *syscall.Handle, waitAll bool, waitMilliseconds uint32) (event uint32, err error) [failretval==0xffffffff] = kernel32.WaitForMultipleObjects
+ 
+ //sys	ProcessPrng(buf []byte) (err error) = bcryptprimitives.ProcessPrng
+diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
+index 39bc0bc8..1a68106b 100644
+--- a/src/internal/syscall/windows/zsyscall_windows.go
++++ b/src/internal/syscall/windows/zsyscall_windows.go
+@@ -94,6 +94,7 @@ var (
+ 	procRtlVirtualUnwind                  = modkernel32.NewProc("RtlVirtualUnwind")
+ 	procSetEvent                          = modkernel32.NewProc("SetEvent")
+ 	procSetFileInformationByHandle        = modkernel32.NewProc("SetFileInformationByHandle")
++	procSleep                             = modkernel32.NewProc("Sleep")
+ 	procUnlockFileEx                      = modkernel32.NewProc("UnlockFileEx")
+ 	procVirtualQuery                      = modkernel32.NewProc("VirtualQuery")
+ 	procWaitForMultipleObjects            = modkernel32.NewProc("WaitForMultipleObjects")
+@@ -523,6 +524,11 @@ func SetFileInformationByHandle(handle syscall.Handle, fileInformationClass uint
+ 	return
+ }
+ 
++func Sleep(milliseconds uint32) {
++	syscall.SyscallN(procSleep.Addr(), uintptr(milliseconds))
++	return
++}
++
+ func UnlockFileEx(file syscall.Handle, reserved uint32, bytesLow uint32, bytesHigh uint32, overlapped *syscall.Overlapped) (err error) {
+ 	r1, _, e1 := syscall.SyscallN(procUnlockFileEx.Addr(), uintptr(file), uintptr(reserved), uintptr(bytesLow), uintptr(bytesHigh), uintptr(unsafe.Pointer(overlapped)))
+ 	if r1 == 0 {

@@ -4,4 +4,19 @@
 
 package windows
 
+import "syscall"
+
 var RenameTo = renameTo
+
+func OnDiskName(name string) bool {
+	p, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		return false
+	}
+	var nt NTUnicodeString
+	if RtlDosPathNameToNtPathName_U(p, &nt, nil, nil) == 0 {
+		return false
+	}
+	defer RtlFreeUnicodeString(&nt)
+	return onDiskName(&nt)
+}

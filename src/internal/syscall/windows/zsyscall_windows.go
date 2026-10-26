@@ -77,7 +77,6 @@ var (
 	procGetComputerNameExW                = modkernel32.NewProc("GetComputerNameExW")
 	procGetConsoleCP                      = modkernel32.NewProc("GetConsoleCP")
 	procGetCurrentThread                  = modkernel32.NewProc("GetCurrentThread")
-	procGetCurrentThreadId                = modkernel32.NewProc("GetCurrentThreadId")
 	procGetFileInformationByHandleEx      = modkernel32.NewProc("GetFileInformationByHandleEx")
 	procGetFileSizeEx                     = modkernel32.NewProc("GetFileSizeEx")
 	procGetFinalPathNameByHandleW         = modkernel32.NewProc("GetFinalPathNameByHandleW")
@@ -113,6 +112,9 @@ var (
 	procNtOpenFile                        = modntdll.NewProc("NtOpenFile")
 	procNtQueryInformationFile            = modntdll.NewProc("NtQueryInformationFile")
 	procNtSetInformationFile              = modntdll.NewProc("NtSetInformationFile")
+	procRtlDosPathNameToNtPathName_U      = modntdll.NewProc("RtlDosPathNameToNtPathName_U")
+	procRtlFreeUnicodeString              = modntdll.NewProc("RtlFreeUnicodeString")
+	procRtlGetNtVersionNumbers            = modntdll.NewProc("RtlGetNtVersionNumbers")
 	procRtlGetVersion                     = modntdll.NewProc("RtlGetVersion")
 	procRtlIsDosDeviceName_U              = modntdll.NewProc("RtlIsDosDeviceName_U")
 	procRtlNtStatusToDosErrorNoTeb        = modntdll.NewProc("RtlNtStatusToDosErrorNoTeb")
@@ -281,24 +283,24 @@ func SetTokenInformation(tokenHandle syscall.Token, tokenInformationClass uint32
 	return
 }
 
-func ProcessPrng(buf []byte) (err error) {
-	var _p0 *byte
-	if len(buf) > 0 {
-		_p0 = &buf[0]
-	}
-	r1, _, e1 := syscall.SyscallN(procProcessPrng.Addr(), uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)))
-	if r1 == 0 {
-		err = errnoErr(e1)
-	}
-	return
-}
-
 func RtlGenRandom(buf []byte) (err error) {
 	var _p0 *byte
 	if len(buf) > 0 {
 		_p0 = &buf[0]
 	}
 	r1, _, e1 := syscall.SyscallN(procSystemFunction036.Addr(), uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)))
+	if r1 == 0 {
+		err = errnoErr(e1)
+	}
+	return
+}
+
+func ProcessPrng(buf []byte) (err error) {
+	var _p0 *byte
+	if len(buf) > 0 {
+		_p0 = &buf[0]
+	}
+	r1, _, e1 := syscall.SyscallN(procProcessPrng.Addr(), uintptr(unsafe.Pointer(_p0)), uintptr(len(buf)))
 	if r1 == 0 {
 		err = errnoErr(e1)
 	}
@@ -384,12 +386,6 @@ func GetCurrentThread() (pseudoHandle syscall.Handle, err error) {
 	if pseudoHandle == 0 {
 		err = errnoErr(e1)
 	}
-	return
-}
-
-func GetCurrentThreadId() (id uint32) {
-	r0, _, _ := syscall.SyscallN(procGetCurrentThreadId.Addr())
-	id = uint32(r0)
 	return
 }
 
@@ -672,6 +668,22 @@ func NtSetInformationFile(handle syscall.Handle, iosb *IO_STATUS_BLOCK, inBuffer
 	if r0 != 0 {
 		ntstatus = NTStatus(r0)
 	}
+	return
+}
+
+func RtlDosPathNameToNtPathName_U(dosName *uint16, ntName *NTUnicodeString, filePart **uint16, reserved unsafe.Pointer) (ok uint8) {
+	r0, _, _ := syscall.SyscallN(procRtlDosPathNameToNtPathName_U.Addr(), uintptr(unsafe.Pointer(dosName)), uintptr(unsafe.Pointer(ntName)), uintptr(unsafe.Pointer(filePart)), uintptr(reserved))
+	ok = uint8(r0)
+	return
+}
+
+func RtlFreeUnicodeString(s *NTUnicodeString) {
+	syscall.SyscallN(procRtlFreeUnicodeString.Addr(), uintptr(unsafe.Pointer(s)))
+	return
+}
+
+func rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) {
+	syscall.SyscallN(procRtlGetNtVersionNumbers.Addr(), uintptr(unsafe.Pointer(majorVersion)), uintptr(unsafe.Pointer(minorVersion)), uintptr(unsafe.Pointer(buildNumber)))
 	return
 }
 

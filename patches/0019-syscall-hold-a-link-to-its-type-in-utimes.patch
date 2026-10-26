@@ -1,0 +1,68 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 17:24:30 +1300
+Subject: [PATCH] syscall: hold a link to its type in Utimes
+
+Windows 10 22H2 and 11 refuse a junction or directory symlink that leads
+to a file, and a file symlink that leads to a directory. Windows 7, 8 and
+8.1 follow both, and some early versions of Windows 10 the junction, so
+there Utimes and UtimesNano, behind os.Chtimes, set the times of whatever
+the link leads to, where the os.Root tests of a security fix expect the
+refusal (CL 847305, commit b19851b, Go 1.28).
+
+Give the refusal in Utimes and UtimesNano as well, holding the link to its
+type as syscall.Open does (0018).
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7, 8, 8.1,     os.Chtimes through     refused, as on 22H2
+	some early Windows 10  such a link sets the
+	                       times of what it
+	                       leads to
+	-----------------------------------------------------------------------
+	Windows 10 22H2, 11    refused                refused
+
+Gate: version, then query (10 before 22H2, 0018's check) | Remembered: Y
+
+diff --git a/src/syscall/syscall_windows.go b/src/syscall/syscall_windows.go
+index f33bd377..fad0e497 100644
+--- a/src/syscall/syscall_windows.go
++++ b/src/syscall/syscall_windows.go
+@@ -1012,6 +1012,16 @@ func Pipe(p []Handle) (err error) {
+ 	return nil
+ }
+ 
++// openForTimes opens path to set its times, holding a link to its type as Open
++// does.
++func openForTimes(pathp *uint16, path string) (Handle, error) {
++	const access, share, attrs = FILE_WRITE_ATTRIBUTES, FILE_SHARE_WRITE, FILE_FLAG_BACKUP_SEMANTICS
++	if testHoldLinks || followsMismatchedLinks() {
++		return openHoldingLinks(pathp, path, access, share, nil, OPEN_EXISTING, attrs)
++	}
++	return CreateFile(pathp, access, share, nil, OPEN_EXISTING, attrs, 0)
++}
++
+ func Utimes(path string, tv []Timeval) (err error) {
+ 	if len(tv) != 2 {
+ 		return EINVAL
+@@ -1020,9 +1030,7 @@ func Utimes(path string, tv []Timeval) (err error) {
+ 	if e != nil {
+ 		return e
+ 	}
+-	h, e := CreateFile(pathp,
+-		FILE_WRITE_ATTRIBUTES, FILE_SHARE_WRITE, nil,
+-		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0)
++	h, e := openForTimes(pathp, path)
+ 	if e != nil {
+ 		return e
+ 	}
+@@ -1049,9 +1057,7 @@ func UtimesNano(path string, ts []Timespec) (err error) {
+ 	if e != nil {
+ 		return e
+ 	}
+-	h, e := CreateFile(pathp,
+-		FILE_WRITE_ATTRIBUTES, FILE_SHARE_WRITE, nil,
+-		OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, 0)
++	h, e := openForTimes(pathp, path)
+ 	if e != nil {
+ 		return e
+ 	}

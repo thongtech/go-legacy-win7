@@ -128,13 +128,8 @@ var (
 	_WriteFile,
 	_ stdFunction
 
-	// Use ProcessPrng to generate cryptographically random data, falling back to
-	// RtlGenRandom where ProcessPrng is unavailable. Only one is ever loaded.
-	//
-	// RtlGenRandom is not listed in advapi32.dll under that name. It has to be
-	// found as SystemFunction036.
-	_ProcessPrng  stdFunction
-	_RtlGenRandom stdFunction
+	// Use ProcessPrng to generate cryptographically random data.
+	_ProcessPrng stdFunction
 
 	// Load ntdll.dll manually during startup, otherwise Mingw
 	// links wrong printf function to cgo executable (see issue
@@ -252,38 +247,25 @@ func windows_GetSystemDirectory() string {
 
 func windowsLoadSystemLib(name []uint16) uintptr {
 	const _LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800
-	if h := stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&name[0])), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32); h != 0 {
-		return h
+	const _ERROR_INVALID_PARAMETER = 87
+	h := stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&name[0])), 0, _LOAD_LIBRARY_SEARCH_SYSTEM32)
+	// Only ERROR_INVALID_PARAMETER (Windows 7 without KB2533623) goes by path,
+	// since a load by path searches the program's directory first.
+	if h == 0 && getlasterror() == _ERROR_INVALID_PARAMETER {
+		h = loadSystemLibFromSysDir(name)
 	}
-	// LoadLibraryExW rejects LOAD_LIBRARY_SEARCH_SYSTEM32 with
-	// ERROR_INVALID_PARAMETER on systems that predate the flag, which
-	// includes Windows 7 without KB2533623 installed. Naming the file
-	// in the system directory is as safe against DLL preloading as the
-	// flag is, so use that instead.
-	return loadSystemLibFromSysDir(name)
+	return h
 }
 
-var sysDirectory16 [_MAX_PATH + 1]uint16
-var sysDirectory16Len uintptr
-
-// loadSystemLibFromSysDir loads name by its absolute path in the Windows
-// system directory, which it looks up on first use.
 func loadSystemLibFromSysDir(name []uint16) uintptr {
-	if sysDirectory16Len == 0 {
-		l := stdcall(_GetSystemDirectoryW, uintptr(unsafe.Pointer(&sysDirectory16[0])), uintptr(len(sysDirectory16)-1))
-		if l == 0 || l > uintptr(len(sysDirectory16)-1) {
-			return 0
-		}
-		sysDirectory16[l] = '\\'
-		sysDirectory16Len = l + 1
-	}
 	// name is NUL-terminated, so path is too.
 	var path [_MAX_PATH + 1]uint16
-	if sysDirectory16Len+uintptr(len(name)) > uintptr(len(path)) {
+	l := stdcall(_GetSystemDirectoryW, uintptr(unsafe.Pointer(&path[0])), uintptr(len(path)-1))
+	if l == 0 || l+1+uintptr(len(name)) > uintptr(len(path)) {
 		return 0
 	}
-	copy(path[:], sysDirectory16[:sysDirectory16Len])
-	copy(path[sysDirectory16Len:], name)
+	path[l] = '\\'
+	copy(path[l+1:], name)
 	return stdcall(_LoadLibraryExW, uintptr(unsafe.Pointer(&path[0])), 0, 0)
 }
 
@@ -306,11 +288,15 @@ func loadOptionalSyscalls() {
 		_ProcessPrng = windowsFindfunc(bcryptPrimitives, []byte("ProcessPrng\000"))
 	}
 	if _ProcessPrng == nil {
-		// bcryptprimitives.dll ships with Windows 7 but exports
-		// ProcessPrng only from Windows 8. RtlGenRandom is what the
-		// standard library used before Go 1.22.
-		_RtlGenRandom = loadRtlGenRandom()
-		if _RtlGenRandom == nil {
+		// bcryptprimitives.dll exports ProcessPrng only from Windows 8.
+		// RtlGenRandom takes the same arguments and answers the same way,
+		// so it takes ProcessPrng's place.
+		if a32 := windowsLoadSystemLib(advapi32dll[:]); a32 != 0 {
+			// The RtlGenRandom is not listed in advapi32.dll, instead
+			// RtlGenRandom function can be found by searching for SystemFunction036.
+			_ProcessPrng = windowsFindfunc(a32, []byte("SystemFunction036\000"))
+		}
+		if _ProcessPrng == nil {
 			throw("neither ProcessPrng nor RtlGenRandom found")
 		}
 	}
@@ -333,17 +319,6 @@ func loadOptionalSyscalls() {
 	}
 	_RtlGetCurrentPeb = windowsFindfunc(n32, []byte("RtlGetCurrentPeb\000"))
 	_RtlGetVersion = windowsFindfunc(n32, []byte("RtlGetVersion\000"))
-}
-
-// loadRtlGenRandom returns RtlGenRandom from advapi32.dll, or nil if it
-// cannot be found. It is kept separate from loadOptionalSyscalls so that
-// the fallback can be exercised on a system that has ProcessPrng.
-func loadRtlGenRandom() stdFunction {
-	a32 := windowsLoadSystemLib(advapi32dll[:])
-	if a32 == 0 {
-		return nil
-	}
-	return windowsFindfunc(a32, []byte("SystemFunction036\000"))
 }
 
 func monitorSuspendResume() {
@@ -544,21 +519,8 @@ func osinit() {
 
 //go:nosplit
 func readRandom(r []byte) int {
-	fn := _ProcessPrng
-	if fn == nil {
-		fn = _RtlGenRandom
-	}
-	return readRandomFrom(fn, r)
-}
-
-// readRandomFrom fills r using fn, which must take a buffer and a length
-// and return a non-zero byte on success, as ProcessPrng and RtlGenRandom
-// both do.
-//
-//go:nosplit
-func readRandomFrom(fn stdFunction, r []byte) int {
 	n := 0
-	if stdcall(fn, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
+	if stdcall(_ProcessPrng, uintptr(unsafe.Pointer(&r[0])), uintptr(len(r)))&0xff != 0 {
 		n = len(r)
 	}
 	return n

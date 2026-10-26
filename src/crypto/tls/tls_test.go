@@ -588,10 +588,9 @@ func TestRealResumption(t *testing.T) {
 		ClientSessionCache: NewLRUClientSessionCache(0),
 	}
 
-	// A chain this server presents can only be verified against a root the
-	// host's store carries, and the store Windows 7 shipped with predates some
-	// of them. Count what went wrong so that a store which cannot verify the
-	// chain is told apart from a failure to resume.
+	// The root store of Windows 7 lacks some roots this server chains to.
+	// Count verification failures to tell that apart from a failure to
+	// resume.
 	var handshakes, verifyFailures int
 
 	for range 10 {
@@ -629,9 +628,8 @@ func TestRealResumption(t *testing.T) {
 	}
 
 	if handshakes == 0 && verifyFailures > 0 {
-		// Nothing got past certificate verification, so this says nothing about
-		// resumption, which TestResumption and its neighbours cover against a local
-		// server. Connecting and then not resuming still fails below.
+		// No dial verified, so this says nothing about resumption,
+		// which TestResumption covers locally.
 		t.Skipf("%d of 10 dials failed to verify the chain and none completed; the host's trust store does not carry the root it ends at", verifyFailures)
 	}
 

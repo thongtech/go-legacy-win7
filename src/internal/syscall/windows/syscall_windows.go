@@ -35,13 +35,13 @@ const (
 	ERROR_INVALID_HANDLE         syscall.Errno = 6
 	ERROR_BAD_LENGTH             syscall.Errno = 24
 	ERROR_SHARING_VIOLATION      syscall.Errno = 32
-	ERROR_DIRECTORY              syscall.Errno = 267
 	ERROR_LOCK_VIOLATION         syscall.Errno = 33
 	ERROR_NOT_SUPPORTED          syscall.Errno = 50
 	ERROR_CALL_NOT_IMPLEMENTED   syscall.Errno = 120
 	ERROR_INVALID_NAME           syscall.Errno = 123
 	ERROR_NEGATIVE_SEEK          syscall.Errno = 131
 	ERROR_LOCK_FAILED            syscall.Errno = 167
+	ERROR_DIRECTORY              syscall.Errno = 267
 	ERROR_IO_INCOMPLETE          syscall.Errno = 996
 	ERROR_NO_TOKEN               syscall.Errno = 1008
 	ERROR_NO_UNICODE_TRANSLATION syscall.Errno = 1113
@@ -281,7 +281,7 @@ func loadWSASendRecvMsg() error {
 		if sendRecvMsgFunc.err != nil {
 			return
 		}
-		defer syscall.CloseHandle(s)
+		defer syscall.Closesocket(s)
 		var n uint32
 		sendRecvMsgFunc.err = syscall.WSAIoctl(s,
 			syscall.SIO_GET_EXTENSION_FUNCTION_POINTER,
@@ -381,7 +381,6 @@ const MB_ERR_INVALID_CHARS = 8
 //sys	GetConsoleCP() (ccp uint32) = kernel32.GetConsoleCP
 //sys	MultiByteToWideChar(codePage uint32, dwFlags uint32, str *byte, nstr int32, wchar *uint16, nwchar int32) (nwrite int32, err error) = kernel32.MultiByteToWideChar
 //sys	GetCurrentThread() (pseudoHandle syscall.Handle, err error) = kernel32.GetCurrentThread
-//sys	GetCurrentThreadId() (id uint32) = kernel32.GetCurrentThreadId
 
 // Constants from lmshare.h
 const (
@@ -428,9 +427,6 @@ func ErrorLoadingGetTempPath2() error {
 
 //sys	ProcessPrng(buf []byte) (err error) = bcryptprimitives.ProcessPrng
 
-// RtlGenRandom is the generator used before ProcessPrng existed. It is not
-// listed in advapi32.dll under that name and has to be requested as
-// SystemFunction036.
 //sys	RtlGenRandom(buf []byte) (err error) = advapi32.SystemFunction036
 
 func ErrorLoadingProcessPrng() error {
@@ -545,8 +541,7 @@ const (
 //sys	GetOverlappedResult(handle syscall.Handle, overlapped *syscall.Overlapped, done *uint32, wait bool) (err error)
 //sys	CreateNamedPipe(name *uint16, flags uint32, pipeMode uint32, maxInstances uint32, outSize uint32, inSize uint32, defaultTimeout uint32, sa *syscall.SecurityAttributes) (handle syscall.Handle, err error)  [failretval==syscall.InvalidHandle] = CreateNamedPipeW
 
-// TP_CALLBACK_ENVIRON is the version 3 thread pool callback environment,
-// which the SDK builds in TpInitializeCallbackEnviron.
+// TP_CALLBACK_ENVIRON is version 3, as TpInitializeCallbackEnviron builds it.
 type TP_CALLBACK_ENVIRON struct {
 	Version                    uint32
 	Pool                       uintptr
@@ -619,6 +614,9 @@ type FILE_MODE_INFORMATION struct {
 // NT Native APIs
 //sys   NtCreateFile(handle *syscall.Handle, access uint32, oa *OBJECT_ATTRIBUTES, iosb *IO_STATUS_BLOCK, allocationSize *int64, attributes uint32, share uint32, disposition uint32, options uint32, eabuffer unsafe.Pointer, ealength uint32) (ntstatus error) = ntdll.NtCreateFile
 //sys   NtOpenFile(handle *syscall.Handle, access uint32, oa *OBJECT_ATTRIBUTES, iosb *IO_STATUS_BLOCK, share uint32, options uint32) (ntstatus error) = ntdll.NtOpenFile
+// This function returns 1 byte BOOLEAN rather than the 4 byte BOOL.
+//sys   RtlDosPathNameToNtPathName_U(dosName *uint16, ntName *NTUnicodeString, filePart **uint16, reserved unsafe.Pointer) (ok uint8) = ntdll.RtlDosPathNameToNtPathName_U
+//sys   RtlFreeUnicodeString(s *NTUnicodeString) = ntdll.RtlFreeUnicodeString
 //sys   rtlNtStatusToDosErrorNoTeb(ntstatus NTStatus) (ret syscall.Errno) = ntdll.RtlNtStatusToDosErrorNoTeb
 //sys   NtSetInformationFile(handle syscall.Handle, iosb *IO_STATUS_BLOCK, inBuffer unsafe.Pointer, inBufferLen uint32, class uint32) (ntstatus error) = ntdll.NtSetInformationFile
 //sys	RtlIsDosDeviceName_U(name *uint16) (ret uint32) = ntdll.RtlIsDosDeviceName_U

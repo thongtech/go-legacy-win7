@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 	"unsafe"
 )
 
@@ -166,11 +167,8 @@ func makeFileNotReadable(t *testing.T, name string) {
 	}
 }
 
-// TestRenameToKeepsExisting checks that renameTo replaces what holds the name
-// only when told to. The caller that relies on this is a delete putting a name
-// back after moving the file aside, which needs the delete of a file that was
-// just renamed to fail, and nothing can arrange that, so the primitive is
-// tested instead.
+// TestRenameToKeepsExisting checks that renameTo replaces a name only when
+// told to, which the way back from a rename aside relies on.
 func TestRenameToKeepsExisting(t *testing.T) {
 	dir := t.TempDir()
 	for _, name := range []string{"a", "b"} {
@@ -221,5 +219,92 @@ func TestRenameToKeepsExisting(t *testing.T) {
 	closed = true
 	if data, err := os.ReadFile(filepath.Join(dir, "b")); err != nil || string(data) != "a" {
 		t.Fatalf("after the rename, b holds %q, %v; want %q", data, err, "a")
+	}
+}
+
+// TestOnDiskName checks that the delete fallback takes names on a disk, in
+// every form, and none in the pipe, mailslot or device namespaces.
+func TestOnDiskName(t *testing.T) {
+	for _, tt := range []struct {
+		name string
+		want bool
+	}{
+		{`C:\dir\file`, true},
+		{`c:/dir/file`, true},
+		{`relative\file`, true},
+		{`\\?\C:\dir\file`, true},
+		{`\\.\C:\dir\file`, true},
+		{`\\server\share\dir\file`, true},
+		{`\\?\UNC\server\share\file`, true},
+		{`\\?\Volume{01234567-89ab-cdef-0123-456789abcdef}\file`, true},
+		{`\\.\pipe\name`, false},
+		{`\\?\pipe\name`, false},
+		{`\\server\pipe\name`, false},
+		{`\\server\PIPE\name`, false},
+		{`\\.\mailslot\name`, false},
+		{`\\server\mailslot\name`, false},
+		{`\\server\pipe`, false},
+		{`\\server\MailSlot`, false},
+		{`\\server\pipes\file`, true},
+		{`NUL`, false},
+		// A device name inside a directory follows the kernel's own
+		// conversion, which Windows 11 no longer maps to the device, so
+		// only the bare name is asked.
+		{`COM1`, false},
+		{`\\.\COM1`, false},
+		{`\\server`, false},
+	} {
+		if got := windows.OnDiskName(tt.name); got != tt.want {
+			t.Errorf("onDiskName(%q) = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+// TestDeleteatAnswersPendingAtOnce checks that a kernel with POSIX delete
+// answers a name pending deletion at once, as upstream, without the wait.
+func TestDeleteatAnswersPendingAtOnce(t *testing.T) {
+	// The hook takes the wait on any kernel.
+	if !windows.KernelDeletesAsUpstream() || windows.TestDeleteatFallback {
+		t.Skip("the wait is for this kernel")
+	}
+	dir := t.TempDir()
+	name := filepath.Join(dir, "f")
+	if err := os.WriteFile(name, nil, 0666); err != nil {
+		t.Fatal(err)
+	}
+	p, err := syscall.UTF16PtrFromString(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := syscall.CreateFile(p, windows.DELETE,
+		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil,
+		syscall.OPEN_EXISTING, 0, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.CloseHandle(h)
+	// The old disposition class keeps the name until h closes.
+	mark := byte(1)
+	if err := windows.SetFileInformationByHandle(h, windows.FileDispositionInfo, unsafe.Pointer(&mark), 1); err != nil {
+		t.Fatal(err)
+	}
+	dp, err := syscall.UTF16PtrFromString(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := syscall.CreateFile(dp, syscall.GENERIC_READ,
+		syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE|syscall.FILE_SHARE_DELETE, nil,
+		syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer syscall.CloseHandle(d)
+	start := time.Now()
+	err = windows.Deleteat(d, "f", 0)
+	if elapsed := time.Since(start); elapsed >= 50*time.Millisecond {
+		t.Errorf("Deleteat of a name marked for deletion took %v, want an answer at once", elapsed)
+	}
+	if err == nil {
+		t.Error("Deleteat of a name marked for deletion = nil, want the refusal upstream gives")
 	}
 }

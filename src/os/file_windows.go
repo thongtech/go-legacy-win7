@@ -161,7 +161,6 @@ func openFileNolog(name string, flag int, perm FileMode) (*File, error) {
 	path := fixLongPath(name)
 	r, err := syscall.Open(path, flag|syscall.O_CLOEXEC, syscallMode(perm))
 	if bare, ok := consoleDeviceName(name); ok && errors.Is(err, ErrNotExist) {
-		// See the comment on consoleDeviceName.
 		r, err = syscall.Open(bare, flag|syscall.O_CLOEXEC, syscallMode(perm))
 	}
 	if err != nil {
@@ -228,23 +227,34 @@ func Truncate(name string, size int64) error {
 // Remove removes the named file or directory.
 // If there is an error, it will be of type [*PathError].
 func Remove(name string) error {
-	// On a kernel without POSIX delete semantics a file is first deleted by
-	// name from its parent directory, the way Root.Remove and RemoveAll
-	// delete, so that a file another handle holds open gives its name up at
-	// once. DeleteFileW keeps the name there until the last handle closes.
-	// A kernel that has those semantics applies them in DeleteFileW itself,
-	// so there the calls below are the whole of Remove, as upstream has it.
-	// Whatever makes the first attempt fail, the calls below decide the
-	// result, so that every error is the one they have always reported. A
-	// name ending in a separator is left to them as well, since they refuse
-	// it.
-	if len(name) > 0 && !IsPathSeparator(name[len(name)-1]) &&
-		(windows.TestDeleteatFallback || !windows.KernelHasPosixDelete()) && removeFileAt(name) == nil {
-		return nil
-	}
+	// Where DeleteFileW keeps a held file's name, try Deleteat first, so
+	// that it goes at once. The calls below decide every other result,
+	// except a missing name or a directory, which they would answer the
+	// same way.
 	p, e := syscall.UTF16PtrFromString(fixLongPath(name))
 	if e != nil {
 		return &PathError{Op: "remove", Path: name, Err: e}
+	}
+	if len(name) > 0 && !IsPathSeparator(name[len(name)-1]) &&
+		(windows.TestDeleteatFallback || !windows.DeleteFileFreesHeldName()) {
+		// A held file needs its parent for the rename aside.
+		switch e := windows.Deletepath(p); e {
+		case nil:
+			return nil
+		case windows.ErrDeleteatHeld:
+			if removeFileAt(name) == nil {
+				return nil
+			}
+		case syscall.ERROR_FILE_NOT_FOUND, syscall.ERROR_PATH_NOT_FOUND:
+			return &PathError{Op: "remove", Path: name, Err: e}
+		case syscall.EISDIR:
+			// The calls below end at RemoveDirectoryW for a
+			// directory, so go there now.
+			if e := syscall.RemoveDirectory(p); e != nil {
+				return &PathError{Op: "remove", Path: name, Err: e}
+			}
+			return nil
+		}
 	}
 
 	// Go file interface forces us to know whether
@@ -278,11 +288,11 @@ func Remove(name string) error {
 	return &PathError{Op: "remove", Path: name, Err: e}
 }
 
-// removeFileAt deletes name, which must not be a directory, from its parent
-// directory through Deleteat. Reading the parent's attributes is all the
-// access that takes, as in RemoveAll.
+// removeFileAt deletes name, not a directory, through Deleteat from its
+// parent, opened only to read attributes as RemoveAll does.
 func removeFileAt(name string) error {
 	parentDir, base := splitPath(name)
+	// O_WRONLY|O_RDWR asks for no access, a handle only to open names under.
 	parent, err := OpenFile(parentDir, O_WRONLY|O_RDWR, 0)
 	if err != nil {
 		return err

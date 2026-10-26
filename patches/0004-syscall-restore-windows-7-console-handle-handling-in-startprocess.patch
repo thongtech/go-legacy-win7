@@ -1,27 +1,27 @@
 From: Vorapol Rinsatitnon <vorapol.r@pm.me>
-Date: Fri, 04 Sep 2026 20:04:27 +1200
+Date: Mon, 26 Oct 2026 11:52:32 +1300
 Subject: [PATCH] syscall: restore Windows 7 console handle handling in StartProcess
 
-CL 531235 (Go 1.22) deleted the Windows 7 console handle workaround from
-StartProcess. Before Windows 8 a console handle is not a real kernel handle. It
-is a tagged value that only the owning process understands, which has two
-consequences.
+On Windows 7 a console handle is a tagged value only its own process
+understands. Since Go 1.17 StartProcess passes the standard handles in the
+list a child inherits (CL 288297, commit 2d76081), and Go 1.22 deleted the
+workaround that kept such handles out of it (CL 531235, commit 48042aa).
 
-	duplicate into a parent process  ->  fails
-	put in the inherit list          ->  CreateProcess refuses the whole call
+Let programs, the go command included, start child processes from a Windows
+7 console. Restore the workaround as Go 1.21 had it.
 
-CL 288297 (Go 1.17) made StartProcess pass the standard handles in that inherit
-list. Every os/exec call from a console then fails, including the go command
-running compile and link.
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7              starting a child       the child starts
+	                       fails, "Insufficient
+	                       system resources"
+	-----------------------------------------------------------------------
+	Windows 8 and later    the child starts       the child starts
 
-Restore the workaround as Go 1.21 had it. It checks the Windows version rather
-than probing for an API, because whether a handle is a pseudo-handle is a
-property of the kernel, not of a function that can be looked up. The version
-is read from ntdll!RtlGetNtVersionNumbers, whose declaration in syscall was
-removed with the workaround and is restored with it.
+Gate: version (Windows 7 and older) | Remembered: N
 
 diff --git a/src/syscall/exec_windows.go b/src/syscall/exec_windows.go
-index 96089fcd..45aa5f00 100644
+index 96089fcd..09f45f85 100644
 --- a/src/syscall/exec_windows.go
 +++ b/src/syscall/exec_windows.go
 @@ -367,6 +367,17 @@ func StartProcess(argv0 string, argv []string, attr *ProcAttr) (pid int, handle
@@ -33,7 +33,7 @@ index 96089fcd..45aa5f00 100644
 +	isWin7 := maj < 6 || (maj == 6 && min <= 1)
 +	// NT kernel handles are divisible by 4, with the bottom 3 bits left as
 +	// a tag. The fully set tag correlates with the types of handles we're
-+	// concerned about here. Except, the kernel will interpret some
++	// concerned about here.  Except, the kernel will interpret some
 +	// special handle values, like -1, -2, and so forth, so kernelbase.dll
 +	// checks to see that those bottom three bits are checked, but that top
 +	// bit is not checked.
@@ -74,14 +74,39 @@ index 96089fcd..45aa5f00 100644
  	// The presence of a NULL handle in the list is enough to cause PROC_THREAD_ATTRIBUTE_HANDLE_LIST
  	// to treat the entire list as empty, so remove NULL handles.
  	j := 0
+diff --git a/src/syscall/exec_windows_test.go b/src/syscall/exec_windows_test.go
+index 60a995e4..e50f345b 100644
+--- a/src/syscall/exec_windows_test.go
++++ b/src/syscall/exec_windows_test.go
+@@ -146,3 +146,20 @@ func TestChangingProcessParent(t *testing.T) {
+ 		t.Fatalf("child output: want %q, got %q", want, got)
+ 	}
+ }
++
++// TestStartProcessConsoleHandle checks that a child can be started with a
++// console handle as its standard output. Before Windows 8 a console handle is
++// a pseudo-handle, which CreateProcess refuses in the inherited handle list.
++func TestStartProcessConsoleHandle(t *testing.T) {
++	testenv.MustHaveExec(t)
++	con, err := os.OpenFile("CONOUT$", os.O_WRONLY, 0)
++	if err != nil {
++		t.Skipf("no console to open: %v", err)
++	}
++	defer con.Close()
++	cmd := exec.Command("cmd", "/c", "rem")
++	cmd.Stdout = con
++	if err := cmd.Run(); err != nil {
++		t.Fatal(err)
++	}
++}
 diff --git a/src/syscall/export_windows_test.go b/src/syscall/export_windows_test.go
-index 79050fb6..f31ad22f 100644
+index a816d776..ee11a7c0 100644
 --- a/src/syscall/export_windows_test.go
 +++ b/src/syscall/export_windows_test.go
-@@ -17,3 +17,5 @@ var EnvSorted = envSorted
+@@ -14,3 +14,5 @@ var EncodeWTF16 = encodeWTF16
+ var DecodeWTF16 = decodeWTF16
  
- var SystemDirectory = systemDirectory
- var LoadSystemDLLByPath = loadSystemDLLByPath
+ var EnvSorted = envSorted
 +
 +var RtlGetNtVersionNumbers = rtlGetNtVersionNumbers
 diff --git a/src/syscall/syscall_windows.go b/src/syscall/syscall_windows.go
@@ -97,7 +122,7 @@ index 895aa92a..c2bd42d6 100644
  //sys	ExitProcess(exitcode uint32)
  //sys	createFile(name *uint16, access uint32, mode uint32, sa *SecurityAttributes, createmode uint32, attrs uint32, templatefile int32) (handle Handle, err error) [failretval == InvalidHandle || e1 == ERROR_ALREADY_EXISTS ] = CreateFileW
 diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
-index 0ef03b21..5e94fa4d 100644
+index 30dcddfd..3b315a72 100644
 --- a/src/syscall/syscall_windows_test.go
 +++ b/src/syscall/syscall_windows_test.go
 @@ -6,6 +6,7 @@ package syscall_test
@@ -108,16 +133,13 @@ index 0ef03b21..5e94fa4d 100644
  	"internal/testenv"
  	"os"
  	"os/exec"
-@@ -325,3 +326,20 @@ func TestLoadSystemDLLByPath(t *testing.T) {
- 		t.Errorf(`LoadDLL("advapi32.dll") = %v, want nil`, err)
+@@ -307,3 +308,17 @@ func BenchmarkErrnoString(b *testing.B) {
+ 		_ = syscall.Errno(2).Error()
  	}
  }
 +
-+// TestRtlGetNtVersionNumbers checks the version lookup StartProcess uses to
-+// tell whether a console handle is a Windows 7 pseudo-handle, against
-+// RtlGetVersion, which the standard library reads elsewhere. Only the lookup
-+// is covered. The branches it guards are inert on Windows 8 and later, and
-+// the tagged handles they work around exist only on Windows 7.
++// TestRtlGetNtVersionNumbers checks the version lookup StartProcess uses
++// against RtlGetVersion.
 +func TestRtlGetNtVersionNumbers(t *testing.T) {
 +	var major, minor, build uint32
 +	syscall.RtlGetNtVersionNumbers(&major, &minor, &build)

@@ -170,6 +170,7 @@ var (
 	procNetApiBufferFree                   = modnetapi32.NewProc("NetApiBufferFree")
 	procNetGetJoinInformation              = modnetapi32.NewProc("NetGetJoinInformation")
 	procNetUserGetInfo                     = modnetapi32.NewProc("NetUserGetInfo")
+	procNtQueryInformationFile             = modntdll.NewProc("NtQueryInformationFile")
 	procRtlGetNtVersionNumbers             = modntdll.NewProc("RtlGetNtVersionNumbers")
 	procGetUserNameExW                     = modsecur32.NewProc("GetUserNameExW")
 	procTranslateNameW                     = modsecur32.NewProc("TranslateNameW")
@@ -1228,6 +1229,12 @@ func NetUserGetInfo(serverName *uint16, userName *uint16, level uint32, buf **by
 	if r0 != 0 {
 		neterr = Errno(r0)
 	}
+	return
+}
+
+func ntQueryInformationFile(handle Handle, iosb *_IO_STATUS_BLOCK, info unsafe.Pointer, length uint32, class uint32) (status uint32) {
+	r0, _, _ := SyscallN(procNtQueryInformationFile.Addr(), uintptr(handle), uintptr(unsafe.Pointer(iosb)), uintptr(info), uintptr(length), uintptr(class))
+	status = uint32(r0)
 	return
 }
 

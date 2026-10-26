@@ -1,0 +1,78 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 18:47:06 +1300
+Subject: [PATCH] syscall: set the modification time Utimes is given
+
+Backported from upstream (CL 764480, commit 6f4a698, Go 1.27).
+
+syscall.Utimes checks the access time where it should check the
+modification time (CL 219638, commit 5a9b643, Go 1.21), on every Windows,
+and Go 1.26 still has that slip. os.Chtimes goes through UtimesNano and was
+always right.
+
+Make Utimes set the modification time it is given. Check the modification
+time where it checked the access time.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	zero mtime, atime set  mtime moves to 1970    mtime kept
+	-----------------------------------------------------------------------
+	mtime set, zero atime  mtime dropped          mtime set
+
+Gate: none | Remembered: N/A
+
+diff --git a/src/syscall/syscall_windows.go b/src/syscall/syscall_windows.go
+index ea3bca0a..fb0dd902 100644
+--- a/src/syscall/syscall_windows.go
++++ b/src/syscall/syscall_windows.go
+@@ -1040,7 +1040,7 @@ func Utimes(path string, tv []Timeval) (err error) {
+ 	if tv[0].Nanoseconds() != 0 {
+ 		a = NsecToFiletime(tv[0].Nanoseconds())
+ 	}
+-	if tv[0].Nanoseconds() != 0 {
++	if tv[1].Nanoseconds() != 0 {
+ 		w = NsecToFiletime(tv[1].Nanoseconds())
+ 	}
+ 	return SetFileTime(h, nil, &a, &w)
+diff --git a/src/syscall/syscall_windows_test.go b/src/syscall/syscall_windows_test.go
+index 5d4a227a..de8ec043 100644
+--- a/src/syscall/syscall_windows_test.go
++++ b/src/syscall/syscall_windows_test.go
+@@ -229,6 +229,38 @@ func TestGetStartupInfo(t *testing.T) {
+ 	}
+ }
+ 
++// TestUtimesZeroLeavesTime checks that Utimes leaves alone each time it is
++// given as zero and sets the other.
++func TestUtimesZeroLeavesTime(t *testing.T) {
++	name := filepath.Join(t.TempDir(), "f")
++	if err := os.WriteFile(name, nil, 0666); err != nil {
++		t.Fatal(err)
++	}
++	const t1, t2 = 1600000000e9, 1700000000e9
++	utimes := func(atime, mtime int64) {
++		t.Helper()
++		if err := syscall.Utimes(name, []syscall.Timeval{syscall.NsecToTimeval(atime), syscall.NsecToTimeval(mtime)}); err != nil {
++			t.Fatal(err)
++		}
++	}
++	wantMtime := func(want int64) {
++		t.Helper()
++		fi, err := os.Stat(name)
++		if err != nil {
++			t.Fatal(err)
++		}
++		if got := fi.ModTime().UnixNano(); got != want {
++			t.Errorf("modification time = %d, want %d", got, want)
++		}
++	}
++	utimes(t1, t1)
++	wantMtime(t1)
++	utimes(t2, 0)
++	wantMtime(t1)
++	utimes(0, t2)
++	wantMtime(t2)
++}
++
+ func TestSyscallAllocations(t *testing.T) {
+ 	testenv.SkipIfOptimizationOff(t)
+ 

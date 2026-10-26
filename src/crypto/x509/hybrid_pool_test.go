@@ -91,6 +91,11 @@ func TestHybridPool(t *testing.T) {
 
 	_, err = googChain[0].Verify(opts)
 	if err != nil {
+		if runtime.GOOS == "windows" && err.Error() == "x509: certificate signed by unknown authority" {
+			// The root store of Windows 7 lacks the root of this
+			// chain. Skip, as TestSystemVerify does.
+			t.Skipf("skipping: %v; the system store does not carry the root this chain ends at", err)
+		}
 		t.Fatalf("verification failed for google.com chain (system only pool): %s", err)
 	}
 

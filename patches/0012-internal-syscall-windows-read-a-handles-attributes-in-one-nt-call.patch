@@ -1,0 +1,174 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 14:17:21 +1300
+Subject: [PATCH] internal/syscall/windows: read a handle's attributes in one NT call
+
+Where Windows refuses the newer delete (0011), the delete fallback reads
+each file's attributes (CL 713480, commit b31dc77, Go 1.26), and where
+Windows cannot open a path without following links, os.Root reads the
+attributes of each step of it (CL 828644, commit 59ea07b, Go 1.28). Both
+call GetFileInformationByHandle, which makes four kernel queries where they
+need one.
+
+Make reading attributes cheaper. Ask the kernel for the attributes alone,
+in one query, with the old call where a file system does not answer, as a
+named pipe does. The identity, which only the rarer paths read, keeps the
+old call.
+
+Gate: none (runs inside the fallbacks) | Remembered: N/A
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index 4ee430a4..d7b7627f 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -222,8 +222,7 @@ func openatFallback(name string, access uint32, attrs OBJECT_ATTRIBUTES, fileAtt
+ 	// Skip this check if opening the reparse point itself was requested,
+ 	// or if O_CREAT|O_EXCL requires creating a new file without following links.
+ 	if options&FILE_OPEN_REPARSE_POINT == 0 {
+-		var info syscall.ByHandleFileInformation
+-		err = syscall.GetFileInformationByHandle(h, &info)
++		info, err := fileAttributesAndTag(h)
+ 		if err == nil && info.FileAttributes&syscall.FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+ 			err = STATUS_REPARSE_POINT_ENCOUNTERED
+ 		}
+@@ -311,6 +310,40 @@ func Mkdirat(dirfd syscall.Handle, name string, mode uint32) error {
+ 	return nil
+ }
+ 
++// fileAttributeTagInformation is the class for a handle's attributes and
++// reparse tag alone.
++const fileAttributeTagInformation = 35
++
++// fileAttributesAndTag reads h's attributes and reparse tag in one call. A
++// file system that refuses the class, a named pipe's among them, is asked for
++// the attributes alone.
++func fileAttributesAndTag(h syscall.Handle) (FILE_ATTRIBUTE_TAG_INFO, error) {
++	var info FILE_ATTRIBUTE_TAG_INFO
++	if NtQueryInformationFile(h, &IO_STATUS_BLOCK{}, unsafe.Pointer(&info), uint32(unsafe.Sizeof(info)), fileAttributeTagInformation) == nil {
++		return info, nil
++	}
++	var data syscall.ByHandleFileInformation
++	err := syscall.GetFileInformationByHandle(h, &data)
++	info.FileAttributes = data.FileAttributes
++	return info, err
++}
++
++// A fileIdentity is a volume serial number and a file index.
++type fileIdentity struct {
++	volume uint32
++	index  uint64
++}
++
++// identityOf reads the volume serial number and file index of the file h is
++// open on.
++func identityOf(h syscall.Handle) (fileIdentity, bool) {
++	var d syscall.ByHandleFileInformation
++	if syscall.GetFileInformationByHandle(h, &d) != nil {
++		return fileIdentity{}, false
++	}
++	return fileIdentity{volume: d.VolumeSerialNumber, index: uint64(d.FileIndexHigh)<<32 | uint64(d.FileIndexLow)}, true
++}
++
+ func Deleteat(dirfd syscall.Handle, name string, options uint32) error {
+ 	if name == "." {
+ 		// NtOpenFile's documentation isn't explicit about what happens when deleting ".".
+@@ -519,47 +552,8 @@ func deleteatFallback(h syscall.Handle) error {
+ // deleteatLegacy is deleteat for a kernel without upstream's call (see
+ // KernelDeletesAsUpstream).
+ func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES) error {
+-	var data syscall.ByHandleFileInformation
+-	if err := syscall.GetFileInformationByHandle(h, &data); err == nil && data.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
+-		// Remove read-only attribute. Open the name again with write-attribute
+-		// access, since ReOpenFile refuses a directory.
+-		if TestDeleteatBeforeReopen != nil {
+-			TestDeleteatBeforeReopen()
+-		}
+-		var wh syscall.Handle
+-		err := NtOpenFile(
+-			&wh,
+-			SYNCHRONIZE|FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES,
+-			objAttrs,
+-			&IO_STATUS_BLOCK{},
+-			FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
+-			FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
+-		)
+-		if err != nil {
+-			return ntCreateFileError(err, 0)
+-		}
+-		// Clear it only if the name still leads to the entry h holds.
+-		var again syscall.ByHandleFileInformation
+-		if syscall.GetFileInformationByHandle(wh, &again) == nil &&
+-			again.VolumeSerialNumber == data.VolumeSerialNumber &&
+-			again.FileIndexHigh == data.FileIndexHigh && again.FileIndexLow == data.FileIndexLow {
+-			// Zero attributes means no change, so a file is given
+-			// NORMAL instead.
+-			attrs := data.FileAttributes &^ FILE_ATTRIBUTE_READONLY
+-			if attrs == 0 {
+-				attrs = syscall.FILE_ATTRIBUTE_NORMAL
+-			}
+-			err = SetFileInformationByHandle(
+-				wh,
+-				FileBasicInfo,
+-				unsafe.Pointer(&FILE_BASIC_INFO{
+-					FileAttributes: attrs,
+-				}),
+-				uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
+-			)
+-		}
+-		syscall.CloseHandle(wh)
+-		if err != nil {
++	if info, err := fileAttributesAndTag(h); err == nil && info.FileAttributes&syscall.FILE_ATTRIBUTE_READONLY != 0 {
++		if err := clearReadOnly(h, objAttrs, info.FileAttributes); err != nil {
+ 			return err
+ 		}
+ 	}
+@@ -574,6 +568,50 @@ func deleteatLegacy(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES) error {
+ 	)
+ }
+ 
++// clearReadOnly clears the read-only attribute through a fresh open of the
++// name (ReOpenFile refuses a directory), if it still leads to the same file.
++func clearReadOnly(h syscall.Handle, objAttrs *OBJECT_ATTRIBUTES, attrs uint32) error {
++	// Zero attributes means no change, so a file is given NORMAL instead.
++	attrs &^= FILE_ATTRIBUTE_READONLY
++	if attrs == 0 {
++		attrs = syscall.FILE_ATTRIBUTE_NORMAL
++	}
++	id, ok := identityOf(h)
++	if !ok {
++		// Without its identity the entry cannot be matched, so leave
++		// the attribute and let the delete be refused.
++		return nil
++	}
++	if TestDeleteatBeforeReopen != nil {
++		TestDeleteatBeforeReopen()
++	}
++	var wh syscall.Handle
++	err := NtOpenFile(
++		&wh,
++		SYNCHRONIZE|FILE_READ_ATTRIBUTES|FILE_WRITE_ATTRIBUTES,
++		objAttrs,
++		&IO_STATUS_BLOCK{},
++		FILE_SHARE_DELETE|FILE_SHARE_READ|FILE_SHARE_WRITE,
++		FILE_OPEN_REPARSE_POINT|FILE_OPEN_FOR_BACKUP_INTENT|FILE_SYNCHRONOUS_IO_NONALERT,
++	)
++	if err != nil {
++		return ntCreateFileError(err, 0)
++	}
++	// Clear it only if the name still leads to the same file.
++	if again, ok := identityOf(wh); ok && again == id {
++		err = SetFileInformationByHandle(
++			wh,
++			FileBasicInfo,
++			unsafe.Pointer(&FILE_BASIC_INFO{
++				FileAttributes: attrs,
++			}),
++			uint32(unsafe.Sizeof(FILE_BASIC_INFO{})),
++		)
++	}
++	syscall.CloseHandle(wh)
++	return err
++}
++
+ func Renameat(olddirfd syscall.Handle, oldpath string, newdirfd syscall.Handle, newpath string) error {
+ 	objAttrs := &OBJECT_ATTRIBUTES{}
+ 	if err := objAttrs.init(olddirfd, oldpath); err != nil {

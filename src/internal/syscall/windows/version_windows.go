@@ -28,6 +28,15 @@ type _OSVERSIONINFOEXW struct {
 
 // According to documentation, RtlGetVersion function always succeeds.
 //sys	rtlGetVersion(info *_OSVERSIONINFOEXW) = ntdll.RtlGetVersion
+//sys	rtlGetNtVersionNumbers(majorVersion *uint32, minorVersion *uint32, buildNumber *uint32) = ntdll.RtlGetNtVersionNumbers
+
+// KernelVersion reads RtlGetNtVersionNumbers, which a compatibility mode set
+// on the program does not change, unlike RtlGetVersion behind Version.
+func KernelVersion() (major, minor, build uint32) {
+	rtlGetNtVersionNumbers(&major, &minor, &build)
+	// The high bits of the build carry flags, not the number.
+	return major, minor, build & 0xffff
+}
 
 // Retrieves version information of the current Windows OS
 // from the RtlGetVersion API.

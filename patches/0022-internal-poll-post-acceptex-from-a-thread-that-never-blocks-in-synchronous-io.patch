@@ -1,0 +1,335 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 18:23:37 +1300
+Subject: [PATCH] internal/poll: post AcceptEx from a thread that never blocks in synchronous I/O
+
+Windows 8 reports an accepted connection only once the thread that asked
+for it is out of any blocking read (Microsoft Connect #760161). Upstream
+Go has never tested on Windows 8. Its builders ran Windows Server 2008 R2
+and 2012 R2, and now run Windows 10.
+
+Keep listeners accepting on Windows 8. There ask for every accept from a
+separate thread that never blocks.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 8              accepts stall while    listeners accept
+	                       the thread that asked
+	                       reads a pipe
+	-----------------------------------------------------------------------
+	Windows 8.1, 11        listeners accept       listeners accept
+
+Gate: version (Windows 8) | Remembered: Y
+
+diff --git a/src/internal/poll/fd_windows.go b/src/internal/poll/fd_windows.go
+index c4880c9d..a519db9e 100644
+--- a/src/internal/poll/fd_windows.go
++++ b/src/internal/poll/fd_windows.go
+@@ -1385,13 +1385,98 @@ func (fd *FD) ConnectEx(ra syscall.Sockaddr) error {
+ 	return err
+ }
+ 
++// acceptCompletionNeedsThread reports whether the kernel holds an AcceptEx
++// completion while the posting thread is in a synchronous call, as Windows 8
++// does.
++var acceptCompletionNeedsThread = sync.OnceValue(func() bool {
++	major, minor, _ := windows.KernelVersion()
++	return major == 6 && minor == 2
++})
++
++// TestUseAcceptThread should only be used for testing purposes.
++// When set, AcceptEx is posted from the accept thread on every kernel.
++var TestUseAcceptThread bool
++
++// The accept thread is the one thread of a private pool. It enters Go only to
++// post, so it never blocks in a synchronous call, and the pool keeps it alive,
++// since an exiting thread cancels its I/O. The caller waits on an event, which
++// the deadlock check counts as running.
++var (
++	acceptThreadMu    sync.Mutex // one post at a time
++	acceptThreadOnce  sync.Once
++	acceptThreadWork  uintptr        // the pool work object, which runs acceptThreadPost
++	acceptThreadDone  syscall.Handle // signalled by the accept thread after each post
++	acceptThreadErr   error          // why there is no accept thread, if there is none
++	acceptThreadPost  atomic.Pointer[func()]
++	acceptThreadPosts atomic.Uint64
++)
++
++func startAcceptThread() {
++	pool, err := windows.CreateThreadpool(0)
++	if err != nil {
++		acceptThreadErr = err
++		return
++	}
++	// Exactly one thread, never retired, so every post comes from it.
++	if err := windows.SetThreadpoolThreadMinimum(pool, 1); err != nil {
++		acceptThreadErr = err
++		return
++	}
++	windows.SetThreadpoolThreadMaximum(pool, 1)
++	acceptThreadDone, err = windows.CreateEvent(nil, 0, 0, nil)
++	if err != nil {
++		acceptThreadErr = err
++		return
++	}
++	env := windows.TP_CALLBACK_ENVIRON{
++		Version:          windows.TP_CALLBACK_ENVIRON_VERSION,
++		Pool:             pool,
++		CallbackPriority: windows.TP_CALLBACK_PRIORITY_NORMAL,
++	}
++	env.Size = uint32(unsafe.Sizeof(env))
++	acceptThreadWork, acceptThreadErr = windows.CreateThreadpoolWork(syscall.NewCallback(acceptThreadCallback), 0, &env)
++}
++
++func acceptThreadCallback(instance, context, work uintptr) uintptr {
++	(*acceptThreadPost.Load())()
++	acceptThreadPosts.Add(1)
++	windows.SetEvent(acceptThreadDone)
++	return 0
++}
++
++// postFromAcceptThread runs post on the accept thread, where there is one, and
++// waits for it.
++func postFromAcceptThread(post func()) {
++	acceptThreadMu.Lock()
++	defer acceptThreadMu.Unlock()
++	acceptThreadOnce.Do(startAcceptThread)
++	if acceptThreadErr != nil {
++		post()
++		return
++	}
++	acceptThreadPost.Store(&post)
++	windows.SubmitThreadpoolWork(acceptThreadWork)
++	syscall.WaitForSingleObject(acceptThreadDone, syscall.INFINITE)
++	// The count is what orders the post's results before this read of them.
++	acceptThreadPosts.Load()
++	acceptThreadPost.Store(nil)
++}
++
+ func (fd *FD) acceptOne(s syscall.Handle, rawsa []syscall.RawSockaddrAny) (string, error) {
+ 	// Submit accept request.
+ 	rsan := uint32(unsafe.Sizeof(rawsa[0]))
+ 	_, err := fd.execIO('r', func(o *operation) (qty uint32, err error) {
+-		err = AcceptFunc(fd.Sysfd, s, (*byte)(unsafe.Pointer(&rawsa[0])), 0, rsan, rsan, &qty, &o.o)
+-		return qty, err
+-
++		if !TestUseAcceptThread && !acceptCompletionNeedsThread() {
++			err = AcceptFunc(fd.Sysfd, s, (*byte)(unsafe.Pointer(&rawsa[0])), 0, rsan, rsan, &qty, &o.o)
++			return qty, err
++		}
++		// Only the closure and its results escape, and only on this path.
++		var tqty uint32
++		var terr error
++		postFromAcceptThread(func() {
++			terr = AcceptFunc(fd.Sysfd, s, (*byte)(unsafe.Pointer(&rawsa[0])), 0, rsan, rsan, &tqty, &o.o)
++		})
++		return tqty, terr
+ 	})
+ 	if err != nil {
+ 		CloseFunc(s)
+diff --git a/src/internal/poll/fd_windows_test.go b/src/internal/poll/fd_windows_test.go
+index 6c7604fd..6d6fbaf0 100644
+--- a/src/internal/poll/fd_windows_test.go
++++ b/src/internal/poll/fd_windows_test.go
+@@ -6,8 +6,10 @@ package poll_test
+ 
+ import (
+ 	"errors"
++	"fmt"
+ 	"internal/poll"
+ 	"internal/syscall/windows"
++	"internal/testenv"
+ 	"io"
+ 	"os"
+ 	"path/filepath"
+@@ -137,6 +139,76 @@ func newFile(t testing.TB, name string, overlapped bool) *poll.FD {
+ 	return newFD(t, h, kind, overlapped)
+ }
+ 
++// TestMain runs acceptAlone for TestAcceptThreadKeepsProgramAlive.
++func TestMain(m *testing.M) {
++	if os.Getenv("GO_POLL_TEST_ACCEPT_ALONE") == "1" {
++		acceptAlone()
++		return
++	}
++	os.Exit(m.Run())
++}
++
++// acceptAlone accepts one connection through the accept thread with no other
++// goroutine, so the runtime's deadlock check would fire if the wait counted as
++// asleep.
++func acceptAlone() {
++	poll.TestUseAcceptThread = true
++	ls, err := windows.WSASocket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP, nil, 0, windows.WSA_FLAG_OVERLAPPED)
++	if err != nil {
++		fmt.Println("socket:", err)
++		os.Exit(1)
++	}
++	if err := syscall.Bind(ls, &syscall.SockaddrInet4{Addr: [4]byte{127, 0, 0, 1}}); err != nil {
++		fmt.Println("bind:", err)
++		os.Exit(1)
++	}
++	if err := syscall.Listen(ls, 1); err != nil {
++		fmt.Println("listen:", err)
++		os.Exit(1)
++	}
++	sa, err := syscall.Getsockname(ls)
++	if err != nil {
++		fmt.Println("getsockname:", err)
++		os.Exit(1)
++	}
++	fd := poll.FD{Sysfd: ls, IsStream: true, ZeroReadIsEOF: true}
++	if err := fd.Init("tcp", true); err != nil {
++		fmt.Println("init:", err)
++		os.Exit(1)
++	}
++	c, err := windows.WSASocket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP, nil, 0, windows.WSA_FLAG_OVERLAPPED)
++	if err != nil {
++		fmt.Println("socket:", err)
++		os.Exit(1)
++	}
++	if err := syscall.Connect(c, &syscall.SockaddrInet4{Port: sa.(*syscall.SockaddrInet4).Port, Addr: [4]byte{127, 0, 0, 1}}); err != nil {
++		fmt.Println("connect:", err)
++		os.Exit(1)
++	}
++	s, _, _, _, err := fd.Accept(func() (syscall.Handle, error) {
++		return windows.WSASocket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_TCP, nil, 0, windows.WSA_FLAG_OVERLAPPED)
++	})
++	if err != nil {
++		fmt.Println("accept:", err)
++		os.Exit(1)
++	}
++	syscall.Closesocket(s)
++	syscall.Closesocket(c)
++	fd.Close()
++}
++
++// TestAcceptThreadKeepsProgramAlive checks that a program whose only goroutine
++// waits for the accept thread is not taken for a deadlock. A test binary's
++// timer goroutine hides that, so it runs in a process of its own.
++func TestAcceptThreadKeepsProgramAlive(t *testing.T) {
++	cmd := testenv.Command(t, testenv.Executable(t))
++	cmd.Env = append(cmd.Environ(), "GO_POLL_TEST_ACCEPT_ALONE=1")
++	out, err := cmd.CombinedOutput()
++	if err != nil {
++		t.Fatalf("the program did not accept and exit: %v\n%s", err, out)
++	}
++}
++
+ func BenchmarkReadOverlapped(b *testing.B) {
+ 	benchmarkRead(b, true)
+ }
+diff --git a/src/internal/syscall/windows/syscall_windows.go b/src/internal/syscall/windows/syscall_windows.go
+index 64430fea..ab292313 100644
+--- a/src/internal/syscall/windows/syscall_windows.go
++++ b/src/internal/syscall/windows/syscall_windows.go
+@@ -541,6 +541,31 @@ const (
+ //sys	GetOverlappedResult(handle syscall.Handle, overlapped *syscall.Overlapped, done *uint32, wait bool) (err error)
+ //sys	CreateNamedPipe(name *uint16, flags uint32, pipeMode uint32, maxInstances uint32, outSize uint32, inSize uint32, defaultTimeout uint32, sa *syscall.SecurityAttributes) (handle syscall.Handle, err error)  [failretval==syscall.InvalidHandle] = CreateNamedPipeW
+ 
++// TP_CALLBACK_ENVIRON is version 3, as TpInitializeCallbackEnviron builds it.
++type TP_CALLBACK_ENVIRON struct {
++	Version                    uint32
++	Pool                       uintptr
++	CleanupGroup               uintptr
++	CleanupGroupCancelCallback uintptr
++	RaceDll                    uintptr
++	ActivationContext          uintptr
++	FinalizationCallback       uintptr
++	Flags                      uint32
++	CallbackPriority           int32
++	Size                       uint32
++}
++
++const (
++	TP_CALLBACK_ENVIRON_VERSION = 3
++	TP_CALLBACK_PRIORITY_NORMAL = 1
++)
++
++//sys	CreateThreadpool(reserved uintptr) (pool uintptr, err error) [failretval==0] = kernel32.CreateThreadpool
++//sys	SetThreadpoolThreadMinimum(pool uintptr, min uint32) (err error) = kernel32.SetThreadpoolThreadMinimum
++//sys	SetThreadpoolThreadMaximum(pool uintptr, max uint32) = kernel32.SetThreadpoolThreadMaximum
++//sys	CreateThreadpoolWork(callback uintptr, context uintptr, env *TP_CALLBACK_ENVIRON) (work uintptr, err error) [failretval==0] = kernel32.CreateThreadpoolWork
++//sys	SubmitThreadpoolWork(work uintptr) = kernel32.SubmitThreadpoolWork
++
+ //sys	ReOpenFile(filehandle syscall.Handle, desiredAccess uint32, shareMode uint32, flagAndAttributes uint32) (handle syscall.Handle, err error) [failretval==syscall.InvalidHandle]
+ 
+ // NTStatus corresponds with NTSTATUS, error values returned by ntdll.dll and
+diff --git a/src/internal/syscall/windows/zsyscall_windows.go b/src/internal/syscall/windows/zsyscall_windows.go
+index 1a68106b..d900eeb1 100644
+--- a/src/internal/syscall/windows/zsyscall_windows.go
++++ b/src/internal/syscall/windows/zsyscall_windows.go
+@@ -71,6 +71,8 @@ var (
+ 	procCreateEventW                      = modkernel32.NewProc("CreateEventW")
+ 	procCreateIoCompletionPort            = modkernel32.NewProc("CreateIoCompletionPort")
+ 	procCreateNamedPipeW                  = modkernel32.NewProc("CreateNamedPipeW")
++	procCreateThreadpool                  = modkernel32.NewProc("CreateThreadpool")
++	procCreateThreadpoolWork              = modkernel32.NewProc("CreateThreadpoolWork")
+ 	procGetACP                            = modkernel32.NewProc("GetACP")
+ 	procGetComputerNameExW                = modkernel32.NewProc("GetComputerNameExW")
+ 	procGetConsoleCP                      = modkernel32.NewProc("GetConsoleCP")
+@@ -94,7 +96,10 @@ var (
+ 	procRtlVirtualUnwind                  = modkernel32.NewProc("RtlVirtualUnwind")
+ 	procSetEvent                          = modkernel32.NewProc("SetEvent")
+ 	procSetFileInformationByHandle        = modkernel32.NewProc("SetFileInformationByHandle")
++	procSetThreadpoolThreadMaximum        = modkernel32.NewProc("SetThreadpoolThreadMaximum")
++	procSetThreadpoolThreadMinimum        = modkernel32.NewProc("SetThreadpoolThreadMinimum")
+ 	procSleep                             = modkernel32.NewProc("Sleep")
++	procSubmitThreadpoolWork              = modkernel32.NewProc("SubmitThreadpoolWork")
+ 	procUnlockFileEx                      = modkernel32.NewProc("UnlockFileEx")
+ 	procVirtualQuery                      = modkernel32.NewProc("VirtualQuery")
+ 	procWaitForMultipleObjects            = modkernel32.NewProc("WaitForMultipleObjects")
+@@ -337,6 +342,24 @@ func CreateNamedPipe(name *uint16, flags uint32, pipeMode uint32, maxInstances u
+ 	return
+ }
+ 
++func CreateThreadpool(reserved uintptr) (pool uintptr, err error) {
++	r0, _, e1 := syscall.SyscallN(procCreateThreadpool.Addr(), uintptr(reserved))
++	pool = uintptr(r0)
++	if pool == 0 {
++		err = errnoErr(e1)
++	}
++	return
++}
++
++func CreateThreadpoolWork(callback uintptr, context uintptr, env *TP_CALLBACK_ENVIRON) (work uintptr, err error) {
++	r0, _, e1 := syscall.SyscallN(procCreateThreadpoolWork.Addr(), uintptr(callback), uintptr(context), uintptr(unsafe.Pointer(env)))
++	work = uintptr(r0)
++	if work == 0 {
++		err = errnoErr(e1)
++	}
++	return
++}
++
+ func GetACP() (acp uint32) {
+ 	r0, _, _ := syscall.SyscallN(procGetACP.Addr())
+ 	acp = uint32(r0)
+@@ -524,11 +547,29 @@ func SetFileInformationByHandle(handle syscall.Handle, fileInformationClass uint
+ 	return
+ }
+ 
++func SetThreadpoolThreadMaximum(pool uintptr, max uint32) {
++	syscall.SyscallN(procSetThreadpoolThreadMaximum.Addr(), uintptr(pool), uintptr(max))
++	return
++}
++
++func SetThreadpoolThreadMinimum(pool uintptr, min uint32) (err error) {
++	r1, _, e1 := syscall.SyscallN(procSetThreadpoolThreadMinimum.Addr(), uintptr(pool), uintptr(min))
++	if r1 == 0 {
++		err = errnoErr(e1)
++	}
++	return
++}
++
+ func Sleep(milliseconds uint32) {
+ 	syscall.SyscallN(procSleep.Addr(), uintptr(milliseconds))
+ 	return
+ }
+ 
++func SubmitThreadpoolWork(work uintptr) {
++	syscall.SyscallN(procSubmitThreadpoolWork.Addr(), uintptr(work))
++	return
++}
++
+ func UnlockFileEx(file syscall.Handle, reserved uint32, bytesLow uint32, bytesHigh uint32, overlapped *syscall.Overlapped) (err error) {
+ 	r1, _, e1 := syscall.SyscallN(procUnlockFileEx.Addr(), uintptr(file), uintptr(reserved), uintptr(bytesLow), uintptr(bytesHigh), uintptr(unsafe.Pointer(overlapped)))
+ 	if r1 == 0 {

@@ -9,8 +9,7 @@ import (
 	"sync"
 )
 
-// ProcessPrng is only available since Windows 8. Fall back to RtlGenRandom,
-// which every earlier version exports from advapi32.dll.
+// ProcessPrng arrived in Windows 8. Earlier versions have RtlGenRandom.
 var useProcessPrng = sync.OnceValue(func() bool {
 	return windows.ErrorLoadingProcessPrng() == nil
 })
@@ -19,23 +18,26 @@ func read(b []byte) error {
 	if useProcessPrng() {
 		return windows.ProcessPrng(b)
 	}
-	return readBatched(b, 1<<31-1)
+	// RtlGenRandom only returns 1<<32-1 bytes at a time. We only read at
+	// most 1<<31-1 bytes at a time so that  this works the same on 32-bit
+	// and 64-bit systems.
+	return batched(windows.RtlGenRandom, 1<<31-1)(b)
 }
 
-// readBatched fills b through RtlGenRandom, whose length is a ULONG. A
-// longer buffer would be truncated to its low 32 bits and the rest left
-// as it was, reported as a success. Read max bytes at a time. ProcessPrng
-// takes a SIZE_T and needs none of this.
-func readBatched(b []byte, max int) error {
-	for len(b) > 0 {
-		chunk := b
-		if len(chunk) > max {
-			chunk = chunk[:max]
+// batched returns a function that calls f to populate a []byte by chunking it
+// into subslices of, at most, readMax bytes.
+func batched(f func([]byte) error, readMax int) func([]byte) error {
+	return func(out []byte) error {
+		for len(out) > 0 {
+			read := len(out)
+			if read > readMax {
+				read = readMax
+			}
+			if err := f(out[:read]); err != nil {
+				return err
+			}
+			out = out[read:]
 		}
-		if err := windows.RtlGenRandom(chunk); err != nil {
-			return err
-		}
-		b = b[len(chunk):]
+		return nil
 	}
-	return nil
 }

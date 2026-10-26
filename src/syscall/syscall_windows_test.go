@@ -229,6 +229,38 @@ func TestGetStartupInfo(t *testing.T) {
 	}
 }
 
+// TestUtimesZeroLeavesTime checks that Utimes leaves alone each time it is
+// given as zero and sets the other.
+func TestUtimesZeroLeavesTime(t *testing.T) {
+	name := filepath.Join(t.TempDir(), "f")
+	if err := os.WriteFile(name, nil, 0666); err != nil {
+		t.Fatal(err)
+	}
+	const t1, t2 = 1600000000e9, 1700000000e9
+	utimes := func(atime, mtime int64) {
+		t.Helper()
+		if err := syscall.Utimes(name, []syscall.Timeval{syscall.NsecToTimeval(atime), syscall.NsecToTimeval(mtime)}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	wantMtime := func(want int64) {
+		t.Helper()
+		fi, err := os.Stat(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := fi.ModTime().UnixNano(); got != want {
+			t.Errorf("modification time = %d, want %d", got, want)
+		}
+	}
+	utimes(t1, t1)
+	wantMtime(t1)
+	utimes(t2, 0)
+	wantMtime(t1)
+	utimes(0, t2)
+	wantMtime(t2)
+}
+
 func TestSyscallAllocations(t *testing.T) {
 	testenv.SkipIfOptimizationOff(t)
 
@@ -309,29 +341,8 @@ func BenchmarkErrnoString(b *testing.B) {
 	}
 }
 
-// TestLoadSystemDLLByPath checks the fallback LoadDLL takes where
-// LOAD_LIBRARY_SEARCH_SYSTEM32 is not understood. It is called directly so
-// that it is covered on every Windows version.
-func TestLoadSystemDLLByPath(t *testing.T) {
-	if dir := syscall.SystemDirectory(); dir == "" {
-		t.Fatal("SystemDirectory returned an empty string")
-	} else if !strings.HasSuffix(dir, `\`) {
-		t.Errorf("SystemDirectory = %q, want a trailing separator", dir)
-	}
-	if h := syscall.LoadSystemDLLByPath("advapi32.dll"); h == 0 {
-		t.Error(`LoadSystemDLLByPath("advapi32.dll") = 0, want non-zero`)
-	}
-	// The ordinary path must keep working too.
-	if _, err := syscall.LoadDLL("advapi32.dll"); err != nil {
-		t.Errorf(`LoadDLL("advapi32.dll") = %v, want nil`, err)
-	}
-}
-
-// TestRtlGetNtVersionNumbers checks the version lookup StartProcess uses to
-// tell whether a console handle is a Windows 7 pseudo-handle, against
-// RtlGetVersion, which the standard library reads elsewhere. Only the lookup
-// is covered. The branches it guards are inert on Windows 8 and later, and
-// the tagged handles they work around exist only on Windows 7.
+// TestRtlGetNtVersionNumbers checks the version lookup StartProcess uses
+// against RtlGetVersion.
 func TestRtlGetNtVersionNumbers(t *testing.T) {
 	var major, minor, build uint32
 	syscall.RtlGetNtVersionNumbers(&major, &minor, &build)
@@ -344,100 +355,162 @@ func TestRtlGetNtVersionNumbers(t *testing.T) {
 	}
 }
 
-// TestMismatchedLink covers the check Open makes on a kernel that follows a
-// link whatever it leads to, which Windows 7, 8 and 8.1 do and Windows 10
-// and later refuse before any check can run. The check itself runs on any
-// Windows given a handle opened on the chain's end directly, and the opens
-// at the end are the answers every Windows must give.
-func TestMismatchedLink(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, "file")
-	if err := os.WriteFile(file, []byte("x"), 0666); err != nil {
-		t.Fatal(err)
-	}
-	sub := filepath.Join(dir, "sub")
-	if err := os.Mkdir(sub, 0777); err != nil {
-		t.Fatal(err)
-	}
-	// mklink makes a junction with /J, a directory symlink with /D and a
-	// file symlink with neither, whatever the target is. The symlinks need
-	// the symlink privilege.
-	mklink := func(flag, link, target string) bool {
-		args := []string{"/c", "mklink"}
-		if flag != "" {
-			args = append(args, flag)
-		}
-		out, err := exec.Command("cmd", append(args, link, target)...).CombinedOutput()
-		if err != nil && flag == "/J" {
-			t.Fatalf("mklink /J %s: %v\n%s", link, err, out)
-		}
-		if err != nil {
-			t.Logf("mklink %s %s: %v\n%s", flag, filepath.Base(link), err, out)
-		}
-		return err == nil
-	}
-	jf := filepath.Join(dir, "jf")   // junction -> file
-	jd := filepath.Join(dir, "jd")   // junction -> directory
-	sdf := filepath.Join(dir, "sdf") // directory symlink -> file
-	sff := filepath.Join(dir, "sff") // file symlink -> file
-	sfd := filepath.Join(dir, "sfd") // file symlink -> directory
-	sfj := filepath.Join(dir, "sfj") // file symlink -> junction -> file
-	mklink("/J", jf, file)
-	mklink("/J", jd, sub)
-	haveSymlinks := mklink("/D", sdf, file) && mklink("", sff, file) && mklink("", sfd, sub) && mklink("", sfj, jf)
-
-	// open opens what name is, directly, the way the kernel would have
-	// opened the end of the chain.
-	open := func(name string) syscall.Handle {
-		p, err := syscall.UTF16PtrFromString(name)
+// TestOpenHoldingLinksNamedPipe checks that an open of a named pipe, by name
+// or object path, with or without delete on close, takes one instance.
+func TestOpenHoldingLinksNamedPipe(t *testing.T) {
+	syscall.SetTestHoldLinks(true)
+	t.Cleanup(func() { syscall.SetTestHoldLinks(false) })
+	for i, c := range []struct {
+		prefix string
+		flag   int
+	}{
+		{`\\.\pipe\`, 0},
+		{`\\.\pipe\`, windows.O_FILE_FLAG_DELETE_ON_CLOSE},
+		{`\\?\GLOBALROOT\Device\NamedPipe\`, 0},
+		{`\\?\GLOBALROOT\Device\NamedPipe\`, windows.O_FILE_FLAG_DELETE_ON_CLOSE},
+	} {
+		flag := c.flag
+		pipe := fmt.Sprintf(`go-syscall-test-%d-%d`, os.Getpid(), i)
+		namep, err := syscall.UTF16PtrFromString(`\\.\pipe\` + pipe)
 		if err != nil {
 			t.Fatal(err)
 		}
-		h, err := syscall.CreateFile(p, 0, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil, syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS, 0)
+		name := c.prefix + pipe
+		for range 2 {
+			server, err := windows.CreateNamedPipe(namep, windows.PIPE_ACCESS_DUPLEX, windows.PIPE_TYPE_BYTE|windows.PIPE_READMODE_BYTE, 2, 4096, 4096, 0, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer syscall.CloseHandle(server)
+		}
+		h, err := syscall.Open(name, syscall.O_RDONLY|syscall.O_CLOEXEC|flag, 0)
 		if err != nil {
-			t.Fatalf("CreateFile(%s): %v", name, err)
+			t.Fatalf("Open of a named pipe holding links, flag %#x: %v", flag, err)
 		}
-		return h
-	}
-	type testCase struct {
-		name string
-		end  string
-		want syscall.Errno
-	}
-	cases := []testCase{
-		{jf, file, syscall.Errno(267)},
-		{jf + `\`, file, syscall.Errno(267)},
-		{jd, sub, 0},
-		{file, file, 0},
-		{sub, sub, 0},
-	}
-	if haveSymlinks {
-		cases = append(cases,
-			testCase{sdf, file, syscall.Errno(267)},
-			testCase{sff, file, 0},
-			testCase{sfd, sub, syscall.ERROR_ACCESS_DENIED},
-			testCase{sfj, file, syscall.ERROR_ACCESS_DENIED})
-	}
-	for _, tt := range cases {
-		h := open(tt.end)
-		got := syscall.MismatchedLink(tt.name, h)
-		syscall.CloseHandle(h)
-		if got != tt.want {
-			t.Errorf("mismatchedLink(%q) = %v, want %v", filepath.Base(tt.name), got, tt.want)
+		defer syscall.CloseHandle(h)
+		h2, err := syscall.CreateFile(namep, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, 0, 0)
+		if err != nil {
+			t.Fatalf("second client of the two-instance pipe, flag %#x: %v, want the instance the first open left", flag, err)
 		}
+		defer syscall.CloseHandle(h2)
+		const errPipeBusy = syscall.Errno(231)
+		if _, err := syscall.CreateFile(namep, syscall.GENERIC_READ, 0, nil, syscall.OPEN_EXISTING, 0, 0); err != errPipeBusy {
+			t.Errorf("third client of the two-instance pipe, flag %#x = %v, want %v", flag, err, errPipeBusy)
+		}
+	}
+}
+
+// TestOpenHoldingLinksDeleteOnClose checks that a delete-on-close open through
+// a junction deletes nothing on the way through the link check.
+func TestOpenHoldingLinksDeleteOnClose(t *testing.T) {
+	// entries makes a file, a directory and a junction to each in a new
+	// directory.
+	entries := func() (file, sub, jf, jd string) {
+		dir := t.TempDir()
+		file = filepath.Join(dir, "file")
+		if err := os.WriteFile(file, []byte("x"), 0666); err != nil {
+			t.Fatal(err)
+		}
+		sub = filepath.Join(dir, "sub")
+		if err := os.Mkdir(sub, 0777); err != nil {
+			t.Fatal(err)
+		}
+		jf = filepath.Join(dir, "jf")
+		jd = filepath.Join(dir, "jd")
+		for _, l := range [][2]string{{jf, file}, {jd, sub}} {
+			if out, err := exec.Command("cmd", "/c", "mklink", "/J", l[0], l[1]).CombinedOutput(); err != nil {
+				t.Fatalf("mklink /J %s: %v\n%s", l[0], err, out)
+			}
+		}
+		return
+	}
+	// left reports which of the link and its target are still there.
+	left := func(link, target string) [2]bool {
+		_, e1 := os.Lstat(link)
+		_, e2 := os.Lstat(target)
+		return [2]bool{e1 == nil, e2 == nil}
 	}
 
-	// What a program sees, on every Windows.
-	for _, tt := range cases {
-		h, err := syscall.Open(tt.name, syscall.O_RDONLY|syscall.O_CLOEXEC, 0)
+	// What the kernel does with the open as asked, made directly.
+	_, twinSub, _, twinJd := entries()
+	p, err := syscall.UTF16PtrFromString(twinJd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h, err := syscall.CreateFile(p, syscall.GENERIC_READ, syscall.FILE_SHARE_READ|syscall.FILE_SHARE_WRITE, nil,
+		syscall.OPEN_EXISTING, syscall.FILE_FLAG_BACKUP_SEMANTICS|windows.O_FILE_FLAG_DELETE_ON_CLOSE, 0)
+	if err == nil {
+		syscall.CloseHandle(h)
+	}
+	direct, directLeft := err, left(twinJd, twinSub)
+	t.Logf("the open of a junction to a directory, made directly = %v, then junction left %v, directory left %v", direct, directLeft[0], directLeft[1])
+
+	t.Cleanup(func() { syscall.SetTestHoldLinks(false) })
+	for _, hold := range []bool{false, true} {
+		syscall.SetTestHoldLinks(hold)
+		file, sub, jf, jd := entries()
+		const flag = syscall.O_RDONLY | syscall.O_CLOEXEC | windows.O_FILE_FLAG_DELETE_ON_CLOSE
+		h, err := syscall.Open(jd, flag, 0)
 		if err == nil {
 			syscall.CloseHandle(h)
 		}
-		if tt.want == 0 && err != nil {
-			t.Errorf("Open(%s) = %v, want nil", filepath.Base(tt.name), err)
+		if err != direct {
+			t.Errorf("Open(jd), holding links %v = %v, want %v as made directly", hold, err, direct)
 		}
-		if tt.want != 0 && err != tt.want {
-			t.Errorf("Open(%s) = %v, want %v", filepath.Base(tt.name), err, tt.want)
+		if got := left(jd, sub); got != directLeft {
+			t.Errorf("after Open(jd), holding links %v, junction and directory left %v, want %v as made directly", hold, got, directLeft)
+		}
+		if h, err := syscall.Open(jf, flag, 0); err != syscall.Errno(267) {
+			if err == nil {
+				syscall.CloseHandle(h)
+			}
+			t.Errorf("Open(jf), holding links %v = %v, want %v", hold, err, syscall.Errno(267))
+		}
+		for _, name := range []string{jf, file} {
+			if _, err := os.Lstat(name); err != nil {
+				t.Errorf("after Open(jf), holding links %v, %s: %v", hold, filepath.Base(name), err)
+			}
+		}
+		// An open that may create is refused the same way, with nothing
+		// deleted.
+		if h, err := syscall.Open(jf, flag|syscall.O_CREAT, 0666); err != syscall.Errno(267) {
+			if err == nil {
+				syscall.CloseHandle(h)
+			}
+			t.Errorf("Open(jf, O_CREAT), holding links %v = %v, want %v", hold, err, syscall.Errno(267))
+		}
+		for _, name := range []string{jf, file} {
+			if _, err := os.Lstat(name); err != nil {
+				t.Errorf("after Open(jf, O_CREAT), holding links %v, %s: %v", hold, filepath.Base(name), err)
+			}
+		}
+	}
+}
+
+// TestIsPipeName checks which names Open treats as named pipes.
+func TestIsPipeName(t *testing.T) {
+	for name, want := range map[string]bool{
+		`\\.\pipe\p`:                        true,
+		`\\?\pipe\p`:                        true,
+		`//./PIPE/p`:                        true,
+		`\\.\Pipe\`:                         true,
+		`\\server\pipe\p`:                   true,
+		`\\?\UNC\server\pipe\p`:             true,
+		`\\?\unc\server\PIPE\p`:             true,
+		`\\.\pipe`:                          false,
+		`\\.\pipes\p`:                       false,
+		`\\.\C:\pipe\p`:                     false,
+		`\\?\C:\pipe\p`:                     false,
+		`\\server\share\pipe\p`:             false,
+		`\\server\pipe`:                     false,
+		`\\\pipe\p`:                         false,
+		`C:\pipe\p`:                         false,
+		`\\?\GLOBALROOT\Device\NamedPipe\p`: false,
+		`pipe\p`:                            false,
+		``:                                  false,
+	} {
+		if got := syscall.IsPipeName(name); got != want {
+			t.Errorf("isPipeName(%q) = %v, want %v", name, got, want)
 		}
 	}
 }

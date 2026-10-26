@@ -1067,9 +1067,6 @@ var defaultGOVCS = govcsConfig{
 // GOVCS allows the given vcs command to be used with the given repository
 // root path. Note that root may not be a real package or module path; it's
 // the same as the root path in the go-import meta tag.
-//
-// It is exported for GOPATH-based "go get", which finds the repository for a
-// package without going through RepoRootForImportPath.
 func CheckGOVCS(vcs *Cmd, root string) error {
 	if vcs == vcsMod {
 		// Direct module (proxy protocol) fetches don't

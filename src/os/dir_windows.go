@@ -59,16 +59,17 @@ func (d *dirInfo) close() {
 // Useful for testing purposes.
 var allowReadDirFileID = true
 
-// fileFullDirInfoUnsupported starts every directory on
-// FileIdBothDirectoryRestartInfo, as readdir does for one directory once the
-// kernel has rejected FileFullDirectoryRestartInfo. Useful for testing
-// purposes.
-var fileFullDirInfoUnsupported = false
+// kernelLacksFileFullDirInfo reports whether the kernel predates
+// FileFullDirectoryRestartInfo, which Windows 8 added.
+var kernelLacksFileFullDirInfo = sync.OnceValue(func() bool {
+	major, minor, _ := windows.KernelVersion()
+	return major == 6 && minor < 2
+})
 
 func (d *dirInfo) init(h syscall.Handle) {
 	d.h = h
 	d.class = windows.FileFullDirectoryRestartInfo
-	if fileFullDirInfoUnsupported {
+	if kernelLacksFileFullDirInfo() {
 		d.class = windows.FileIdBothDirectoryRestartInfo
 	}
 	// The previous settings are enough to read the directory entries.
@@ -139,14 +140,6 @@ func (file *File) readdir(n int, mode readdirMode) (names []string, dirents []Di
 					dirBufPool.Put(d.buf)
 					d.buf = nil
 					break
-				}
-				if err == windows.ERROR_INVALID_PARAMETER && d.class == windows.FileFullDirectoryRestartInfo {
-					// This kernel does not know FILE_FULL_DIR_INFO, which
-					// every Windows before 8 lacks. Read this directory
-					// with the class it does know, which carries every
-					// field readdir uses.
-					d.class = windows.FileIdBothDirectoryRestartInfo
-					continue
 				}
 				if err == syscall.ERROR_FILE_NOT_FOUND &&
 					(d.class == windows.FileIdBothDirectoryRestartInfo || d.class == windows.FileFullDirectoryRestartInfo) {

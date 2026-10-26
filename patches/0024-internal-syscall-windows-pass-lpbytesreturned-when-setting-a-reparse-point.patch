@@ -1,0 +1,42 @@
+From: Vorapol Rinsatitnon <vorapol.r@pm.me>
+Date: Mon, 26 Oct 2026 18:40:22 +1300
+Subject: [PATCH] internal/syscall/windows: pass lpBytesReturned when setting a reparse point
+
+Backported from upstream (CL 744282, commit 93b6475, Go 1.27).
+
+Root.Symlink (CL 660635, commit 26fdb07, Go 1.25) sets a reparse point
+through DeviceIoControl with no place for the byte count, and Windows 7
+writes the count regardless.
+
+Stop Root.Symlink crashing on Windows 7. Pass a place for the count.
+
+	                       before                 after
+	-----------------------------------------------------------------------
+	Windows 7              Root.Symlink crashes,  works
+	                       exception 0xc0000005
+	-----------------------------------------------------------------------
+	Windows 8 and later    works                  works
+
+Gate: none | Remembered: N/A
+
+diff --git a/src/internal/syscall/windows/at_windows.go b/src/internal/syscall/windows/at_windows.go
+index f12a7f43..11ee7fee 100644
+--- a/src/internal/syscall/windows/at_windows.go
++++ b/src/internal/syscall/windows/at_windows.go
+@@ -1482,6 +1482,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
+ 	namebuf := rdbbuf[bufferSize:]
+ 	copy(namebuf, unsafe.String((*byte)(unsafe.Pointer(&oldnameu16[0])), 2*len(oldnameu16)))
+ 
++	var bytesReturned uint32
+ 	err = syscall.DeviceIoControl(
+ 		h,
+ 		FSCTL_SET_REPARSE_POINT,
+@@ -1489,7 +1490,7 @@ func symlinkat(oldname string, newdirfd syscall.Handle, newname string, flags Sy
+ 		uint32(len(rdbbuf)),
+ 		nil,
+ 		0,
+-		nil,
++		&bytesReturned,
+ 		nil)
+ 	if err != nil {
+ 		// Creating the symlink has failed, so try to remove the file.
