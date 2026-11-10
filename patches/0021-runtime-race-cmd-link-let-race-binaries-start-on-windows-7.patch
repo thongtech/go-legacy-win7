@@ -24,7 +24,7 @@ for -race.
 Gate: query (the three functions present) | Remembered: Y
 
 diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
-index 314478ee..a934b157 100644
+index 76a753e1..598259a9 100644
 --- a/src/cmd/link/internal/ld/lib.go
 +++ b/src/cmd/link/internal/ld/lib.go
 @@ -711,11 +711,6 @@ func loadWindowsHostArchives(ctxt *Link) {
@@ -39,7 +39,7 @@ index 314478ee..a934b157 100644
  		if p := ctxt.findLibPath("libmingwex.a"); p != "none" {
  			hostArchive(ctxt, p)
  		}
-@@ -1987,15 +1982,6 @@ func (ctxt *Link) hostlink() {
+@@ -1994,15 +1989,6 @@ func (ctxt *Link) hostlink() {
  			p := writeGDBLinkerScript()
  			argv = append(argv, "-Wl,-T,"+p)
  		}
