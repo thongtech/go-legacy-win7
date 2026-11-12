@@ -1020,7 +1020,13 @@ func (b *Builder) build(ctx context.Context, a *Action) (err error) {
 
 	// Add system object files.
 	for _, syso := range p.SysoFiles {
-		objects = append(objects, filepath.Join(p.Dir, syso))
+		sysoPath := filepath.Join(p.Dir, syso)
+		if !cfg.BuildN {
+			if err := checkLinkerInputFile(".syso", sysoPath); err != nil {
+				return err
+			}
+		}
+		objects = append(objects, sysoPath)
 	}
 
 	// Pack into archive in objdir directory.
@@ -1819,7 +1825,7 @@ func (b *Builder) getPkgConfigFlags(a *Action, p *load.Package) (cflags, ldflags
 			}
 		}
 		for _, pkg := range pkgs {
-			if !load.SafeArg(pkg) {
+			if !validPkgConfigName(pkg) {
 				return nil, nil, fmt.Errorf("invalid pkg-config package name: %s", pkg)
 			}
 		}
@@ -2856,6 +2862,11 @@ func (b *Builder) CFlags(p *load.Package) (cppflags, cflags, cxxflags, fflags, l
 	if ldflags, err = buildFlags("LDFLAGS", DefaultCFlags, p.CgoLDFLAGS, checkLinkerFlags); err != nil {
 		return
 	}
+	if p.Dir != "" && hasGCCSpecFlags(p.CgoLDFLAGS) {
+		if err = checkLinkerSpecDir("#cgo LDFLAGS", p.Dir); err != nil {
+			return
+		}
+	}
 
 	return
 }
@@ -2984,8 +2995,8 @@ func (b *Builder) runCgo(ctx context.Context, a *Action) error {
 	// documented (although coming up with a simple explanation of the
 	// flag might be challenging). For more context see issues #58619,
 	// #58620, and #58848.
-	flagSources := []string{"CGO_CFLAGS", "CGO_CXXFLAGS", "CGO_FFLAGS"}
-	flagLists := [][]string{cgoCFLAGS, cgoCXXFLAGS, cgoFFLAGS}
+	flagSources := []string{"CGO_CPPFLAGS", "CGO_CFLAGS", "CGO_CXXFLAGS", "CGO_FFLAGS"}
+	flagLists := [][]string{cgoCPPFLAGS, cgoCFLAGS, cgoCXXFLAGS, cgoFFLAGS}
 	notCompatibleWithInternalLinking := flagsNotCompatibleWithInternalLinking(flagSources, flagLists)
 	if !notCompatibleWithInternalLinking {
 		if err := checkLinkerFlagsForInternalLink("CGO_LDFLAGS", "CGO_LDFLAGS", cgoLDFLAGS); err != nil {
@@ -3212,7 +3223,10 @@ func (b *Builder) processCgoOutputs(a *Action, runCgoProvider *runCgoProvider, c
 					// This is what the compiler does.
 					flag := string(src[idx+len(cgoLdflag) : end])
 					flag = strings.TrimSpace(flag)
-					flag = strings.Trim(flag, `"`)
+					flag, err = strconv.Unquote(flag)
+					if err != nil {
+						return nil, nil, err
+					}
 					flags = append(flags, flag)
 				}
 				src = src[end:]
@@ -3221,15 +3235,15 @@ func (b *Builder) processCgoOutputs(a *Action, runCgoProvider *runCgoProvider, c
 		}
 
 		// We expect to find the contents of cgoLDFLAGS used when running the CGO action in flags.
-		if len(runCgoProvider.LDFLAGS) > 0 {
+		if n := len(runCgoProvider.LDFLAGS); n > 0 {
 		outer:
-			for i := range flags {
+			for i := 0; i+n <= len(flags); i++ {
 				for j, f := range runCgoProvider.LDFLAGS {
 					if f != flags[i+j] {
 						continue outer
 					}
 				}
-				flags = append(flags[:i], flags[i+len(runCgoProvider.LDFLAGS):]...)
+				flags = append(flags[:i], flags[i+n:]...)
 				break
 			}
 		}
@@ -3294,6 +3308,13 @@ func (b *Builder) dynimport(a *Action, objdir, importGo, cgoExe string, cflags, 
 	gatherSyso(a)
 	sort.Strings(syso)
 	str.Uniq(&syso)
+	if !cfg.BuildN {
+		for _, f := range syso {
+			if err := checkLinkerInputFile(".syso", f); err != nil {
+				return "", "", err
+			}
+		}
+	}
 	linkobj := str.StringList(ofile, outObj, syso)
 	dynobj := objdir + "_cgo_.o"
 
